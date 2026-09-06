@@ -1,0 +1,10 @@
+node_modules
+dist
+*.tsbuildinfo
+.env
+inbox/
+原件/
+错题/
+辅导单/
+扫描件/
+.DS_Store
