@@ -13,8 +13,16 @@ store.ensureDirs()
 // ---------- 登录（PRD 5.9：单一家庭密码） ----------
 const token = () => { const s = store.loadSettings(); return store.sha256(`${s.secret}:${s.password}`).slice(0, 32) }
 const cookie = req => Object.fromEntries((req.headers.cookie || '').split(';').map(c => c.trim().split('=')))
+// 公网暴露（Cloudflare Tunnel）时限制暴力猜密码：连错 5 次锁 5 分钟
+let fail = { n: 0, until: 0 }
 app.post('/api/login', (req, res) => {
-  if (req.body?.password !== store.loadSettings().password) return res.status(401).json({ error: '密码不对' })
+  if (Date.now() < fail.until) return res.status(429).json({ error: '尝试过多，请 5 分钟后再试' })
+  if (req.body?.password !== store.loadSettings().password) {
+    fail = { n: fail.n + 1, until: fail.n + 1 >= 5 ? Date.now() + 300000 : 0 }
+    if (fail.until) fail.n = 0
+    return res.status(401).json({ error: '密码不对' })
+  }
+  fail = { n: 0, until: 0 }
   res.setHeader('Set-Cookie', `sb=${token()}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${86400 * 90}`)
   res.json({ ok: true })
 })
