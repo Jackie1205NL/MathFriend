@@ -37,6 +37,9 @@ export default {
     }
 
     if (url.pathname.startsWith('/api/')) return unauthorized()
-    return env.ASSETS.fetch(request)
+    const assetRequest = request.method === 'GET' && request.headers.get('accept')?.includes('text/html')
+      ? new Request(new URL('/index.html', request.url), request)
+      : request
+    return env.ASSETS.fetch(assetRequest)
   },
 }
