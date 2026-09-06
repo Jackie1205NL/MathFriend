@@ -13,9 +13,8 @@ async function call<T>(url: string, init?: RequestInit): Promise<T> {
 export const api = {
   login: (password: string) => call<{ ok: true }>('/api/login', { method: 'POST', body: JSON.stringify({ password }) }),
   state: (week?: string) => call<State>(`/api/state${week ? `?week=${week}` : ''}`),
-  buildSheet: (week: string) => call<{ ok: true }>(`/api/sheet/${week}`, { method: 'POST' }),
   saveSettings: (patch: Partial<Settings> & { password?: string }) => call<Settings>('/api/settings', { method: 'PUT', body: JSON.stringify(patch) }),
   keep: (file: string) => call<{ keep: string[] }>(`/api/keep/${encodeURIComponent(file)}`, { method: 'POST' }),
-  image: (week: string, id: string) => `/api/image/${week}/${id}`,
-  sheetUrl: (week: string) => `/api/sheet/${week}.pdf`,
+  image: (week: string, id: string) => `/attachments/images/${week}/${id}.png`,
+  sheetUrl: (week: string) => `/attachments/sheets/${week}.pdf`,
 }

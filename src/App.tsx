@@ -36,10 +36,7 @@ export default function App() {
   return <div className="app-shell">
     <Sidebar page={page} onChange={p => { if (p !== 'mistakes') setDrill(null); setPage(p) }} />
     <main className="main-content">
-      {page === 'week' && <WeekPage state={state} onWeek={w => refresh(w)} onSheet={async () => {
-        setBusy('正在生成辅导单…')
-        try { await api.buildSheet(state.week); await refresh(); window.open(api.sheetUrl(state.week)) } catch (e) { notify((e as Error).message) } finally { setBusy('') }
-      }} />}
+      {page === 'week' && <WeekPage state={state} onWeek={w => refresh(w)} />}
       {page === 'progress' && <ProgressPage state={state} onDrill={d => { setDrill(d); setPage('mistakes') }} />}
       {page === 'mistakes' && <MistakesPage key={JSON.stringify(drill)} state={state} drill={drill} />}
       {page === 'knowledge' && <KnowledgePage state={state} />}
