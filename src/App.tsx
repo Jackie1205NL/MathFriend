@@ -14,17 +14,25 @@ export default function App() {
   const [authed, setAuthed] = useState<boolean | null>(null)
   const [drill, setDrill] = useState<Drill | null>(null)
   const [busy, setBusy] = useState('')
+  const [fatal, setFatal] = useState('')
   const [toast, setToast] = useState('')
   const notify = (msg: string) => { setToast(msg); window.setTimeout(() => setToast(''), 5000) }
 
   const refresh = useCallback(async (week?: string) => {
-    try { setState(await api.state(week ?? state?.week)); setAuthed(true) } catch (e) { if (e instanceof AuthError) setAuthed(false); else notify((e as Error).message) }
+    try { setState(await api.state(week ?? state?.week)); setAuthed(true); setFatal('') }
+    catch (e) { if (e instanceof AuthError) { setAuthed(false); setFatal('') } else { notify((e as Error).message); setFatal((e as Error).message) } }
   }, [state?.week])
   // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
   useEffect(() => { refresh() }, [])
 
   if (authed === false) return <Login onDone={() => refresh()} />
-  if (!state) return <div className="loading">正在读取…</div>
+  if (!state) return <div className="loading">
+    {fatal ? <>
+      <p className="error">连不上后端服务：{fatal}</p>
+      <p>数伴的数据在你自己的电脑上，需要在本机运行 <code>npm run start</code> 后访问 http://localhost:5174 。纯静态托管（如 Netlify）没有后端，无法读取错题与辅导单。</p>
+      <button className="button primary" onClick={() => refresh()}>重试</button>
+    </> : '正在读取…'}
+  </div>
   return <div className="app-shell">
     <Sidebar page={page} onChange={p => { if (p !== 'mistakes') setDrill(null); setPage(p) }} />
     <main className="main-content">
