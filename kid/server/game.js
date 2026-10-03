@@ -321,6 +321,15 @@ export function createApi(store, env) {
     let expr = null, final = null, ok = true, given = [], kw = 0, goalOk = false, chainOk = true, rangeOk = false, blankMiss = false, unitMiss = false
     flow.forEach((type, i) => {
       const a = steps?.[i] || {}
+      if (type === 'fill' && it.rem != null) {
+        // 有余数的除法：商和余数两格
+        const [q, r] = (Array.isArray(a.vs) ? a.vs : []).map(x => x === '' || x == null ? null : Number(x)); given.push(`${q ?? ''}……${r ?? ''}`)
+        if (q === it.answer && r === it.rem) { habits.add('计算失误'); return add(i, 'y', `${it.text} = ${q} …… ${r}，对`) }
+        ok = false
+        if (q == null || r == null) return add(i, 'n', '商和余数都要填', '漏题')
+        if (r >= it.div) return add(i, 'n', `余数 ${r} 比除数 ${it.div} 还大（或一样大），说明商还能再大。余数一定要比除数小`, '计算失误')
+        return add(i, 'n', q * it.div + r === it.answer * it.div + it.rem ? `商和余数凑起来是对的，但商要尽量大：应该是 ${it.answer} …… ${it.rem}` : `应该是 ${it.answer} …… ${it.rem}，你写了 ${q} …… ${r}。验算：商 × 除数 + 余数 = 被除数`, '计算失误')
+      }
       if (type === 'fill') {
         const v = a.v === '' || a.v == null ? null : Number(a.v); given.push(v)
         if (v === it.answer) { add(i, 'y', `${it.format === 'fix' ? '正确的得数' : '得数'} ${v}，对`); return }
@@ -345,11 +354,12 @@ export function createApi(store, env) {
         ok = false; add(i, 'n', `最先出错的是第 ${it.bad + 1} 行，你点了第 ${k + 1} 行。从上往下一行一行对`, '漏题')
       } else if (type === 'blanks') {
         const vals = Array.isArray(a.vals) ? a.vals : []; given.push(vals.join(','))
-        it.blanks.forEach((b, j) => {
-          const v = String(vals[j] ?? '') === '' ? null : Number(vals[j]), t = b.t.replace('□', '（ ）')
-          if (v === b.a) add(i, 'y', `${t}：${v}，对`)
-          else if (v == null) { ok = false; blankMiss = true; add(i, 'n', `${t}：空着没填`, '漏题') }
-          else { ok = false; add(i, 'n', `${t}：应该是 ${b.a}，你写了 ${v}`, '计算失误') }
+        let n = 0   // vals 按 □ 的顺序排，一行里可以有几个 □
+        it.blanks.forEach(b => {
+          const want = [b.a].flat(), got = want.map(() => { const x = vals[n++]; return String(x ?? '') === '' ? null : Number(x) }), t = b.t.replace(/□/g, '（ ）')
+          if (got.every((x, j) => x === want[j])) add(i, 'y', `${t}：${got.join('、')}，对`)
+          else if (got.some(x => x == null)) { ok = false; blankMiss = true; add(i, 'n', `${t}：有空着没填`, '漏题') }
+          else { ok = false; add(i, 'n', `${t}：应该是 ${want.join('、')}，你写了 ${got.join('、')}`, '计算失误') }
         })
       } else if (type === 'circle') {
         const sel = new Set((a.sel || []).map(Number)), keys = it.segs.flatMap((s, j) => s.k ? [j] : []), noise = it.segs.flatMap((s, j) => s.n ? [j] : [])
@@ -366,6 +376,11 @@ export function createApi(store, env) {
         expr = validExpr(t) ? t : null; given.push(showExpr(t))
         const v = expr ? exprValue(expr) : NaN, okT = toTokens(it.choices.find(c => c.ok).t)
         if (!expr) { ok = false; return add(i, 'n', '算式没写完整', '漏题') }
+        if (it.remDiv) {   // 有余数的除法：算式本身算不出一个整数，看算式是不是同一个
+          if (showExpr(expr) === showExpr(okT)) return add(i, 'y', `列式 ${showExpr(expr)}，方法对`)
+          const tp = it.traps?.find(x => x.value === v)
+          return add(i, 'n', `列式 ${showExpr(expr)}：${tp?.say || '和题目问的对不上'}`, tp?.error_type || it.err)
+        }
         if (v === it.answer && sameNums(expr, okT)) return add(i, 'y', `列式 ${showExpr(expr)}，方法对`)
         if (v === it.answer) return add(i, 'h', `列式 ${showExpr(expr)} 得数碰巧对了，但用到的数和题目对不上`, '审题')
         const tp = trap(v), part = (exprSteps(okT) || []).some(st => st.v === v)
@@ -395,6 +410,20 @@ export function createApi(store, env) {
         if (orderOk && r) habits.add('概念不清')
         if (calcOk && r) habits.add('计算失误')
         if (it.format === 'steps') { given.push(final); if (!chainOk || final !== it.answer) ok = false }
+      } else if (type === 'say' && it.answers) {
+        // 答句有几格，每格一个数一个单位
+        const vs = (Array.isArray(a.vs) ? a.vs : []).map(x => x === '' || x == null ? null : Number(x)), us = Array.isArray(a.units) ? a.units : []
+        given.push(it.answers.map((_, j) => `${vs[j] ?? ''}${us[j] || ''}`).join(' '))
+        let allUnit = true
+        it.answers.forEach((x, j) => {
+          const tag = it.answers.length > 1 ? `答句第 ${j + 1} 格` : '答句'
+          if (vs[j] == null) { ok = false; add(i, 'n', `${tag}没填`, '漏题') }
+          else if (vs[j] !== x.a) { ok = false; add(i, 'n', `${tag}应该是 ${x.a}，你写了 ${vs[j]}`, '计算失误') }
+          if (!us[j]) { ok = false; allUnit = false; unitMiss = true; add(i, 'n', `${tag}忘写单位`, '格式规范') }
+          else if (us[j] !== x.unit) { ok = false; allUnit = false; add(i, 'n', `${tag}单位写成了「${us[j]}」，应该是「${x.unit}」`, '格式规范') }
+        })
+        if (allUnit) habits.add('格式规范')
+        if (ok) add(i, 'y', `${it.answers.reduce((t, x) => t.replace('□', `${x.a} ${x.unit}`), it.ask)}，都对`)
       } else if (type === 'say') {
         const v = a.v === '' || a.v == null ? null : Number(a.v), unit = a.unit || ''
         const fin = final ?? (expr ? exprValue(expr) : it.answer)
@@ -421,10 +450,13 @@ export function createApi(store, env) {
     const lines = t && exprSteps(t)?.length > 1 ? [showExpr(t), ...exprSteps(t).map(st => '= ' + showExpr(reduceAt(st.t, st.k, st.v)))] : t ? [`${showExpr(t)} = ${it.answer}`] : []
     if (it.format === 'first') lines.push(`先算 ${it.tokens[it.first]}`)
     if (it.format === 'clock') lines.push(`时针指在 ${it.minute ? `${Math.floor(it.answer / 2) || 12} 和 ${Math.floor(it.answer / 2) % 12 + 1} 的正中间` : `${Math.floor(it.answer / 2) || 12}`}`)
-    if (it.format === 'multi') lines.push(...it.blanks.map(b => b.t.replace('□', b.a)))
+    if (it.format === 'multi') lines.push(...it.blanks.map(b => [b.a].flat().reduce((t, x) => t.replace('□', x), b.t)))
     if (it.format === 'fix') lines.unshift(`最先错的是第 ${it.bad + 1} 行`)
     if (it.format === 'plan') lines.unshift(`先求：${it.goals.find(g => g.ok).t}`)
-    if (it.ask) lines.push(`${it.ask} ${it.answer} ${it.unit}${it.tail ? ' ' + it.tail : ''}`)
+    if (it.rem != null) lines.splice(0, lines.length, `${it.text} = ${it.answer} …… ${it.rem}`, `验算：${it.answer} × ${it.div} + ${it.rem} = ${it.answer * it.div + it.rem}`)
+    if (it.remDiv) lines.splice(0, lines.length, `${showExpr(toTokens(it.choices.find(c => c.ok).t))} = ${it.answers.map(x => x.a).join(' …… ')}`)
+    if (it.answers) lines.push(it.answers.reduce((t, x) => t.replace('□', `${x.a} ${x.unit}`), it.ask) + (it.tail ? ' ' + it.tail : ''))
+    else if (it.ask) lines.push(`${it.ask} ${it.answer} ${it.unit}${it.tail ? ' ' + it.tail : ''}`)
     return { lines, explain: it.explain }
   }
   /** 答错以后「跟着正确做法再做一遍」：一步一个空，孩子填，不计金币。答案交卷后已经给孩子看过了 */
@@ -434,8 +466,10 @@ export function createApi(store, env) {
     if (it.format === 'column') it.cells.filter(c => c.kind === 'digit').forEach(c => out.push({ q: `${it.text}：${NAME[c.col]}写几？${c.cin ? `（别忘了${it.op === '−' ? '退位' : '进位'} ${c.cin}）` : ''} □`, a: c.v }))
     else if (it.format === 'stat') { it.cats.forEach((c, j) => out.push({ q: `${c}：□`, a: it.vals[j] })); out.push({ q: '合计：□', a: it.answer }); it.asks.forEach((q, j) => { if (q.use) out.push({ q: `（${j + 1}）${it.vals[q.use[0]]} ${q.use[1]} ${it.vals[q.use[2]]} = □`, a: q.ans, unit: q.unit, units: q.units }) }) }
     else if (it.format === 'data') out.push({ q: `${it.ask} □`, a: it.answer, unit: it.unit, units: it.units })
-    else if (it.format === 'multi') it.blanks.forEach(b => out.push({ q: b.t, a: b.a }))
     else if (it.format === 'multistep') it.parts.forEach((P, k) => out.push({ q: `第${'一二三四'[k]}步：${P.e} = □`, a: P.v, unit: P.unit, units: P.units }))
+    else if (it.answers) it.answers.forEach((x, j) => out.push({ q: it.answers.reduce((t, y, m) => t.replace('□', m < j ? `${y.a} ${y.unit}` : m === j ? '\u0000' : '……'), it.ask).replace('\u0000', '□'), a: x.a, unit: x.unit, units: it.units }))
+    else if (it.rem != null) out.push({ q: `${it.text} = □ …… ${it.rem}（先填商）`, a: it.answer }, { q: `${it.text} = ${it.answer} …… □`, a: it.rem })
+    else if (it.format === 'multi') it.blanks.forEach(b => [b.a].flat().forEach((x, j) => out.push({ q: [b.a].flat().reduce((t, y, m) => t.replace('□', m === j ? '\u0001' : m < j ? y : '…'), b.t).replace('\u0001', '□'), a: x })))
     else if (it.choices) { chainOf(toTokens(it.choices.find(c => c.ok).t)); out.push({ q: `${it.ask} □ ${it.tail || ''}`, a: it.answer, unit: it.unit, units: it.units }) }
     else if (['steps', 'oral', 'estimate', 'fix'].includes(it.format)) { const t = toTokens(it.text); if (exprSteps(t)?.length > 1) chainOf(t); else out.push({ q: `${it.text} = □`, a: it.answer }) }
     return out.length ? out : null

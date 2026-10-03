@@ -113,8 +113,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     for (const kv of process.argv.slice(4)) {
       const at = kv.indexOf('='), k = kv.slice(0, at), v = kv.slice(at + 1), val = /^-?\d+(\.\d+)?$/.test(v) ? Number(v) : v
       if (k.startsWith('daily.')) { const g = data.bank.groups.find(x => x.id === k.slice(6)); if (!g) throw new Error(`没有分组 ${k.slice(6)}`); g.daily = val }
-      else if (['unit_hint', 'blank_hint', 'slow', 'boss_day', 'bedtime', 'focus_boost', 'wish', 'wish_days', 'extra', 'minutes', 'note', 'kid_name', 'pet_name'].includes(k)) data.bank.tuning = { ...data.bank.tuning, [k]: val }
-      else throw new Error(`不认识的调节项 ${k}。可以调：unit_hint blank_hint slow boss_day bedtime focus_boost wish wish_days extra minutes note kid_name pet_name daily.<组 id>`)
+      else if (['unit_hint', 'blank_hint', 'slow', 'boss_day', 'bedtime', 'focus_boost', 'wish', 'wish_days', 'extra', 'minutes', 'note', 'kid_name', 'pet_name', 'read_aloud'].includes(k)) data.bank.tuning = { ...data.bank.tuning, [k]: val }
+      else throw new Error(`不认识的调节项 ${k}。可以调：unit_hint blank_hint slow boss_day bedtime focus_boost wish wish_days extra minutes note kid_name pet_name read_aloud daily.<组 id>`)
     }
     writeWeek(data)
     console.log('调节项：' + JSON.stringify(data.bank.tuning || {}))

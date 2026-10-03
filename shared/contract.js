@@ -242,7 +242,14 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
     if (Object.values(v).some(x => typeof x === 'number' && !Number.isFinite(x))) { bad('派生槽算不出来'); continue }
     if (!(t.where || []).every(w => evalExpr(fill(w, v)) === true)) { bad('不满足 where'); continue }
     const item = { format: t.format, level: t.level, hint: fill(t.hint, v), explain: fill(t.explain, v) }
-    if (t.format === 'oral') {
+    if (t.format === 'oral' && t.remainder) {
+      // 有余数的除法：商 □ …… □
+      const [a, op, b2] = toTokens(fill(t.expression, v))
+      if (op !== '÷' || !(b2 > 0)) { bad('remainder 只能用在 a÷b'); continue }
+      Object.assign(item, { text: `${a} ÷ ${b2}`, answer: Math.floor(a / b2), rem: a % b2, div: b2 })
+      if (!item.rem && !t.allow_zero) { bad('正好除尽，没有余数'); continue }
+      item.traps = []
+    } else if (t.format === 'oral') {
       item.text = pretty(fill(t.text || t.expression, v)); item.answer = evalExpr(fill(t.expression, v))
       item.traps = (t.traps || []).map(x => ({ value: evalExpr(fill(x.e, v)), error_type: x.error_type || t.error_type, say: fill(x.say, v) })).filter(x => okAnswer(x.value) && x.value !== item.answer)
     } else if (t.format === 'first') {
@@ -338,9 +345,11 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
     } else if (t.format === 'multi') {
       // 多空题：一屏几个空，□ 是要填的位置
       item.text = fill(t.text, v)
-      item.blanks = t.blanks.map(b => ({ t: fill(b.t, v), a: evalExpr(fill(b.e, v)) }))
-      if (item.blanks.some(b => !okAnswer(b.a))) { bad('某个空的答案不是万以内的非负整数'); continue }
-      item.answer = item.blanks[0].a
+      // 一行里可以有几个 □（如「3200 米 = □ 千米 □ 米」），e 就写成数组，按顺序对应
+      item.blanks = t.blanks.map(b => ({ t: fill(b.t, v), a: Array.isArray(b.e) ? b.e.map(e => evalExpr(fill(e, v))) : evalExpr(fill(b.e, v)) }))
+      if (item.blanks.some(b => (Array.isArray(b.a) ? b.a : [b.a]).some(x => !okAnswer(x)))) { bad('某个空的答案不是万以内的非负整数'); continue }
+      if (item.blanks.some(b => (b.t.match(/□/g) || []).length !== (Array.isArray(b.a) ? b.a.length : 1))) { bad('□ 的个数和 e 的个数对不上'); continue }
+      item.answer = [item.blanks[0].a].flat()[0]
     } else {
       // word：圈关键词开头；plan（挑战题）：先选「要先求什么」开头。后两步都是选算式、算和答
       if (t.format === 'plan') {
@@ -357,7 +366,14 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
       item.choices = item.choices.map(({ t: text, ok: o, v: val }) => ({ t: text, v: val, ...(o ? { ok: 1 } : {}) }))
       // 拼算式用的数字卡：正确算式里的每个数，标出它在题干哪一段；再找一张用不上的干扰卡（第 2 档用）
       const okT = toTokens(ok[0].t)
-      if (!exprSteps(okT)) { bad('正确算式算不下去（除不尽或出现负数）'); continue }
+      // 答句有几格（复名数、有余数）：answers 写每一格的得数和单位，ask 里用 □ 标出位置
+      if (t.answers) {
+        item.answers = t.answers.map(x => ({ a: evalExpr(fill(x.e, v)), unit: x.unit }))
+        if (item.answers.some(x => !okAnswer(x.a)) || (fill(t.ask, v).match(/□/g) || []).length !== item.answers.length) { bad('answers 每格要是整数，ask 里的 □ 个数要和 answers 一样多'); continue }
+        item.remDiv = okT.length === 3 && okT[1] === '÷' && okT[0] % okT[2] !== 0
+        item.answer = item.answers[0].a
+      }
+      if (!exprSteps(okT) && !item.remDiv) { bad('正确算式算不下去（除不尽或出现负数）'); continue }
       const used = new Set(), segOf = n => { const i = (item.segs || []).findIndex((sg, j) => !used.has(j) && new RegExp(`(^|\\D)${n}(\\D|$)`).test(sg.t)); if (i >= 0) used.add(i); return i }
       item.chips = okT.filter(x => typeof x === 'number').map(n => ({ v: n, seg: segOf(n) }))
       const have = new Set(item.chips.map(c => c.v))
@@ -365,8 +381,9 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
       const other = item.choices.flatMap(c => toTokens(c.t)).find(x => typeof x === 'number' && !have.has(x))
       item.decoy = noise || (other != null ? { v: other, seg: -1 } : null)
       if (t.flow) { if (!Array.isArray(t.flow) || t.flow.some((b, i) => !FLOWS[t.format].includes(b) || (i && FLOWS[t.format].indexOf(b) < FLOWS[t.format].indexOf(t.flow[i - 1]))) || !t.flow.includes('say')) { bad('flow 只能从默认积木里删步骤，并且要有 say'); continue } item.flow = t.flow }
-      Object.assign(item, { ask: fill(t.ask, v), unit: t.unit, units: t.units, tail: fill(t.tail, v), why: fill(t.why, v) })
-      if (!t.units?.includes(t.unit)) { bad('units 里没有正确单位'); continue }
+      if (item.remDiv) item.flow = (item.flow || FLOWS[t.format]).filter(b => b !== 'chain')   // 有余数的除法不写递等式
+      Object.assign(item, { ask: fill(t.ask, v), unit: t.unit || item.answers?.[0].unit, units: t.units, tail: fill(t.tail, v), why: fill(t.why, v) })
+      if (!(item.answers || [{ unit: t.unit }]).every(x => t.units?.includes(x.unit))) { bad('units 里没有正确单位'); continue }
     }
     if (!okAnswer(item.answer)) { bad('答案不是万以内的非负整数'); continue }
     const key = JSON.stringify([item.vals, item.nums, item.text, item.tokens, item.segs?.map(s => s.t), item.lines?.map(l => l.pre + l.a), item.shown, item.blanks?.map(b => b.t)])
@@ -417,7 +434,7 @@ export function publicItem(it, o = {}) {
       if (type === 'say') return { type, ms: k, ask: last ? it.ask : P.pre, units: last ? it.units : P.units, tail: '', mid: !last }
     }
     if (type === 'tapnum') return { type, text: it.text || `下面这些数里，${{ over: '超过', under: '少于', atleast: '不少于' }[it.kind]} ${it.over} 的有几个？先点出来，再数一数。`, nums: it.nums, ask: it.ask, units: it.units }
-    if (type === 'fill') return { type, text: it.format === 'fix' ? '' : it.text }
+    if (type === 'fill') return { type, text: it.format === 'fix' ? '' : it.text, ...(it.rem != null ? { rem: 1 } : {}) }
     if (type === 'first') return { type, tokens: it.tokens }
     if (type === 'clock') return { type, minute: it.minute }
     if (type === 'range') return { type, text: it.text, opts: it.ranges.map(x => x.t) }
@@ -428,7 +445,7 @@ export function publicItem(it, o = {}) {
     if (type === 'goal') return { type, opts: it.goals.map(g => g.t) }
     if (type === 'build') return tier === 0 || !it.chips ? { type, tier: 0, choices: it.choices.map(c => c.t) }
       : { type, tier, chips: [...it.chips, ...(tier === 2 && it.decoy ? [it.decoy] : [])].map((c, i) => [hashStr(it.id + i), c]).sort((a, b) => a[1].seg - b[1].seg || a[0] - b[0]).map(x => x[1]) }
-    if (type === 'say') return { type, ask: it.ask, units: it.units, tail: it.tail }
+    if (type === 'say') return { type, ask: it.ask, units: it.units, tail: it.tail, ...(it.answers ? { cells: it.answers.length } : {}) }
     return { type }
   })
   return p

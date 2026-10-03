@@ -180,6 +180,8 @@ const TIPS = { fill: '算好了填进去。', first: '点一下你觉得要先�
   spot: '这是小狗做的题，有一步算错了。点出最先出错的那一行。', blanks: '点一个空再填数。每个空都要填。', circle: '你觉得哪些地方最要紧，就点哪里，可以点好几处。', goal: '这道题一步算不出来。要先求出什么？', build: '点下面的数和符号，自己拼出算式。', say: '把答句写完整。' }
 function startQ(g, it) {
   Q = { gid: g.id, id: it.id, flow: it.flow, i: 0, rec: [], t0: Date.now(), say: '', sk: '', menu: null, fire: null, fin: null, catch: null, cover: false, mood: '', guard: it.guard, caught: it.caught }
+  const d = ls.get('kid-draft', null)       // 刷新页面前做到一半的，接着做
+  if (d?.id === it.id && d.date === V.date && d.i < it.flow.length) Object.assign(Q, { rec: d.rec || [], i: d.i })
   enter()
   if (S().slow > 0 && S().slowFrom !== it.id) {      // 「慢慢来」：先盖住 3 秒，剩几题由服务器记
     Q.cover = true
@@ -191,7 +193,7 @@ function startQ(g, it) {
 function enter() {
   const b = step(), r = Q.rec[Q.i] || {}
   Object.assign(Q, { input: r.v != null ? String(r.v) : '', unit: r.unit ?? null, sel: new Set(r.sel || []), pick: r.i ?? null, expr: (r.expr || []).map((x, j) => ({ x, chip: r.chips?.[j] })), zone: r.zone ?? null,
-    vals: r.vals ? [...r.vals] : (b.blanks || []).map(() => ''), cur: 0, lines: null, op: null, fx: {},
+    vals: r.vals ? [...r.vals] : r.vs ? r.vs.map(String) : Array(b.blanks ? b.blanks.join('').split('□').length - 1 : b.cells || (b.rem ? 2 : 0)).fill(''), units: r.units ? [...r.units] : [], cur: 0, lines: null, op: null, fx: {},
     cells: r.cells ? (Array.isArray(r.cells) ? [...r.cells] : { ...r.cells }) : b.type === 'column' ? {} : (b.cats || []).map(() => '').concat(''), pos: 0 })
   if (b.type === 'column') { Q.seq = colSeq(b); Q.pos = Math.max(0, Q.seq.findIndex(k => k[0] === 'd' && Q.cells[k] == null)) }
   sayPet(TIPS[b.type] || '')
@@ -242,15 +244,16 @@ function qText(mode) {
   }
   if (it.segs) {
     const ci = fi('circle'), circ = new Set(Q.rec[ci]?.sel || []), last = it.segs.length - 1
-    return `<div class="card q">${it.segs.map((s, i) => {
+    return `<div class="card q">${speaker()}${it.segs.map((s, i) => {
       let c = 'seg'
       if (mode === 'pick') { if (Q.sel.has(i)) c += ' on'; if (Q.fx.grey === i) c += ' grey' } else if (circ.has(i)) c += ' on'
       if (Q.fx.trail && i === last) c += ' trail'
       return `<span class="${c}" ${mode === 'pick' && Q.fx.grey !== i ? `role="button" tabindex="0" data-a="seg" data-v="${i}"` : ''}>${esc(s.t)}</span>`
     }).join('')}</div>`
   }
-  return it.text ? `<div class="card q">${esc(it.text)}</div>` : ''
+  return it.text ? `<div class="card q">${speaker()}${esc(it.text)}</div>` : ''
 }
+const speaker = () => V.tuning.read_aloud ? '<button class="spk" data-a="read" aria-label="读题">🔊</button>' : ''
 /** 统计记录：每一类后面是正字或 ✓；稳稳爪 2 级时在每个整的「正」下面标 5 */
 const record = b => `<div class="card rec"><p class="dim">${esc(curItem().title)}，记录如下。</p>${b.cats.map((c, i) => `<div><b>${esc(c)}</b><span>${[...b.marks[i]].map(m => m === '正' && Q.fx.five ? '<i>正<sub>5</sub></i>' : esc(m)).join('')}</span></div>`).join('')}</div>`
 function statTable(b, cells, live) {
@@ -272,13 +275,19 @@ function vStep() {
   if (b.type === 'fill') {
     const r = fi('range'), spot = fi('spot')
     if (it.format === 'fix') return `<div class="card"><div class="line">${esc(curItem().flow[spot].text)}</div>${curItem().flow[spot].shown.map((t, i) => `<div class="frow ${i === Q.rec[spot]?.i ? 'bad' : ''}">${esc(t)}</div>`).join('')}<div class="line">正确的得数 ＝ ${box(Q.input)}</div></div>${pad(null, go, 'stepgo')}`
+    if (b.rem) return `<div class="card q big">${esc(b.text)} ＝ <button class="bx" data-a="blank" data-v="0">${box(Q.vals[0], Q.cur === 0)}</button> …… <button class="bx" data-a="blank" data-v="1">${box(Q.vals[1], Q.cur === 1)}</button></div><p class="dim">左边填商，右边填余数。点格子可以换。</p>${pad(null, go, 'stepgo')}`
     return `<div class="card q big">${esc(b.text)} ＝ ${box(Q.input)}</div>${r >= 0 ? `<p class="dim">你估的是 ${esc(curItem().flow[r].opts[Q.rec[r]?.i] ?? '')}。现在算出准确的得数。</p>` : ''}${pad(null, go, 'stepgo')}`
   }
   if (b.type === 'first') return `<div class="card q big">${b.tokens.map((t, i) => /^[+−×÷]$/.test(t) ? `<button class="tok ${Q.pick === i ? 'on' : ''}" data-a="pick" data-v="${i}">${t}</button>` : `<span>${esc(t)}</span>`).join(' ')}</div><button class="btn" data-a="stepgo" ${Q.pick == null ? 'disabled' : ''}>就先算它</button>`
   if (b.type === 'clock') return `${qText()}${clock(b)}<button class="btn" data-a="stepgo" ${Q.zone == null ? 'disabled' : ''}>拨好了</button>`
   if (b.type === 'range') return `<div class="card q big">${esc(b.text)}</div><div class="opts">${b.opts.map((o, i) => `<button data-a="pickgo" data-v="${i}">${esc(o)}</button>`).join('')}</div>`
   if (b.type === 'spot') return `<div class="card"><div class="line">${esc(b.text)}</div>${b.shown.map((t, i) => `<button class="frow" data-a="pickgo" data-v="${i}">${esc(t)}</button>`).join('')}</div>`
-  if (b.type === 'blanks') return `${it.text ? `<p class="dim">${esc(it.text)}</p>` : ''}<div class="card multi">${b.blanks.map((t, i) => { const [l, r = ''] = t.split('□'); return `<button class="mrow ${i === Q.cur ? 'cur' : ''} ${Q.fx.flash && Q.vals[i] === '' ? 'bad' : ''}" data-a="blank" data-v="${i}">${esc(l)}${box(Q.vals[i], false)}${esc(r)}</button>` }).join('')}</div>${pad(null, go, 'stepgo')}`
+  if (b.type === 'blanks') {
+    let g = 0
+    const rows = b.blanks.map(t => { const parts = t.split('□'), start = g; g += parts.length - 1
+      return `<div class="mrow ${Q.cur >= start && Q.cur < g ? 'cur' : ''}">${parts.map((x, j) => esc(x) + (j < parts.length - 1 ? `<button class="bx ${Q.fx.flash && Q.vals[start + j] === '' ? 'bad' : ''}" data-a="blank" data-v="${start + j}">${box(Q.vals[start + j], Q.cur === start + j)}</button>` : '')).join('')}</div>` }).join('')
+    return `${it.text ? `<p class="dim">${esc(it.text)}</p>` : ''}<div class="card multi">${rows}</div><p class="dim">点一个空再填数。每个空都要填。</p>${pad(null, go, 'stepgo')}`
+  }
   if (b.type === 'circle') return `${qText('pick')}<p class="dim">可以点好几处，再点一下取消。圈完不会马上对答案，整道题做完再一起看。</p><button class="btn" data-a="stepgo" ${Q.sel.size ? '' : 'disabled'}>圈好了，去列式</button>`
   if (b.type === 'goal') return `${qText()}<div class="opts">${b.opts.map((o, i) => `<button class="${i === Q.fx.strike ? 'struck' : ''}" data-a="pickgo" data-v="${i}" ${i === Q.fx.strike ? 'disabled' : ''}>${esc(o)}</button>`).join('')}</div>`
   if (b.type === 'build') {
@@ -306,6 +315,10 @@ function vStep() {
   if (b.type === 'say') {
     const slot = Q.unit ? `<button class="uchip" data-a="unit" data-v="">${esc(Q.unit)}</button>` : V.tuning.unit_hint ? '<span class="uslot" aria-label="空着的单位格"></span>' : ''
     const ex = built(), fin = ['stat', 'multistep'].includes(curItem().format) ? null : chainFinal()
+    if (b.cells) {
+      const parts = b.ask.split('□'), cell = j => `<button class="bx" data-a="blank" data-v="${j}">${box(Q.vals[j], Q.cur === j)}</button>${Q.units[j] ? `<span class="uchip">${esc(Q.units[j])}</span>` : V.tuning.unit_hint ? '<span class="uslot"></span>' : ''}`
+      return `${qText()}${ex.length ? `<div class="card"><div class="expr">${esc(showExpr(ex))}</div></div>` : ''}<div class="card"><div class="ans">${parts.map((x, j) => esc(x) + (j < parts.length - 1 ? cell(j) : '')).join('')} ${esc(b.tail || '')}</div></div><p class="dim">点一格，填数，再点下面的单位。</p>${pad(b.units, go, 'stepgo')}`
+    }
     return `${qText()}${ex.length ? `<div class="card"><div class="expr">${esc(showExpr(ex))}${fin != null ? ` ＝ ${fin}` : ''}</div></div>` : ''}<div class="card"><div class="ans">${esc(b.ask)} ${box(Q.input, true, Q.fx.flash && !Q.input ? 'bad' : '')} ${slot} ${esc(b.tail || '')}</div></div>${pad(b.units, go, 'stepgo')}`
   }
   return ''
@@ -418,17 +431,31 @@ function vWalk() {
 function vQ() {
   const g = Q.demo ? { name: '试一试', items: [Q.demo] } : groups().find(x => x.id === Q.gid), it = curItem(), idx = g.items.indexOf(it) + 1
   const bar = Q.flow.length > 1 ? `<div class="steps" style="grid-template-columns:repeat(${Q.flow.length},1fr)">${Q.flow.map((t, i) => `<span class="${Q.fin || i < Q.i ? 'done' : i === Q.i ? 'now' : ''}">${STEP_NAME[t.type]}</span>`).join('')}</div>` : ''
-  return `<div class="top"><button class="back" data-a="go" data-v="quests" aria-label="回到任务">‹</button><h1>${esc(g.name)} ${idx}/${g.items.length}</h1>${coin('最高 ' + (g.extra ? Math.ceil(it.max / 2) : it.max))}</div>
+  return `<div class="top"><button class="back" data-a="go" data-v="quests" aria-label="回到任务">‹</button><h1>${esc(g.name)} ${idx}/${g.items.length}</h1><button class="pill scr" data-a="scratch">草稿</button>${coin('最高 ' + (g.extra ? Math.ceil(it.max / 2) : it.max))}</div>
   <div class="body qbody">${Q.cover ? `<div class="cover"><img src="${face('thinking')}" alt=""><b style="font:400 30px var(--kid)">慢慢来</b><span>${name()}在帮你把题目再读一遍……</span></div>` : ''}${bar}${Q.walk ? vWalk() : Q.fin ? (it.segs || it.format === 'stat' ? qText() : '') + vQResult(g) : vStep()}</div>
-  ${vDock()}${Q.menu ? vMenu() : ''}${Q.catch ? vCatch() : ''}${Q.fire ? `<div class="toast fire"><img src="/pet/badge-${SKILLS.find(x => x.k === Q.fire.k).badge}.webp" alt="">${esc(Q.fire.text)}</div>` : ''}`
+  ${vDock()}${Q.menu ? vMenu() : ''}${Q.scratch ? '<div class="scratch"><canvas id="scratch"></canvas><div class="duo"><button class="btn alt" data-a="sclear">擦干净</button><button class="btn" data-a="scratch">关上</button></div></div>' : ''}${Q.catch ? vCatch() : ''}${Q.fire ? `<div class="toast fire"><img src="/pet/badge-${SKILLS.find(x => x.k === Q.fire.k).badge}.webp" alt="">${esc(Q.fire.text)}</div>` : ''}`
+}
+/** 草稿纸：随手写画，不保存、不判分 */
+function initScratch() {
+  const c = document.getElementById('scratch'); if (!c || c.dataset.on) return
+  c.dataset.on = 1; c.width = c.clientWidth * 2; c.height = c.clientHeight * 2
+  const g = c.getContext('2d'); g.lineWidth = 5; g.lineCap = 'round'; g.lineJoin = 'round'; g.strokeStyle = '#1d3327'
+  let down = false
+  const at = e => { const r = c.getBoundingClientRect(); return [(e.clientX - r.left) * 2, (e.clientY - r.top) * 2] }
+  c.addEventListener('pointerdown', e => { down = true; c.setPointerCapture(e.pointerId); g.beginPath(); g.moveTo(...at(e)) })
+  c.addEventListener('pointermove', e => { if (down) { g.lineTo(...at(e)); g.stroke() } })
+  c.addEventListener('pointerup', () => { down = false })
 }
 const QA = {
+  scratch() { Q.scratch = !Q.scratch },
+  sclear() { const c = document.getElementById('scratch'); c?.getContext('2d').clearRect(0, 0, c.width, c.height) },
+  read() { const it = curItem(), t = it.segs ? it.segs.map(x => x.t).join('') : it.text || ''; try { const u = new SpeechSynthesisUtterance(t.replace(/×/g, '乘').replace(/÷/g, '除以').replace(/−/g, '减')); u.lang = 'zh-CN'; u.rate = 0.9; speechSynthesis.cancel(); speechSynthesis.speak(u) } catch { /* 不支持朗读 */ } },
   key(k) {
     if (page === 'login') { pin = k === '⌫' ? pin.slice(0, -1) : (pin + k).slice(0, 8); return }
     if (Q?.walk) { Q.walk.input = k === '⌫' ? Q.walk.input.slice(0, -1) : (Q.walk.input + k).slice(0, 5); Q.walk.bad = false; return }
     if (!Q || Q.cover || Q.fin || Q.catch) return
     const b = step(), edit = v => k === '⌫' ? v.slice(0, -1) : (v + k).slice(0, 5)
-    if (b.type === 'blanks') { Q.vals[Q.cur] = edit(Q.vals[Q.cur]); return }
+    if (b.type === 'blanks' || (b.type === 'fill' && b.rem) || (b.type === 'say' && b.cells)) { Q.vals[Q.cur] = edit(Q.vals[Q.cur]); return }
     if (b.type === 'chain' && Q.op == null) { sayPet('先点你要先算的那个符号。'); return }
     if (b.type === 'column') { const key = Q.seq[Q.pos]; if (k === '⌫') { delete Q.cells[key]; return } Q.cells[key] = String(k); const nx = Q.seq.findIndex((x, i) => i > Q.pos && Q.cells[x] == null); Q.pos = nx >= 0 ? nx : Math.min(Q.pos + 1, Q.seq.length - 1); return }
     if (b.type === 'table') { Q.cells[Q.pos] = (k === '⌫' ? Q.cells[Q.pos].slice(0, -1) : (Q.cells[Q.pos] + k).slice(0, 3)); return }
@@ -438,6 +465,7 @@ const QA = {
   stepgo() {
     if (!Q || Q.cover || Q.fin || Q.catch) return
     const b = step()
+    if (b.type === 'fill' && b.rem) { if (Q.vals.some(v => v === '')) return sayPet('商和余数都要填。'); save({ vs: Q.vals.map(Number) }); return next() }
     if (b.type === 'fill') { if (!Q.input) return sayPet('还没填得数呢。'); save({ v: Number(Q.input) }); return next() }
     if (b.type === 'first') { save({ i: Q.pick }); return next() }
     if (b.type === 'clock') { save({ zone: Q.zone }); return next() }
@@ -451,6 +479,7 @@ const QA = {
       if (nt.length === 1) { save({ lines: Q.lines.map(x => ({ k: x.k, v: x.v })) }); return next() }
       Q.lines.push({ t: nt }); autoOp(); sayPet(Q.op != null ? '只剩一个符号了，直接算。' : '下一行，先点你要先算的符号。'); return
     }
+    if (b.type === 'say' && b.cells) { if (Q.vals.some(v => v === '')) return sayPet('答句里还有空着的格子。'); save({ vs: Q.vals.map(Number), units: [...Q.units] }); return next() }
     if (b.type === 'say') { if (!Q.input) return sayPet('还没填得数呢。'); save({ v: Number(Q.input), unit: Q.unit }); return next() }
     if (b.type === 'table') { save({ cells: [...Q.cells] }); return next() }
     if (b.type === 'column') { save({ cells: { ...Q.cells } }); return next() }
@@ -468,7 +497,7 @@ const QA = {
   del() { Q.expr.pop() },
   clr() { Q.expr = [] },
   tapop(k) { k = +k; const L = Q.lines.at(-1); if (Q.op === k) { Q.op = null; return } if (canTap(L.t, k)) Q.op = k },
-  unit(u) { if (Q?.walk) { Q.walk.unit = u && Q.walk.unit !== u ? u : null; return } if (Q && !Q.fin) Q.unit = u && Q.unit !== u ? u : null },
+  unit(u) { if (Q?.walk) { Q.walk.unit = u && Q.walk.unit !== u ? u : null; return } if (Q && !Q.fin && step().cells) { Q.units[Q.cur] = Q.units[Q.cur] === u ? null : u; return } if (Q && !Q.fin) Q.unit = u && Q.unit !== u ? u : null },
   walk() { Q.walk = { i: 0, input: '', unit: null, bad: false }; sayPet('一步一步来，我陪着你。') },
   walkgo() {
     const W = Q.walk, st = Q.fin.walk[W.i]
@@ -746,6 +775,8 @@ function render() {
     + (toast ? `<div class="toast" role="status">${esc(toast)}</div>` : '')
   if (page !== lastPage) { if (page === 'map') document.getElementById('now')?.scrollIntoView({ block: 'center' }); else if (page !== 'q') window.scrollTo(0, 0) }
   lastPage = page
+  if (page === 'q' && Q && !Q.demo) ls.set('kid-draft', Q.fin ? null : { id: Q.id, date: V.date, i: Q.i, rec: Q.rec })
+  if (Q?.scratch) initScratch()
   if (!pose) act = ''
   cere = null; if (Q) { Q.mood = ''; Q.fire = null }
 }

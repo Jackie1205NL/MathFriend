@@ -364,6 +364,13 @@ h2 .hb{width:44px;height:44px;border-radius:50%;vertical-align:-10px;margin-righ
 .ccarry.paw::after{content:'';position:absolute;inset:-6px;border-radius:12px;border:3px solid var(--coin);animation:glow 1.2s infinite}
 @keyframes glow{50%{opacity:.25}}
 .chip.new{border-color:var(--sky);background:#e6f1fb}
+.bx{display:inline-block;vertical-align:middle;margin:0 4px}.bx.bad .box{border-color:var(--berry);background:var(--bad)}
+.mrow{display:block}
+.scr{border:0}
+.spk{float:right;font-size:28px;min-width:48px;min-height:48px;margin:-6px -6px 0 8px}
+.scratch{position:fixed;inset:0;z-index:7;background:#fffef6;display:grid;grid-template-rows:1fr auto;gap:12px;padding:20px 20px calc(20px + env(safe-area-inset-bottom,0px));background-image:linear-gradient(#e9efe6 1px,transparent 1px),linear-gradient(90deg,#e9efe6 1px,transparent 1px);background-size:40px 40px}
+.scratch canvas{width:100%;height:100%;touch-action:none;border:2px dashed var(--line);border-radius:16px}
+.scratch .duo{max-width:700px;width:100%;margin:0 auto}
 /* 小狗动作 */
 .breathe{animation:breathe 3.2s ease-in-out infinite;transform-origin:50% 90%}
 @keyframes breathe{50%{transform:scale(1.025,.975)}}
