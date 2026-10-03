@@ -1,6 +1,6 @@
 // 孩子端后端：判分、金币、照顾、存档都在这里，页面拿不到答案。
 // 存储只要有 get(key) / set(key, value) 两个方法：线上是 Netlify Blobs（kid/functions/kid.mjs），本地开发是文件（kid/vite.config.js）。
-import { PACK_VERSION, FORMATS, MIN_SECONDS, SKILLS, SKILL_COST, GOODS, DECAY, NEED_FLOOR, PATS_PER_DAY, LEVELS, LEVEL_MIX, STORY_PAGES, BOSS_SIZE, BOSS_PASS, BOSS_COINS, coinsFor, publicItem, stageOf } from '../../shared/contract.js'
+import { PACK_VERSION, FORMATS, MIN_SECONDS, SKILLS, SKILL_COST, GOODS, DECAY, NEED_FLOOR, PATS_PER_DAY, LEVELS, LEVEL_MIX, STORY_PAGES, BOSS_SIZE, BOSS_PASS, BOSS_COINS, EXTRA_STEP, STAGES, coinsFor, publicItem, stageOf } from '../../shared/contract.js'
 
 const DAY = 86400000
 const today = (now = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(now)
@@ -8,10 +8,11 @@ const json = (body, status = 200, headers = {}) => new Response(JSON.stringify(b
 const digest = async s => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))].map(b => b.toString(16).padStart(2, '0')).join('')
 const cookies = req => Object.fromEntries((req.headers.get('cookie') || '').split(';').map(c => c.trim().split('=')))
 const hash = s => { let h = 7; for (const ch of s) h = (h * 31 + ch.codePointAt(0)) >>> 0; return h }
+const EXTRA = { id: 'extra', name: '再练一会儿', sub: '想多练就做，金币减半', bucket: '加练', extra: true }
 const FRIDAY = { id: 'friday', name: '周五闯关', sub: `答对 ${BOSS_PASS} 题就通关，解锁一页故事`, bucket: '本周重点', boss: true, friday: true }
 
 const freshState = () => ({ name: '', hatched: false, coins: 60, grow: 0, needs: { full: 70, mood: 70, clean: 70, at: Date.now() },
-  bag: { rice: 1, soap: 1 }, toy: {}, own: {}, combo: 0, best: 0, pats: { date: '', n: 0 }, ladder: {}, slow: 0, story: 0,
+  bag: { rice: 1, soap: 1 }, toy: {}, own: {}, combo: 0, best: 0, pats: { date: '', n: 0 }, ladder: {}, slow: 0, story: 0, att: { week: '', days: [] }, album: [],
   pts: Object.fromEntries(SKILLS.map(s => [s.k, 0])), prog: Object.fromEntries(SKILLS.map(s => [s.k, 0])), skill: Object.fromEntries(SKILLS.map(s => [s.k, 0])) })
 
 /** 需求按时间慢慢下降，读的时候再算，不需要定时任务。 */
@@ -23,6 +24,8 @@ function decay(s, now = Date.now()) {
 }
 const good = s => ['full', 'mood', 'clean'].every(k => s.needs[k] >= 60)
 const add = (s, k, v) => { s.needs[k] = Math.min(100, s.needs[k] + v) }
+/** 成长相册：记一件值得留下的事 */
+const mark = (s, date, t) => { s.album.push({ at: date, t, st: stageOf(s) }); if (s.album.length > 150) s.album.shift() }
 
 /**
  * 今天的题：每组按 daily 抽，避开本周已经做过的题；前几天答错过的模板，优先出它的新变式。
@@ -70,8 +73,9 @@ export function createApi(store, env) {
     return {
       state: { ...state, stage: stageOf(state), good: good(state) },
       week: pack?.week || null, tuning: pack?.tuning || {},
-      today: day ? day.groups.map(dg => ({ ...(dg.id === 'friday' ? FRIDAY : pack.groups.find(g => g.id === dg.id)), items: dg.items.map(id => ({ ...publicItem(byId[id]), done: day.items[id]?.fin || null, step: day.items[id]?.step || 0, kw: day.items[id]?.kwRes || null, expr: day.items[id]?.expr || null, p: day.items[id]?.pub || null })) })) : [],
+      today: day ? day.groups.map(dg => ({ ...(dg.id === 'friday' ? FRIDAY : dg.id === 'extra' ? EXTRA : pack.groups.find(g => g.id === dg.id)), items: dg.items.map(id => ({ ...publicItem(byId[id]), done: day.items[id]?.fin || null, step: day.items[id]?.step || 0, kw: day.items[id]?.kwRes || null, expr: day.items[id]?.expr || null, p: day.items[id]?.pub || null })) })) : [],
       allDone: !!day?.done,
+      wish: pack?.tuning?.wish ? { text: String(pack.tuning.wish), need: Number(pack.tuning.wish_days) || 4, got: state.att.week === pack.week ? state.att.days.length : 0 } : null,
     }
   }
   const save = async ctx => { await store.set('state', ctx.state); if (ctx.day) await store.set(`day:${ctx.date}`, ctx.day); if (ctx.pack) await store.set(`log:${ctx.pack.week}`, ctx.log) }
@@ -80,12 +84,16 @@ export function createApi(store, env) {
   function finish(ctx, it, rec) {
     const s = ctx.state, w = rec.w
     const q = w === 0 ? 1 : w === 1 ? (it.format === 'first' ? 0.3 : 0.5) : w === 2 ? 0.3 : 0
-    const pb = { word: rec.kw ?? 0, steps: 2, estimate: rec.rangeOk ? 2 : 0, multi: rec.blankMiss ? 0 : 2 }[it.format] || 0
+    const pb = { word: rec.kw ?? 0, steps: 2, estimate: rec.rangeOk ? 2 : 0, multi: rec.blankMiss ? 0 : 2, plan: rec.goalOk ? 2 : 0 }[it.format] || 0
+    const before = stageOf(s), extra = ctx.day.groups.find(g => g.id === 'extra')?.items.includes(it.id)
     let { c, core } = coinsFor(it.price, q, pb), bonus = false, point = ''
+    if (extra) c = Math.ceil(c / 2)                      // 加练的题金币减半
     if (w === 0) { s.combo++; s.best = Math.max(s.best, s.combo); if (s.combo % 5 === 0) { c += 5; bonus = true } } else s.combo = 0
     if (w === 0 && it.level !== '同构' && s.prog[it.err] != null) { if (++s.prog[it.err] >= 5) { s.prog[it.err] = 0; s.pts[it.err]++; point = SKILLS.find(x => x.k === it.err).n } }
     const growB = good(s) ? Math.round(c * 0.2) : 0
+    if (!s.hatched) mark(s, ctx.date, '从小窝里醒来了')
     s.coins += c; s.grow += c + growB; s.hatched = true
+    if (stageOf(s) > before && before > 0) mark(s, ctx.date, `长成${STAGES[stageOf(s)].n}了`)
     if (s.slow > 0 && s.slowFrom !== it.id) s.slow--
     // 难度阶梯：只看每道题的第一次作答。最近 10 题 ≥85% 且跨两天升一档；最近 8 题 <60% 或连错 3 题降一档
     const L = s.ladder[`${it.kp}|${it.err}`] ||= { lv: 1, hist: [] }, rate = a => a.reduce((n, x) => n + x[0], 0) / a.length
@@ -93,15 +101,22 @@ export function createApi(store, env) {
     const h = L.hist
     if (L.lv < 2 && h.length >= 10 && rate(h) >= 0.85 && new Set(h.map(x => x[1])).size >= 2) Object.assign(L, { lv: L.lv + 1, hist: [], moved: { dir: 'up', at: ctx.date } })
     else if (L.lv > 0 && ((h.length >= 8 && rate(h.slice(-8)) < 0.6) || (h.length >= 3 && h.slice(-3).every(x => !x[0])))) Object.assign(L, { lv: L.lv - 1, hist: [], moved: { dir: 'down', at: ctx.date } })
-    rec.fin = { c, core, q, w, pb, bonus, point, growB, ok: q > 0, explain: it.explain }
+    rec.fin = { c, core, q, w, pb, bonus, point, growB, extra: !!extra, grew: stageOf(s) > before ? stageOf(s) : 0, ok: q > 0, explain: it.explain }
     if (q > 0) ctx.log.push(row(ctx, it, { try: w + 1, correct: true, given: it.format === 'first' ? '先算 ' + it.tokens[it.first] : it.format === 'multi' ? it.blanks.map(b => b.a).join(',') : it.answer + (it.unit || ''), coins: c }))
     const all = ctx.day.groups.flatMap(g => g.items)
-    if (all.every(id => ctx.day.items[id]?.fin) && !ctx.day.done) { ctx.day.done = true; if (!ctx.day.flash) { s.pts['漏题']++; rec.fin.patrol = true } }
+    if (all.every(id => ctx.day.items[id]?.fin) && !ctx.day.done) {
+      ctx.day.done = true; if (!ctx.day.flash) { s.pts['漏题']++; rec.fin.patrol = true }
+      // 出勤：做完当天的任务算来了一天，心愿单按这个兑换
+      if (s.att.week !== ctx.pack.week) s.att = { week: ctx.pack.week, days: [] }
+      if (!s.att.days.includes(ctx.date)) s.att.days.push(ctx.date)
+      const need = Number(ctx.pack.tuning?.wish_days) || 4
+      if (ctx.pack.tuning?.wish && s.att.days.length === need) { rec.fin.wish = String(ctx.pack.tuning.wish); mark(s, ctx.date, `这周来满 ${need} 天，可以兑换心愿：${rec.fin.wish}`) }
+    }
     // 周五闯关：8 题都做完时结算，答对够数就解锁一页故事
     const fri = ctx.day.groups.find(g => g.id === 'friday')
     if (fri?.items.includes(it.id) && !ctx.day.boss && fri.items.every(id => ctx.day.items[id]?.fin)) {
       const okN = fri.items.filter(id => ctx.day.items[id].fin.ok).length, pass = okN >= Math.min(BOSS_PASS, fri.items.length)
-      if (pass) { s.coins += BOSS_COINS; s.grow += BOSS_COINS; if (s.story < STORY_PAGES) s.story++ }
+      if (pass) { s.coins += BOSS_COINS; s.grow += BOSS_COINS; if (s.story < STORY_PAGES) s.story++; mark(s, ctx.date, `周五闯关成功，${fri.items.length} 题答对 ${okN} 题`) }
       ctx.day.boss = rec.fin.boss = { pass, okN, n: fri.items.length, story: pass ? s.story : 0, coins: pass ? BOSS_COINS : 0 }
     }
     return { ok: true, fin: rec.fin }
@@ -122,6 +137,7 @@ export function createApi(store, env) {
     const rec = ctx.day.items[it.id] ||= { w: 0, step: 0 }
     if (rec.fin) return json({ error: '这道题已经做完了' }, 400)
     const ms = Number(body.ms) || null
+    ctx.day.ms = (ctx.day.ms || 0) + Math.min(ms || 0, 180000)      // 今天做题用了多久（单步最多算 3 分钟）
     let res
     if (it.format === 'oral') {
       const n = Number(body.value)
@@ -158,9 +174,13 @@ export function createApi(store, env) {
       else if (empty) { rec.blankMiss = true; res = wrong(ctx, it, rec, { given: `空了 ${empty} 处`, err: '漏题', step: '漏空', ms, note: `还有 ${empty} 处没填就交卷了。每个空都要填。` }) }
       else res = wrong(ctx, it, rec, { given: vals.join(','), err: '计算失误', step: '得数', ms, note: rec.w === 0 ? '有的空不对，标红的再算一遍。' : undefined })
       res = { ...res, okIdx, keepInput: true }
-    } else if (it.format !== 'word') {
+    } else if (!['word', 'plan'].includes(it.format)) {
       return json({ error: '不认识的题型' }, 400)
-    } else if (body.step === 'keywords' && rec.step === 0) {
+    } else if (it.format === 'plan' && body.step === 'goal' && rec.step === 0) {
+      const i = Number(body.index)
+      if (it.goals[i]?.ok) { rec.step = 1; rec.goalOk = rec.w === 0; rec.pub = { goal: i }; res = { ok: true, goal: i } }
+      else res = wrong(ctx, it, rec, { given: it.goals[i]?.t, err: it.err, step: '先求什么', ms })
+    } else if (it.format === 'word' && body.step === 'keywords' && rec.step === 0) {
       const sel = new Set((body.sel || []).map(Number)), keys = it.segs.flatMap((s, i) => s.k ? [i] : []), noise = it.segs.flatMap((s, i) => s.n ? [i] : [])
       const hit = keys.filter(i => sel.has(i)).length, extra = noise.filter(i => sel.has(i)).length
       rec.kw = hit < keys.length ? 0 : extra ? 1 : 2; rec.step = 1
@@ -183,13 +203,13 @@ export function createApi(store, env) {
   // ---------- 照顾、买东西、学本领 ----------
   function act(ctx, b) {
     const s = ctx.state
-    if (b.kind === 'name') { const n = String(b.name || '').trim().slice(0, 8); if (!n) return { msg: '先给它起个名字吧。' }; s.name = n; return { msg: `你好呀，我叫${n}！` } }
+    if (b.kind === 'name') { const n = String(b.name || '').trim().slice(0, 8); if (!n) return { msg: '先给它起个名字吧。' }; if (!s.name) mark(s, ctx.date, `给小狗起名叫${n}`); s.name = n; return { msg: `你好呀，我叫${n}！` } }
     if (b.kind === 'buy') {
       const x = GOODS.find(g => g.k === b.k); if (!x) return { msg: '没有这个东西。' }
       if (x.kind === 'keep' && s.own[x.k]) return { msg: '已经有了。' }
       if (s.coins < x.p) return { msg: `还差 ${x.p - s.coins} 金币，做任务就能赚到。` }
       s.coins -= x.p
-      if (x.kind === 'keep') s.own[x.k] = true; else if (x.kind === 'toy') s.toy[x.k] = (s.toy[x.k] || 0) + x.uses; else s.bag[x.k] = (s.bag[x.k] || 0) + 1
+      if (x.kind === 'keep') { s.own[x.k] = true; mark(s, ctx.date, `买了${x.n}`) } else if (x.kind === 'toy') s.toy[x.k] = (s.toy[x.k] || 0) + x.uses; else s.bag[x.k] = (s.bag[x.k] || 0) + 1
       return { msg: x.kind === 'keep' ? `买到「${x.n}」了，回小屋看看。` : `「${x.n}」放进背包了，回小屋就能用。` }
     }
     if (b.kind === 'toy') {
@@ -210,7 +230,24 @@ export function createApi(store, env) {
     }
     if (b.kind === 'learn') {
       const k = b.k, lv = s.skill[k]; if (lv == null || lv >= 3 || s.pts[k] < SKILL_COST[lv]) return { msg: '技能点还不够。' }
-      s.pts[k] -= SKILL_COST[lv]; s.skill[k]++; return { msg: `我学会「${SKILLS.find(x => x.k === k).n}」第 ${lv + 1} 级啦！`, act: 'wag' }
+      s.pts[k] -= SKILL_COST[lv]; s.skill[k]++; mark(s, ctx.date, `学会了「${SKILLS.find(x => x.k === k).n}」第 ${lv + 1} 级`); return { msg: `我学会「${SKILLS.find(x => x.k === k).n}」第 ${lv + 1} 级啦！`, act: 'wag' }
+    }
+    if (b.kind === 'extra') {
+      // 加练：今天的任务做完后可以再要几题，金币减半；有每天的题数和时长上限
+      const t = ctx.pack?.tuning || {}, cap = Number(t.extra ?? 10), mins = Number(t.minutes ?? 25), used = Math.round((ctx.day?.ms || 0) / 60000)
+      if (!ctx.day?.done) return { msg: '先把今天的任务做完。' }
+      let g = ctx.day.groups.find(x => x.id === 'extra')
+      if (used >= mins) return { msg: `今天已经练了 ${used} 分钟，够啦，明天见。` }
+      if ((g?.items.length || 0) >= cap) return { msg: '今天的加练做满了，明天见。' }
+      const today = new Set(ctx.day.groups.flatMap(x => x.items)), seen = new Set(ctx.log.map(r => r.item))
+      const bossGroups = new Set(ctx.pack.groups.filter(x => x.boss).map(x => x.id))
+      const pool = ctx.pack.items.filter(it => FORMATS.includes(it.format) && !today.has(it.id) && !seen.has(it.id) && !bossGroups.has(it.group))
+        .map(it => [hash(ctx.date + 'x' + it.id), it]).sort((p, q) => p[0] - q[0]).map(p => p[1])
+      const out = [], per = {}
+      for (const it of pool) { if (out.length >= Math.min(EXTRA_STEP, cap - (g?.items.length || 0))) break; if ((per[it.tpl] || 0) >= 1) continue; per[it.tpl] = 1; out.push(it.id) }
+      if (!out.length) return { msg: '这周的题都做过啦，明天见。' }
+      if (g) g.items.push(...out); else ctx.day.groups.push({ id: 'extra', items: out })
+      return { msg: `多了 ${out.length} 道加练题，金币减半。`, extra: out.length }
     }
     return { msg: '' }
   }

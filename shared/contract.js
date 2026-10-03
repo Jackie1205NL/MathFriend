@@ -3,16 +3,19 @@
 // 这个文件不能引用 server/ 或 kid/ 下的任何东西。
 
 export const PACK_VERSION = 1
-export const FORMATS = ['oral', 'first', 'clock', 'estimate', 'steps', 'fix', 'multi', 'word']   // 孩子端遇到不认识的题型会跳过
-export const FORMAT_NAME = { oral: '口算闪答', first: '先算哪一步', clock: '拨钟面', estimate: '先估后算', steps: '递等式分步', fix: '小老师改错', multi: '多空题交卷', word: '应用题三步' }
-export const BASE = { oral: 1, first: 2, clock: 4, estimate: 4, steps: 6, fix: 6, multi: 6, word: 12 }   // 题越长，每分钟赚得略多
-export const MIN_SECONDS = { oral: 2, first: 3, clock: 4, estimate: 3, steps: 4, fix: 5, multi: 8, word: 8 }   // 比这还快又答错，算「急着答错」
-export const HAS_PROCESS_BONUS = ['word', 'steps', 'estimate', 'multi']   // 这些题型过程做全有 +2
+export const FORMATS = ['oral', 'first', 'clock', 'estimate', 'steps', 'fix', 'multi', 'word', 'plan']   // 孩子端遇到不认识的题型会跳过
+export const FORMAT_NAME = { oral: '口算闪答', first: '先算哪一步', clock: '拨钟面', estimate: '先估后算', steps: '递等式分步', fix: '小老师改错', multi: '多空题交卷', word: '应用题三步', plan: '挑战题' }
+export const BASE = { oral: 1, first: 2, clock: 4, estimate: 4, steps: 6, fix: 6, multi: 6, word: 12, plan: 25 }   // 题越长，每分钟赚得略多
+export const MIN_SECONDS = { oral: 2, first: 3, clock: 4, estimate: 3, steps: 4, fix: 5, multi: 8, word: 8, plan: 10 }   // 比这还快又答错，算「急着答错」
+export const HAS_PROCESS_BONUS = ['word', 'steps', 'estimate', 'multi', 'plan']   // 这些题型过程做全有 +2
 export const LEVELS = ['同构', '略变', '综合']
 // 难度阶梯：档位 0 / 1 / 2 时，抽题在三种难度上的比例
 export const LEVEL_MIX = [[0.6, 0.3, 0.1], [0.4, 0.4, 0.2], [0.2, 0.5, 0.3]]
 export const STORY_PAGES = 16
 export const BOSS_SIZE = 8, BOSS_PASS = 6, BOSS_COINS = 30   // 周五闯关：8 题，答对 6 题算通关
+export const EXTRA_STEP = 5                                   // 加练一次加几题（金币减半）
+// 围巾戴在哪：各阶段站立图里项圈的位置（占图片宽高的百分比），由 kid/public/pet/s1～s4.webp 量出来
+export const SCARF_AT = { 1: { x: 41.1, y: 60.4, w: 37 }, 2: { x: 31.7, y: 57.3, w: 32.8 }, 3: { x: 34.2, y: 57.2, w: 36.8 }, 4: { x: 32.1, y: 54, w: 32.8 } }
 export const DIFF = { 同构: 1, 略变: 1.3, 综合: 1.6 }
 export const SRC = { 本周重点: 1.5, 往周未过关: 1.2, 下周预习: 1, 已掌握保温: 0.8 }
 export const ERROR_TYPES = ['计算失误', '审题', '概念不清', '格式规范', '漏题', '策略缺失']
@@ -124,7 +127,11 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
       if (item.blanks.some(b => !okAnswer(b.a))) { bad('某个空的答案不是万以内的非负整数'); continue }
       item.answer = item.blanks[0].a
     } else {
-      item.segs = t.segs.map(s => ({ t: fill(s.t, v), ...(s.k ? { k: 1 } : {}), ...(s.n ? { n: 1 } : {}) }))
+      // word：圈关键词开头；plan（挑战题）：先选「要先求什么」开头。后两步都是选算式、算和答
+      if (t.format === 'plan') {
+        item.text = fill(t.text, v); item.goals = t.goals.map(g => ({ t: fill(g.t, v), ...(g.ok ? { ok: 1 } : {}) }))
+        if (item.goals.filter(g => g.ok).length !== 1) { bad('goals 里必须正好一个 ok'); continue }
+      } else item.segs = t.segs.map(s => ({ t: fill(s.t, v), ...(s.k ? { k: 1 } : {}), ...(s.n ? { n: 1 } : {}) }))
       item.choices = t.choices.map(c => ({ t: pretty(fill(c.e, v)), v: evalExpr(fill(c.e, v)), ...(c.ok ? { ok: 1 } : {}), trap: c.trap || t.error_type }))
       const ok = item.choices.filter(c => c.ok)
       if (ok.length !== 1) { bad('choices 里必须正好一个 ok'); continue }
@@ -168,6 +175,7 @@ export function publicItem(it) {
   if (it.format === 'steps') Object.assign(p, { text: it.text, lines: it.lines.map(l => l.pre) })
   if (it.format === 'fix') Object.assign(p, { text: it.text, shown: it.shown })
   if (it.format === 'multi') Object.assign(p, { text: it.text, blanks: it.blanks.map(b => b.t) })
+  if (it.format === 'plan') Object.assign(p, { text: it.text, goals: it.goals.map(g => g.t), choices: it.choices.map(c => c.t), ask: it.ask, units: it.units, tail: it.tail })
   if (it.format === 'word') Object.assign(p, { segs: it.segs.map(s => ({ t: s.t })), choices: it.choices.map(c => c.t), ask: it.ask, units: it.units, tail: it.tail })
   return p
 }

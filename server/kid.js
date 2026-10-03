@@ -18,7 +18,7 @@ export function makePack(week) {
   if (!bank?.templates?.length) throw new Error(`错题/${week}.md 里还没有「题库」，先运行 npm run kid bank`)
   const { pack, report } = buildPack(bank, week)
   // 钟面和多空题没有单一算式，实例化时已经逐空检查过
-  const okExpr = it => (it.format === 'word' ? it.choices.find(c => c.ok).t : it.format === 'first' ? it.tokens.join('') : it.text).replace(/−/g, '-')
+  const okExpr = it => (['word', 'plan'].includes(it.format) ? it.choices.find(c => c.ok).t : it.format === 'first' ? it.tokens.join('') : it.text).replace(/−/g, '-')
   const before = pack.items.length
   pack.items = pack.items.filter(it => ['clock', 'multi'].includes(it.format) || verifyItem({ expression: okExpr(it), answer: it.answer }))
   return { pack, report, dropped: before - pack.items.length }
@@ -111,8 +111,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     for (const kv of process.argv.slice(4)) {
       const [k, v] = kv.split('='), val = /^-?\d+(\.\d+)?$/.test(v) ? Number(v) : v
       if (k.startsWith('daily.')) { const g = data.bank.groups.find(x => x.id === k.slice(6)); if (!g) throw new Error(`没有分组 ${k.slice(6)}`); g.daily = val }
-      else if (['unit_hint', 'blank_hint', 'slow', 'boss_day', 'bedtime', 'focus_boost'].includes(k)) data.bank.tuning = { ...data.bank.tuning, [k]: val }
-      else throw new Error(`不认识的调节项 ${k}。可以调：unit_hint blank_hint slow boss_day bedtime focus_boost daily.<组 id>`)
+      else if (['unit_hint', 'blank_hint', 'slow', 'boss_day', 'bedtime', 'focus_boost', 'wish', 'wish_days', 'extra', 'minutes'].includes(k)) data.bank.tuning = { ...data.bank.tuning, [k]: val }
+      else throw new Error(`不认识的调节项 ${k}。可以调：unit_hint blank_hint slow boss_day bedtime focus_boost wish wish_days extra minutes daily.<组 id>`)
     }
     writeWeek(data)
     console.log('调节项：' + JSON.stringify(data.bank.tuning || {}))
@@ -133,7 +133,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const items = data.screen.reduce((n, r) => n + r.items, 0), ok = data.screen.reduce((n, r) => n + r.first_ok, 0), days = new Set((log || []).map(r => r.day)).size
     console.log(`${week}：来了 ${days} 天，做了 ${items} 题，第一次就对 ${items ? Math.round(ok / items * 100) : 0}%，忘写单位 ${data.screen.reduce((n, r) => n + r.forgot_unit, 0)} 次。已写入「答题」段。`)
     if (state) console.log(`小狗：${state.name || '还没起名'}，金币 ${state.coins}，成长值 ${state.grow}`)
-    if (state) console.log(`故事书 ${state.story || 0} 页`)
+    if (state) console.log(`故事书 ${state.story || 0} 页${state.att?.week === week ? `，这周做完任务 ${state.att.days.length} 天` : ''}`)
     for (const r of data.screen) console.log(`  ${r.knowledge_point} ${r.error_type}：${r.first_ok}/${r.items}${r.forgot_unit ? `，忘写单位 ${r.forgot_unit}` : ''}${r.level ? `，难度档 ${r.level}` : ''}${r.moved?.dir === 'down' ? '（刚降了一档，需要家长讲一讲）' : r.moved?.dir === 'up' ? '（刚升了一档）' : ''}`)
   } else throw new Error(`不认识的命令 ${cmd}`)
 } catch (e) { console.error(e.message); process.exit(1) }

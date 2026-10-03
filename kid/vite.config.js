@@ -13,7 +13,7 @@ const DEV_DIR = path.join(os.tmpdir(), 'shuban-kid-dev')
 function devApi() {
   fs.mkdirSync(DEV_DIR, { recursive: true })
   const file = k => path.join(DEV_DIR, encodeURIComponent(k) + '.json')
-  const store = { get: async k => fs.existsSync(file(k)) ? JSON.parse(fs.readFileSync(file(k), 'utf8')) : null, set: async (k, v) => fs.writeFileSync(file(k), JSON.stringify(v)) }
+  const store = { get: async k => fs.existsSync(file(k)) ? JSON.parse(fs.readFileSync(file(k), 'utf8')) : null, set: async (k, v) => { fs.mkdirSync(DEV_DIR, { recursive: true }); fs.writeFileSync(file(k), JSON.stringify(v)) } }
   const handle = createApi(store, { KID_PIN: process.env.KID_PIN || '1234', SYNC_TOKEN: process.env.SYNC_TOKEN || 'dev', DEV: true })
   return {
     name: 'kid-dev-api',
@@ -21,10 +21,12 @@ function devApi() {
       server.middlewares.use('/api/kid', async (req, res) => {
         const chunks = []; for await (const c of req) chunks.push(c)
         const body = ['GET', 'HEAD'].includes(req.method) ? undefined : Buffer.concat(chunks)
-        const r = await handle(new Request(`http://localhost/api/kid${req.url}`, { method: req.method, headers: req.headers, body }))
-        res.statusCode = r.status
-        r.headers.forEach((v, k) => res.setHeader(k, v))
-        res.end(Buffer.from(await r.arrayBuffer()))
+        try {
+          const r = await handle(new Request(`http://localhost/api/kid${req.url}`, { method: req.method, headers: req.headers, body }))
+          res.statusCode = r.status
+          r.headers.forEach((v, k) => res.setHeader(k, v))
+          res.end(Buffer.from(await r.arrayBuffer()))
+        } catch (e) { console.error(e); res.statusCode = 500; res.end(JSON.stringify({ error: '后端出错：' + e.message })) }
       })
     },
   }

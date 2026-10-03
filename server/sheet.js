@@ -60,6 +60,13 @@ export async function buildSheet(week) {
   const wrong = data.entries.filter(e => e.verdict === 'wrong').length
   const scores = [...new Set(data.materials.map(m => m.score).filter(Boolean))].join('、')
   p(`材料 ${data.materials.length} 份，题目 ${total} 道，错题 ${wrong} 道${scores ? `，老师等级 ${scores}` : ''}。${progress.baseline === week ? '本周为起点周，不与上周比较。' : ''}`)
+  // 孩子端屏幕练习（只做参考，不计入上面的错题数）：取最近一周有记录的；刚降档的知识点提醒家长讲一讲
+  const scr = listWeeks().filter(w => w <= week).map(readWeek).filter(w => w.screen?.length).at(-1)
+  if (scr) {
+    const n = scr.screen.reduce((a, r) => a + r.items, 0), ok = scr.screen.reduce((a, r) => a + r.first_ok, 0), fu = scr.screen.reduce((a, r) => a + r.forgot_unit, 0)
+    const down = scr.screen.filter(r => r.moved?.dir === 'down').map(r => `${knowledge.nodes.find(x => x.id === r.knowledge_point)?.title || r.knowledge_point}（${r.error_type}）`)
+    p(`屏幕练习（${scr.week}）：做了 ${n} 题，第一次就对 ${Math.round(ok / n * 100)}%${fu ? `，忘写单位 ${fu} 次` : ''}。${down.length ? `需要家长讲一讲：${down.join('、')}。` : ''}`)
+  }
 
   // 2 重点问题
   h('本周重点问题')

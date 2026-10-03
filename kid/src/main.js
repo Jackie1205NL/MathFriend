@@ -1,6 +1,6 @@
 // 孩子端页面：小屋、今日任务、三种题型、本领、小卖部。答案和金币都在后端（kid/server/game.js），这里只负责显示和把操作发过去。
 import './style.css'
-import { SKILLS, SKILL_COST, GOODS, STORY_PAGES, levelOf } from '../../shared/contract.js'
+import { SKILLS, SKILL_COST, GOODS, STORY_PAGES, STAGES, SCARF_AT, levelOf } from '../../shared/contract.js'
 import { LINES } from './lines.js'
 import { STORY } from './story.js'
 
@@ -33,6 +33,11 @@ const stage = () => S().stage
 const name = () => esc(S().name || '小狗')
 const late = () => { const d = new Date(), [h, m] = String(V?.tuning?.bedtime || '20:30').split(':').map(Number); return d.getHours() * 60 + d.getMinutes() >= h * 60 + m }
 const petSrc = () => { const st = stage(), p = late() ? 'sleep' : pose; return st && p ? `/pet/s${st}-act-${p}.webp` : `/pet/s${st}.webp` }
+// 小屋里的小狗：买了围巾就戴在项圈的位置（做动作和睡觉时的图姿势不同，不戴）
+function petHtml() {
+  const a = SCARF_AT[stage()], worn = S().own.scarf && a && !pose && !late()
+  return `<span class="wear breathe"><img src="${petSrc()}" alt="">${worn ? `<img class="scarf" src="/pet/item-scarf.webp" alt="" style="left:${a.x - a.w * 0.65}%;top:${a.y - 5}%;width:${a.w * 1.3}%">` : ''}</span>`
+}
 const face = k => stage() ? `/pet/s${stage()}-face-${k}.webp` : '/pet/s0.webp'
 function chat(kind) {
   const n = S().needs
@@ -73,18 +78,19 @@ function vHome() {
   return `<div class="top"><h1>${s.name ? name() + '的小屋' : '团团小屋'}</h1>${coin(s.coins)}<span class="pill"><i class="ico star"></i>${stars()}</span></div>
   <div class="body">
     ${!s.name ? `<div class="card"><p>小窝里有一只小柴犬，给它起个名字吧。</p><div class="field"><input id="nm" maxlength="8" placeholder="比如：团团" aria-label="小狗的名字"><button class="btn" data-a="name">就叫它</button></div></div>` : `<div class="bubble">${esc(say) || (st ? '' : '它还在小窝里睡觉。做完第一道题，它就会醒来。')}</div>`}
-    <div class="room" data-a="tap" role="button" aria-label="戳一戳小狗">${s.own.curtain ? '<img class="deco" src="/pet/item-curtain.webp" alt="">' : ''}<div class="pet"><div class="${act ? 'a-' + (ACT[act] || 'hop') : ''}"><img class="breathe" src="${petSrc()}" alt=""></div></div><span class="tag">${s.good ? '状态好 · 成长 ×1.2' : '状态一般'}${s.own.scarf ? ' · 戴着蓝围巾' : ''}</span></div>
+    <div class="room" data-a="tap" role="button" aria-label="戳一戳小狗">${s.own.curtain ? '<img class="curtain" src="/pet/item-curtain.webp" alt="">' : ''}<div class="pet"><div class="${act ? 'a-' + (ACT[act] || 'hop') : ''}">${petHtml()}</div></div><span class="tag">${s.good ? '状态好 · 成长 ×1.2' : '状态一般'}</span></div>
     <div class="card bars">${bar('饱食', n.full, '')}${bar('心情', n.mood, 'b')}${bar('清洁', n.clean, 'c')}<span>成长</span><span class="bar s"><i style="width:${s.grow % 400 / 4}%"></i></span><span>Lv ${levelOf(s.grow)}</span></div>
     <div class="acts"><button data-a="care" data-v="food">喂食<small>${bag('food')} 份</small></button><button data-a="care" data-v="soap">洗澡<small>${bag('soap')} 块香皂</small></button><button data-a="care" data-v="toy">陪玩<small>${toy} 次</small></button><button data-a="care" data-v="pat">摸摸<small>今天 ${Math.max(0, 3 - pats)} 次</small></button></div>
     ${cta}
-    ${s.hatched ? `<button class="card quest" data-a="story" data-v=""><b>故事书</b><span class="pill">${s.story} / ${STORY_PAGES} 页</span><span class="dim">周五闯关通关一次，解锁一页</span></button>` : ''}
+    ${V.wish ? `<p class="dim">心愿单：${esc(V.wish.text)} · 这周做完任务 ${V.wish.got} / ${V.wish.need} 天</p>` : ''}
+    ${s.hatched ? `<div class="duo"><button class="card quest" data-a="story" data-v=""><b>故事书</b><span class="pill">${s.story} / ${STORY_PAGES}</span></button><button class="card quest" data-a="go" data-v="album"><b>相册</b><span class="pill">${s.album.length} 件事</span></button></div>` : ''}
   </div>`
 }
 function vQuests() {
-  const gs = groups(), open = gs.filter(g => !g.boss).every(g => g.items.every(it => it.done))
+  const gs = groups(), open = gs.filter(g => !g.boss && !g.extra).every(g => g.items.every(it => it.done))
   return `<div class="top"><h1>今天的任务</h1>${coin(S().coins)}</div><div class="body">${gs.map(g => {
-    const left = g.items.filter(it => !it.done).length, mx = Math.max(...g.items.map(it => it.max)), lock = g.boss && !open
-    const tag = g.bucket === '本周重点' && !g.boss ? '<span class="tagx">本周重点</span>' : g.bucket === '往周未过关' ? '<span class="tagx old">以前的</span>' : ''
+    const left = g.items.filter(it => !it.done).length, top = Math.max(...g.items.map(it => it.max)), mx = g.extra ? Math.ceil(top / 2) : top, lock = g.boss && !open && left > 0
+    const tag = g.bucket === '本周重点' && !g.boss ? '<span class="tagx">本周重点</span>' : g.bucket === '往周未过关' ? '<span class="tagx old">以前的</span>' : g.extra ? '<span class="tagx old">金币减半</span>' : ''
     return `<button class="card quest ${left ? '' : 'done'} ${lock ? 'lock' : ''}" ${lock || !left ? 'disabled' : ''} data-a="group" data-v="${g.id}"><b>${esc(g.name)}${tag}</b>${coin((g.items.every(it => it.format === 'oral') ? '每题 ' : '最高 ') + mx)}<span class="dim">${lock ? '做完上面几组后解锁' : `${esc(g.sub || '')} · ${left ? `还有 ${left} 题` : '做完了'}`}</span></button>`
   }).join('')}<p class="dim">金币多的题，是你这周最需要练的题。</p></div>`
 }
@@ -115,8 +121,10 @@ function vQ() {
     const d = Q.fin, more = g.items.some(x => !x.done)
     const b = d.boss
     body = `<div class="card q">${it.format === 'word' ? segText(it, 'fixed') : esc(it.format === 'first' ? it.tokens.join(' ') : it.text || '这一组小题')}</div>
-      <div class="fb ${d.ok ? '' : 'zero'}">${d.ok ? `<span class="fly">＋${d.c}</span><b class="c"><i class="ico coin"></i>＋${d.c}</b>${d.w === 0 ? '第一次就答对了！' : '订正对了，拿到一部分金币。'}${d.bonus ? ' 连续 5 题第一次就对，再加 5。' : ''}${d.patrol ? ' 今天没有急着答错的题，得到 1 个「巡逻」技能点。' : ''}` : `<b>这道题先放一放</b><br>${esc(d.explain)}<br>过两天它会换个样子再来。`}</div>
+      <div class="fb ${d.ok ? '' : 'zero'}">${d.ok ? `<span class="fly">＋${d.c}</span><b class="c"><i class="ico coin"></i>＋${d.c}</b>${d.w === 0 ? '第一次就答对了！' : '订正对了，拿到一部分金币。'}${d.bonus ? ' 连续 5 题第一次就对，再加 5。' : ''}${d.patrol ? ' 今天没有急着答错的题，得到 1 个「巡逻」技能点。' : ''}${d.extra ? ' 加练的题金币减半。' : ''}` : `<b>这道题先放一放</b><br>${esc(d.explain)}<br>过两天它会换个样子再来。`}</div>
       ${d.w && d.ok ? `<div class="bubble plain">${esc(d.explain)}</div>` : ''}
+      ${d.grew ? `<div class="bubble plain">${name()}长大了，现在是${STAGES[d.grew].n}！回小屋看看。</div>` : ''}
+      ${d.wish ? `<div class="bubble plain">这周来满啦！可以去找爸爸妈妈兑换心愿：${esc(d.wish)}。</div>` : ''}
       ${b ? `<div class="bubble plain">${b.pass ? `闯关成功！${b.n} 题答对 ${b.okN} 题，再得 ${b.coins} 金币${b.story ? `，解锁了故事书第 ${b.story} 页` : ''}。` : `闯关 ${b.n} 题答对 ${b.okN} 题，差一点。下周五再来。`}</div>` : ''}
       ${b?.pass && b.story ? `<button class="btn" data-a="story" data-v="${b.story - 1}">看新故事</button>` : `<button class="btn" data-a="next">${more ? '下一题' : V.allDone ? '看今天的成绩' : '回到任务'}</button>`}`
   } else if (it.format === 'oral') body = `<div class="card q big">${esc(it.text)} ＝ <span class="box">${Q.input}</span></div>${msg}${pad()}`
@@ -130,7 +138,17 @@ function vQ() {
     <div class="card"><div class="line">${esc(it.text)}</div>${it.shown.map((t, i) => Q.step === 0 ? `<button class="frow" data-a="spot" data-v="${i}">${esc(t)}</button>` : `<div class="frow ${i === Q.spot ? 'bad' : ''}">${esc(t)}</div>`).join('')}${Q.step ? `<div class="line">正确的得数 ＝ <span class="box">${Q.input}</span></div>` : ''}</div>${msg}${Q.step ? pad() : ''}`
   else if (it.format === 'multi') body = `${it.text ? `<p class="dim">${esc(it.text)}</p>` : ''}<div class="card multi">${it.blanks.map((t, i) => { const ok = Q.okIdx[i], bad = Q.okIdx.length && !ok && Q.vals[i] !== ''; const [l, r = ''] = t.split('□')
       return `<button class="mrow ${i === Q.cur && !ok ? 'cur' : ''} ${ok ? 'ok' : bad ? 'bad' : ''}" ${ok ? 'disabled' : ''} data-a="blank" data-v="${i}">${esc(l)}<span class="box">${esc(Q.vals[i])}</span>${esc(r)}</button>` }).join('')}</div><p class="dim">点一个空再填数。每个空都要填。</p>${msg}${pad()}`
-  else {
+  else if (it.format === 'plan') {
+    const st = Q.step, cur = st === 0 ? 0 : st === 3 ? 2 : 1
+    const tabs = `<div class="steps">${['先求什么', '选算式', '算和答'].map((n, i) => `<span class="${i < cur ? 'done' : i === cur ? 'now' : ''}">${n}</span>`).join('')}</div><div class="card q">${esc(it.text)}</div>`
+    const goal = st ? `<div class="bubble plain">先求：${esc(it.goals[Q.goal] ?? '')}</div>` : ''
+    if (st === 0) body = `${tabs}<p class="dim">这道题一步算不出来。要先求出什么？</p>${msg}<div class="opts">${it.goals.map((t, i) => `<button data-a="goal" data-v="${i}">${esc(t)}</button>`).join('')}</div>`
+    else if (st < 3) body = `${tabs}${goal}${msg}<div class="opts">${Q.order.map(i => `<button data-a="choice" data-v="${i}">${esc(it.choices[i])}</button>`).join('')}</div>`
+    else {
+      const slot = Q.unit ? `<button class="uchip" data-a="unit" data-v="">${esc(Q.unit)}</button>` : V.tuning.unit_hint ? '<span class="uslot" aria-label="空着的单位格"></span>' : ''
+      body = `${tabs}<div class="card"><div class="expr">${esc(Q.expr)} ＝ <span class="box">${Q.input}</span></div><div class="ans">${esc(it.ask)} <b>${Q.input || '＿＿'}</b> ${slot} ${esc(it.tail || '')}</div></div>${msg}${pad(it.units)}`
+    }
+  } else {
     const st = Q.step, cur = st <= 1 ? 0 : st - 1          // 第 0、1 步都属于「圈关键词」
     const tabs = `<div class="steps">${['圈关键词', '选算式', '算和答'].map((n, i) => `<span class="${i < cur ? 'done' : i === cur ? 'now' : ''}">${n}</span>`).join('')}</div>`
     if (st === 0) body = `${tabs}<p class="dim">你觉得哪些地方最要紧，就点哪里，可以点好几处。</p><div class="card q">${segText(it, 'pick')}</div>${msg}<button class="btn" data-a="circled" ${Q.sel.size ? '' : 'disabled'}>圈好了，对一对</button>`
@@ -152,7 +170,14 @@ function vResult() {
   return `<div class="top"><h1>今天完成啦</h1></div><div class="body">
     <div class="room"><div class="pet"><div class="a-hop"><img src="${stage() ? `/pet/s${stage()}-act-wag.webp` : '/pet/s0.webp'}" alt=""></div></div></div><div class="sum"><i class="ico coin"></i>＋${its.reduce((a, it) => a + (it.done?.c || 0), 0)}</div>
     <div class="card rows"><span>第一次就答对</span><b>${first} 题</b><span>订正后答对</span><b>${fix} 题</b><span>过两天换个样子再来</span><b>${again} 题</b><span>最长认真连击</span><b>${S().best} 题</b></div>
-    <button class="btn" data-a="go" data-v="home">回小屋</button></div>`
+    <button class="btn" data-a="go" data-v="home">回小屋</button>
+    <button class="btn alt" data-a="extra">再练一会儿<small>最多再加几题，金币减半</small></button></div>`
+}
+function vAlbum() {
+  const a = [...S().album].reverse()
+  return `<div class="top"><h1>${name()}的相册</h1></div><div class="body">
+    ${a.length ? '' : '<div class="bubble plain">相册还是空的。小狗长大、学会本领、闯关成功，都会记在这里。</div>'}
+    ${a.map(m => `<div class="card memo"><img src="/pet/s${m.st}.webp" alt=""><span><small>${esc(m.at)}</small>${esc(m.t)}</span></div>`).join('')}</div>`
 }
 function vSkills() {
   const s = S(), k = SKILLS.find(x => x.k === sel), lv = s.skill[sel], cost = SKILL_COST[lv], have = s.pts[sel]
@@ -167,7 +192,8 @@ function vShop() {
   const s = S()
   const row = x => `<img src="/pet/item-${x.k}.webp" alt=""><b>${x.n}<small>${x.d}${x.kind === 'keep' ? '' : ` · 背包里 ${x.kind === 'toy' ? (s.toy[x.k] || 0) + ' 次' : (s.bag[x.k] || 0) + ' 份'}`}</small></b>${s.own[x.k] ? '<span class="dim">已拥有</span>' : `<button class="buy" data-a="buy" data-v="${x.k}"><i class="ico coin"></i>${x.p}</button>`}`
   const sec = (t, kinds) => `<div class="card shop"><h3>${t}</h3>${GOODS.filter(g => kinds.includes(g.kind)).map(row).join('')}</div>`
-  return `<div class="top"><h1>小卖部</h1>${coin(s.coins)}</div><div class="body">${say ? `<div class="bubble plain">${esc(say)}</div>` : ''}${sec('吃的', ['food'])}${sec('洗澡和玩具', ['soap', 'toy'])}${sec('装扮和家具', ['keep'])}</div>`
+  return `<div class="top"><h1>小卖部</h1>${coin(s.coins)}</div><div class="body">${say ? `<div class="bubble plain">${esc(say)}</div>` : ''}${sec('吃的', ['food'])}${sec('洗澡和玩具', ['soap', 'toy'])}${sec('装扮和家具', ['keep'])}
+    ${V.wish ? `<div class="wish"><b>心愿单 · ${esc(V.wish.text)}</b><p>这周做完任务满 ${V.wish.need} 天就能兑换。爸爸妈妈设的，和金币没关系。</p><div class="stamps">${Array.from({ length: V.wish.need }, (_, i) => `<i class="${i < V.wish.got ? 'f' : ''}"></i>`).join('')}</div>${V.wish.got >= V.wish.need ? '<p><b>来满啦，去找爸爸妈妈兑换吧！</b></p>' : ''}</div>` : ''}</div>`
 }
 function clock(it) {
   const p = (a, r) => [100 + r * Math.sin(a * Math.PI / 180), 100 - r * Math.cos(a * Math.PI / 180)]
@@ -192,8 +218,8 @@ function vStory() {
 const NAV = [['home', '小屋'], ['quests', '任务'], ['skills', '本领'], ['shop', '小卖部']]
 function render() {
   if (page === 'login' || !V) { app.innerHTML = vLogin(); return }
-  const v = { home: vHome, quests: vQuests, q: vQ, result: vResult, skills: vSkills, shop: vShop, story: vStory }[page]()
-  app.innerHTML = v + (page === 'q' ? '' : `<div class="nav">${NAV.map(([k, n]) => `<button class="${page === k || (k === 'home' && ['result', 'story'].includes(page)) ? 'on' : ''}" data-a="go" data-v="${k}">${n}</button>`).join('')}</div>`)
+  const v = { home: vHome, quests: vQuests, q: vQ, result: vResult, skills: vSkills, shop: vShop, story: vStory, album: vAlbum }[page]()
+  app.innerHTML = v + (page === 'q' ? '' : `<div class="nav">${NAV.map(([k, n]) => `<button class="${page === k || (k === 'home' && ['result', 'story', 'album'].includes(page)) ? 'on' : ''}" data-a="go" data-v="${k}">${n}</button>`).join('')}</div>`)
     + (cere ? `<div class="cere" aria-hidden="true"><div class="stars">${[[-80, -40], [80, -40], [-60, 60], [65, 50], [0, -90]].map(([x, y]) => `<i style="--x:${x}px;--y:${y}px"></i>`).join('')}</div><span class="ava"><img src="${face('proud')}" alt=""></span><b>叮！「${cere}」技能点 ＋1</b><span>${name()}又离新本领近了一步</span></div>` : '')
   act = ''; cere = null; if (Q) Q.mood = ''
 }
@@ -203,7 +229,7 @@ const curItem = () => groups().find(x => x.id === Q.gid).items.find(x => x.id ==
 function startQ(g, it) {
   // 刷新后接着做：服务器记着每道题做到第几步（it.step、it.p）
   Q = { gid: g.id, id: it.id, step: it.format === 'word' && it.step === 1 ? 2 : it.step, kw: it.kw, expr: it.expr, sel: new Set(it.kw?.sel || []), input: '', unit: null, msg: '', flash: false, fin: null, cover: false, mood: '', t0: Date.now(), order: (it.choices || []).map((_, i) => i),
-    zone: null, range: it.p?.range, spot: it.p?.spot, vals: it.format === 'multi' ? (it.p?.vals || it.blanks.map(() => '')) : (it.p?.vals || []), okIdx: it.p?.ok || [], cur: 0 }
+    zone: null, range: it.p?.range, spot: it.p?.spot, goal: it.p?.goal, vals: it.format === 'multi' ? (it.p?.vals || it.blanks.map(() => '')) : (it.p?.vals || []), okIdx: it.p?.ok || [], cur: 0 }
   if (it.format === 'multi') Q.cur = Math.max(0, Q.vals.findIndex((v, i) => !Q.okIdx[i]))
   if (S().slow > 0 && S().slowFrom !== it.id) {      // 「慢慢来」：先盖住 3 秒，剩几题由服务器记
     Q.cover = true
@@ -244,8 +270,10 @@ const A = {
     }
     if (!Q.input) { Q.msg = '还没填得数呢。'; return }
     if (it.format === 'steps') return run(async () => { const res = await send({ value: Q.input }); if (res) { Q.vals = res.vals; now() } })
-    return run(() => send(it.format === 'word' ? { step: 'answer', value: Q.input, unit: Q.unit } : { value: Q.input }))
+    return run(() => send(['word', 'plan'].includes(it.format) ? { step: 'answer', value: Q.input, unit: Q.unit } : { value: Q.input }))
   },
+  goal(i) { return run(async () => { const res = await send({ step: 'goal', index: +i }); if (res) { Q.step = 1; Q.goal = res.goal; Q.msg = ''; Q.t0 = Date.now() } }) },
+  extra() { return run(async () => { const r = await api('/act', { kind: 'extra' }); V = r.view; if (r.extra) page = 'quests'; else say = r.msg, page = 'home' }) },
   zone(z) { Q.zone = +z },
   blank(i) { Q.cur = +i },
   range(i) { return run(async () => { const res = await send({ index: +i }); if (res) { Q.step = 1; Q.range = res.range; Q.msg = ''; Q.t0 = Date.now() } }) },
