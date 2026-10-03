@@ -344,6 +344,15 @@ h2 .hb{width:44px;height:44px;border-radius:50%;vertical-align:-10px;margin-righ
 .items .n i{background:var(--bad);color:var(--berry)}
 .items .h i{background:var(--miss);color:var(--coin)}
 .right{background:var(--ok);border-radius:18px;padding:14px 18px;font-size:21px;line-height:1.9;font-variant-numeric:tabular-nums}
+.rec{display:grid;gap:6px}.rec>div{display:grid;grid-template-columns:110px 1fr;gap:10px;align-items:center;font-size:22px}
+.rec span{letter-spacing:.12em;font-size:26px;word-break:break-all}.rec i{font-style:normal;display:inline-flex;flex-direction:column;align-items:center;line-height:1.1}.rec sub{font-size:14px;color:var(--coin);font-weight:700}
+.stab{overflow-x:auto}.stab table{border-collapse:collapse;width:100%;font-size:20px;text-align:center}
+.stab th,.stab td{border:2px solid var(--line);padding:6px 4px}.stab th{background:var(--bg);font-weight:700}
+.tc{width:100%;min-width:52px;min-height:52px;border-radius:10px;background:var(--card);border:3px solid var(--line);font:700 24px var(--sans)}
+.tc.cur{border-color:var(--leaf);box-shadow:0 0 0 4px var(--sun)}.tc.bad{border-color:var(--berry);background:var(--bad)}
+.nums{display:flex;flex-wrap:wrap;gap:10px}
+.nums button{min-width:72px;min-height:56px;border-radius:14px;border:3px solid var(--line);background:var(--card);font-weight:700;font-size:24px;font-variant-numeric:tabular-nums}
+.nums button.on{background:var(--sun);border-color:var(--coin)}
 /* 小狗动作 */
 .breathe{animation:breathe 3.2s ease-in-out infinite;transform-origin:50% 90%}
 @keyframes breathe{50%{transform:scale(1.025,.975)}}

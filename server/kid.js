@@ -17,10 +17,10 @@ export function makePack(week) {
   const bank = readWeek(week).bank
   if (!bank?.templates?.length) throw new Error(`错题/${week}.md 里还没有「题库」，先运行 npm run kid bank`)
   const { pack, report } = buildPack(bank, week)
-  // 钟面和多空题没有单一算式，实例化时已经逐空检查过
+  // 钟面、多空题、统计表、整理数据没有单一算式，实例化时已经逐空检查过
   const okExpr = it => (['word', 'plan'].includes(it.format) ? it.choices.find(c => c.ok).t : it.format === 'first' ? it.tokens.join('') : it.text).replace(/−/g, '-')
   const before = pack.items.length
-  pack.items = pack.items.filter(it => ['clock', 'multi'].includes(it.format) || verifyItem({ expression: okExpr(it), answer: it.answer }))
+  pack.items = pack.items.filter(it => ['clock', 'multi', 'stat', 'data'].includes(it.format) || verifyItem({ expression: okExpr(it), answer: it.answer }))
   return { pack, report, dropped: before - pack.items.length }
 }
 

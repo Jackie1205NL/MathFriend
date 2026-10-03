@@ -3,10 +3,10 @@
 // 这个文件不能引用 server/ 或 kid/ 下的任何东西。
 
 export const PACK_VERSION = 1
-export const FORMATS = ['oral', 'first', 'clock', 'estimate', 'steps', 'fix', 'multi', 'word', 'plan']   // 孩子端遇到不认识的题型会跳过
-export const FORMAT_NAME = { oral: '口算闪答', first: '先算哪一步', clock: '拨钟面', estimate: '先估后算', steps: '递等式分步', fix: '小老师改错', multi: '多空题交卷', word: '应用题三步', plan: '挑战题' }
-export const BASE = { oral: 1, first: 2, clock: 4, estimate: 4, steps: 6, fix: 6, multi: 6, word: 12, plan: 25 }   // 题越长，每分钟赚得略多
-export const MIN_SECONDS = { oral: 2, first: 3, clock: 4, estimate: 3, steps: 4, fix: 5, multi: 8, word: 8, plan: 10 }   // 比这还快又答错，算「急着答错」
+export const FORMATS = ['oral', 'first', 'clock', 'estimate', 'steps', 'fix', 'multi', 'word', 'plan', 'stat', 'data']   // 孩子端遇到不认识的题型会跳过
+export const FORMAT_NAME = { oral: '口算闪答', first: '先算哪一步', clock: '拨钟面', estimate: '先估后算', steps: '递等式分步', fix: '小老师改错', multi: '多空题交卷', word: '应用题三步', plan: '挑战题', stat: '统计表', data: '整理数据' }
+export const BASE = { oral: 1, first: 2, clock: 4, estimate: 4, steps: 6, fix: 6, multi: 6, word: 12, plan: 25, stat: 14, data: 6 }   // 题越长，每分钟赚得略多
+export const MIN_SECONDS = { oral: 2, first: 3, clock: 4, estimate: 3, steps: 4, fix: 5, multi: 8, word: 8, plan: 10, stat: 20, data: 8 }   // 比这还快又答错，算「急着答错」
 export const HAS_PROCESS_BONUS = ['word', 'steps', 'estimate', 'multi', 'plan']   // 这些题型过程做全有 +2
 export const LEVELS = ['同构', '略变', '综合']
 // 难度阶梯：档位 0 / 1 / 2 时，抽题在三种难度上的比例
@@ -34,11 +34,11 @@ export const SKILL_EVERY = { 审题: 9, 概念不清: 9, 计算失误: 12, 格�
 // 本领在答题时：1 级提醒每天 3 次，2 级帮忙每天 1 次，3 级守护每周 1 次（每个本领单独算）。孩子点了才用。
 export const SKILL_USES = { 1: 3, 2: 1, 3: 1 }
 // 每种积木上哪些本领的徽章会亮；L2 是 2 级「帮忙」能用的积木（其他积木上 2 级用不上）
-export const SKILL_AT = { 审题: ['circle', 'build', 'goal'], 概念不清: ['build', 'chain'], 计算失误: ['chain', 'say', 'fill', 'range', 'blanks'], 格式规范: ['say'], 漏题: ['say', 'blanks', 'spot'], 策略缺失: ['goal', 'build'] }
-export const SKILL_L2 = { 审题: ['circle'], 概念不清: ['chain'], 计算失误: ['chain', 'say', 'fill'], 格式规范: ['say'], 漏题: ['say', 'blanks'], 策略缺失: ['goal'] }
+export const SKILL_AT = { 审题: ['circle', 'build', 'goal', 'pickcat', 'tapnum'], 概念不清: ['build', 'chain'], 计算失误: ['chain', 'say', 'fill', 'range', 'blanks', 'table'], 格式规范: ['say', 'tapnum'], 漏题: ['say', 'blanks', 'spot', 'table', 'tapnum'], 策略缺失: ['goal', 'build'] }
+export const SKILL_L2 = { 审题: ['circle'], 概念不清: ['chain'], 计算失误: ['chain', 'say', 'fill', 'table'], 格式规范: ['say'], 漏题: ['say', 'blanks', 'table', 'tapnum'], 策略缺失: ['goal'] }
 // 题型默认由哪些积木拼成；word / plan 的模板可以写 flow 改（只能从默认里删步骤，不能换顺序）
-export const FLOWS = { oral: ['fill'], first: ['first'], clock: ['clock'], estimate: ['range', 'fill'], steps: ['chain'], fix: ['spot', 'fill'], multi: ['blanks'], word: ['circle', 'build', 'chain', 'say'], plan: ['goal', 'build', 'chain', 'say'] }
-export const STEP_NAME = { fill: '填得数', first: '先算哪一步', clock: '拨时针', range: '估一估', chain: '一行一行算', spot: '找错行', blanks: '填空', circle: '圈关键词', goal: '先求什么', build: '列式', say: '写答句' }
+export const FLOWS = { oral: ['fill'], first: ['first'], clock: ['clock'], estimate: ['range', 'fill'], steps: ['chain'], fix: ['spot', 'fill'], multi: ['blanks'], word: ['circle', 'build', 'chain', 'say'], plan: ['goal', 'build', 'chain', 'say'], data: ['tapnum'] }   // stat 的积木按小问由模板定
+export const STEP_NAME = { fill: '填得数', first: '先算哪一步', clock: '拨时针', range: '估一估', chain: '一行一行算', spot: '找错行', blanks: '填空', circle: '圈关键词', goal: '先求什么', build: '列式', say: '写答句', table: '填统计表', pickcat: '选一类', tapnum: '找出来再数' }
 export const GOODS = [
   { k: 'cookie', n: '骨头饼干', d: '饱食 ＋10', p: 10, kind: 'food', full: 10 },
   { k: 'rice', n: '鸡肉蔬菜饭', d: '饱食 ＋35', p: 40, kind: 'food', full: 35 },
@@ -252,6 +252,40 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
       item.text = pretty(fill(t.expression, v)); item.answer = evalExpr(fill(t.expression, v))
       item.shown = t.shown.map(x => fill(x, v)); item.bad = t.bad
       if (!(Number.isInteger(t.bad) && t.bad >= 0 && t.bad < item.shown.length)) { bad('bad 不是 shown 里的行号'); continue }
+    } else if (t.format === 'stat') {
+      // 统计表：按记录（正字或 ✓）填表，再答两三个小问。各类的数随机生成、不并列
+      const cats = t.cats, [lo, hi] = String(t.vals || '3..15').split('..').map(Number)
+      if (!Array.isArray(cats) || cats.length < 3 || !(lo >= 0 && hi > lo)) { bad('cats 至少 3 类，vals 写成 "3..15"'); continue }
+      const vals = []
+      for (let k = 0; vals.length < cats.length && k < 200; k++) { const x = lo + Math.floor(r() * (hi - lo + 1)); if (!vals.includes(x)) vals.push(x) }
+      if (vals.length < cats.length) { bad('vals 的范围太小，凑不出不重复的数'); continue }
+      const mx = vals.indexOf(Math.max(...vals)), mn = vals.indexOf(Math.min(...vals))
+      const pair = () => { const a = Math.floor(r() * cats.length); let b = Math.floor(r() * (cats.length - 1)); if (b >= a) b++; return vals[a] > vals[b] ? [a, b] : [b, a] }
+      Object.assign(item, { record: t.record === 'check' ? 'check' : 'tally', title: fill(t.title || '统计表', v), cats, vals, answer: vals.reduce((a, b) => a + b, 0), unit: t.unit || '人' })
+      item.asks = (t.asks || []).map(q => {
+        const k = q.ask, [a, b] = k === 'a-b' || k === 'a+b' ? pair() : [mx, mn], name = { a: cats[a], b: cats[b] }
+        const base = { kind: k, unit: q.unit || item.unit, units: q.units || [item.unit, '种', '个'] }
+        if (k === 'max' || k === 'min') return { ...base, flow: ['pickcat'], t: fill(q.t || `${k === 'max' ? '哪一种最多' : '哪一种最少'}？`, name), ans: k === 'max' ? mx : mn }
+        const use = k === 'max-min' ? [mx, '−', mn] : k === 'a-b' ? [a, '−', b] : k === 'a+b' ? [a, '+', b] : null
+        if (!use) return null
+        return { ...base, flow: ['build', 'say'], use, t: fill(q.t || (k === 'max-min' ? '最多的比最少的多多少？' : k === 'a-b' ? '{a}比{b}多多少？' : '{a}和{b}一共多少？'), name),
+          pre: fill(q.pre || (k === 'max-min' ? '答：最多的比最少的多' : k === 'a-b' ? '答：{a}比{b}多' : '答：{a}和{b}一共'), name), ans: calcOp(vals[use[0]], use[1], vals[use[2]]) }
+      })
+      if (item.asks.some(x => !x)) { bad('asks 里的 ask 只能是 max、min、max-min、a-b、a+b'); continue }
+      item.flow = ['table', ...item.asks.flatMap(q => q.flow)]
+      item.parts = [0, ...item.asks.flatMap((q, j) => q.flow.map(() => j + 1))]
+    } else if (t.format === 'data') {
+      // 整理数据：从一串数里点出符合条件的，再数个数。故意放进正好等于界限的数（「超过 20」不包括 20）
+      const m = String(t.nums || '12×(10..38)').match(/^(\d+)×\((\d+)\.\.(\d+)\)$/)
+      if (!m) { bad('nums 写成 "12×(10..38)"'); continue }
+      const [cnt, lo, hi] = m.slice(1).map(Number), over = Array.isArray(t.over) ? pick(t.over) : Number(t.over ?? 20)
+      const nums = Array.from({ length: cnt }, () => lo + Math.floor(r() * (hi - lo + 1)))
+      if (over >= lo && over <= hi && !nums.includes(over)) nums[Math.floor(r() * cnt)] = over
+      const test = { over: x => x > over, under: x => x < over, atleast: x => x >= over }[t.ask || 'over']
+      if (!test) { bad('ask 只能是 over、under、atleast'); continue }
+      Object.assign(item, { nums, over, kind: t.ask || 'over', answer: nums.filter(test).length, unit: t.unit || '个', units: t.units || [t.unit || '个', '分'],
+        text: fill(t.text || '', { ...v, over }), ask: fill(t.pre || '答：', { ...v, over }) })
+      if (!item.answer || item.answer === cnt) { bad('一个都不符合或全都符合'); continue }
     } else if (t.format === 'multi') {
       // 多空题：一屏几个空，□ 是要填的位置
       item.text = fill(t.text, v)
@@ -286,7 +320,7 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
       if (!t.units?.includes(t.unit)) { bad('units 里没有正确单位'); continue }
     }
     if (!okAnswer(item.answer)) { bad('答案不是万以内的非负整数'); continue }
-    const key = JSON.stringify([item.text, item.tokens, item.segs?.map(s => s.t), item.lines?.map(l => l.pre + l.a), item.shown, item.blanks?.map(b => b.t)])
+    const key = JSON.stringify([item.vals, item.nums, item.text, item.tokens, item.segs?.map(s => s.t), item.lines?.map(l => l.pre + l.a), item.shown, item.blanks?.map(b => b.t)])
     if (seen.has(key)) { bad('重复'); continue }
     seen.add(key)
     items.push({ id: `${week.slice(5)}-${t.id}-${String(items.length + 1).padStart(3, '0')}`, tpl: t.id, group: group.id, bucket: group.bucket,
@@ -317,7 +351,16 @@ export function publicItem(it, o = {}) {
   if (it.format === 'word') p.segs = it.segs.map(s => ({ t: s.t }))
   if (['plan', 'clock', 'multi'].includes(it.format)) p.text = it.text
   const tier = it.level === '同构' ? Math.min(1, o.tier ?? 1) : o.tier ?? 1
-  p.flow = (it.flow || FLOWS[it.format]).map(type => {
+  if (it.format === 'stat') p.title = it.title
+  p.flow = (it.flow || FLOWS[it.format]).map((type, j) => {
+    const q = it.asks?.[(it.parts?.[j] || 0) - 1], part = it.parts ? { part: it.parts[j] } : {}
+    if (it.format === 'stat') {
+      if (type === 'table') return { type, part: 0, record: it.record, cats: it.cats, head: it.unit === '人' ? '人数' : '数量', marks: it.vals.map(n => it.record === 'check' ? '✓'.repeat(n) : '正'.repeat(Math.floor(n / 5)) + ['', '一', '丅', '下', '止'][n % 5]) }
+      if (type === 'pickcat') return { type, ...part, t: q.t, opts: it.cats }
+      if (type === 'build') return { type, ...part, t: q.t, tier: 1, stat: 1, chips: it.cats.map((l, cat) => ({ cat, l })) }
+      if (type === 'say') return { type, ...part, t: q.t, ask: q.pre, units: q.units, tail: '' }
+    }
+    if (type === 'tapnum') return { type, text: it.text || `下面这些数里，${{ over: '超过', under: '少于', atleast: '不少于' }[it.kind]} ${it.over} 的有几个？先点出来，再数一数。`, nums: it.nums, ask: it.ask, units: it.units }
     if (type === 'fill') return { type, text: it.format === 'fix' ? '' : it.text }
     if (type === 'first') return { type, tokens: it.tokens }
     if (type === 'clock') return { type, minute: it.minute }

@@ -183,7 +183,77 @@ export function createApi(store, env) {
    * 按积木逐步判分。每一步都照孩子自己的结果往下走：列错了式子，递等式就照他的式子算；
    * 所以能分清是列式错还是计算错。返回 { items: [{ i, good: 'y'|'n'|'h', msg, cat }], ok, habits, given, final }
    */
+  /** 统计表：先填表，再答几个小问。后面的小问照孩子自己填的数往下走，按小问判分 */
+  function judgeStat(it, steps) {
+    const items = [], habits = new Set(), add = (i, good, msg, cat = '') => items.push({ i, good, msg, cat }), n = it.cats.length
+    const cells = steps?.[0]?.cells || [], own = it.cats.map((_, j) => cells[j] === '' || cells[j] == null ? null : Number(cells[j])), tot = cells[n] === '' || cells[n] == null ? null : Number(cells[n])
+    const partsOk = [true, ...it.asks.map(() => true)], mark = it.record === 'check' ? '✓' : '正字'
+    it.cats.forEach((c, j) => {
+      if (own[j] == null) { partsOk[0] = false; add(0, 'n', `${c}没填`, '漏题') }
+      else if (own[j] !== it.vals[j]) { partsOk[0] = false; add(0, 'n', `${c}应该是 ${it.vals[j]}，你写了 ${own[j]}。${it.record === 'check' ? '一个一个数清楚' : '一个「正」是 5，先数整的正，再数零头'}`, '计算失误') }
+    })
+    const sum = own.reduce((a, b) => a + (b || 0), 0)
+    if (tot == null) { partsOk[0] = false; add(0, 'n', '合计没填', '漏题') }
+    else if (tot !== sum) { partsOk[0] = false; add(0, 'n', `合计：你填的${n}个数加起来是 ${sum}，合计写了 ${tot}`, '漏题') }
+    if (partsOk[0]) { add(0, 'y', `统计表都填对了，合计 ${tot}`); habits.add('计算失误') }
+    let expr = null, chipsCat = null, given = [`表 ${own.join(',')} 合计 ${tot}`]
+    it.flow.forEach((type, i) => {
+      if (!i) return
+      const a = steps?.[i] || {}, P = it.parts[i], q = it.asks[P - 1], tag = `（${P}）`
+      if (type === 'pickcat') {
+        const k = Number(a.i); given.push(it.cats[k])
+        if (k === q.ans) { habits.add('审题'); return add(i, 'y', `${tag}${q.kind === 'max' ? '最多' : '最少'}的是${it.cats[k]}，对`) }
+        partsOk[P] = false; add(i, 'n', `${tag}${q.kind === 'max' ? '最多' : '最少'}的是${it.cats[q.ans]}（${it.vals[q.ans]}），你选了${it.cats[k] ?? '？'}${own[k] != null && own[q.ans] != null && (q.kind === 'max' ? own[k] < own[q.ans] : own[k] > own[q.ans]) ? '。看清楚问的是最多还是最少' : ''}`, '审题')
+      } else if (type === 'build') {
+        const t = Array.isArray(a.expr) ? a.expr.map(x => typeof x === 'number' || /^\d+$/.test(x) ? Number(x) : String(x)) : []
+        chipsCat = (a.chips || []).filter(x => x != null).map(Number); expr = validExpr(t) ? t : null; given.push(showExpr(t))
+        // 数字卡就是孩子自己填进表里的数：按卡片对应的类别，用他填的数重新算一遍
+        let ci = 0
+        if (expr) expr = expr.map(x => typeof x === 'number' ? (chipsCat[ci] != null && own[chipsCat[ci]] != null ? own[chipsCat[ci++]] : (ci++, x)) : x)
+        const cats = new Set(chipsCat), want = [q.use[0], q.use[2]], v = expr ? exprValue(expr) : NaN
+        const should = own[want[0]] != null && own[want[1]] != null ? calcOp(own[want[0]], q.use[1], own[want[1]]) : null
+        if (!expr) { partsOk[P] = false; return add(i, 'n', `${tag}算式没写完整`, '漏题') }
+        const right = cats.size === 2 && want.every(c => cats.has(c)) && expr.filter(x => typeof x === 'number').length === 2 && expr.includes(q.use[1])
+        if (right && v === should) return add(i, 'y', `${tag}列式 ${showExpr(t)}，方法对`)
+        partsOk[P] = false
+        if (right && q.use[1] === '−' && Number.isNaN(v)) return add(i, 'n', `${tag}相差要用大数减小数`, '概念不清')
+        if (cats.size === 2 && want.every(c => cats.has(c))) return add(i, 'n', `${tag}列式 ${showExpr(t)}：${q.use[1] === '−' ? '「多多少」要用减法' : '「一共」要用加法'}`, '审题')
+        add(i, 'n', `${tag}列式 ${showExpr(t)}：比的不是题目问的两类，要用${it.cats[want[0]]}和${it.cats[want[1]]}`, '审题')
+      } else if (type === 'say') {
+        const v = a.v === '' || a.v == null ? null : Number(a.v), unit = a.unit || '', fin = expr ? exprValue(expr) : null
+        given.push(`${v ?? ''}${unit}`)
+        if (v == null) add(i, 'n', `${tag}答句里的得数没填`, '漏题')
+        else if (fin != null && !Number.isNaN(fin) && v !== fin) add(i, 'n', `${tag}算式算出来是 ${fin}，答句写了 ${v}`, '计算失误')
+        if (!unit) add(i, 'n', `${tag}答句忘写单位`, '格式规范')
+        else if (unit !== q.unit) add(i, 'n', `${tag}单位写成了「${unit}」`, '格式规范')
+        else { habits.add('格式规范'); if (v === fin) add(i, 'y', `${tag}${q.pre} ${v} ${unit}`) }
+        if (v != null && v !== q.ans && !items.some(x => x.i === i && x.good === 'n')) add(i, 'n', `${tag}答句写了 ${v}，应该是 ${q.ans}`, '计算失误')
+        if (!(v === q.ans && unit === q.unit)) partsOk[P] = false
+      }
+    })
+    return { items, ok: partsOk.every(Boolean), partsOk, habits: [...habits], given: given.join(' | '), kw: 0, unitMiss: items.some(x => x.msg.endsWith('忘写单位')) }
+  }
+  /** 整理数据：点出符合条件的数，再数个数 */
+  function judgeData(it, steps) {
+    const items = [], habits = new Set(), add = (good, msg, cat = '') => items.push({ i: 0, good, msg, cat }), a = steps?.[0] || {}
+    const sel = new Set((a.sel || []).map(Number)), test = { over: x => x > it.over, under: x => x < it.over, atleast: x => x >= it.over }[it.kind]
+    const want = it.nums.flatMap((x, j) => test(x) ? [j] : []), word = { over: '超过', under: '少于', atleast: '不少于' }[it.kind]
+    const eq = [...sel].filter(j => it.nums[j] === it.over && !test(it.over)), extra = [...sel].filter(j => !test(it.nums[j]) && it.nums[j] !== it.over), miss = want.filter(j => !sel.has(j))
+    if (eq.length) add('n', `点了 ${it.over}：「${word} ${it.over}」不包括 ${it.over} 本身`, '审题')
+    if (extra.length) add('n', `点了不符合的：${extra.map(j => it.nums[j]).join('、')}`, '审题')
+    if (miss.length) add('n', `漏了 ${miss.length} 个：${miss.map(j => it.nums[j]).join('、')}`, '漏题')
+    if (!eq.length && !extra.length && !miss.length) { habits.add('审题'); add('y', `${word} ${it.over} 的都找对了`) }
+    const v = a.v === '' || a.v == null ? null : Number(a.v), unit = a.unit || ''
+    if (v == null) add('n', '个数没填', '漏题')
+    else if (v !== sel.size) add('n', `你点了 ${sel.size} 个，却写了 ${v}`, '计算失误')
+    if (!unit) add('n', '答句忘写单位', '格式规范'); else if (unit !== it.unit) add('n', `单位写成了「${unit}」`, '格式规范'); else habits.add('格式规范')
+    const ok = v === want.length && unit === it.unit
+    if (ok) add('y', `${it.ask} ${v} ${unit}`)
+    return { items, ok, habits: [...habits], given: `点了 ${[...sel].map(j => it.nums[j]).join(',')} | ${v ?? ''}${unit}`, kw: 0, unitMiss: !unit && v === want.length }
+  }
   function judge(it, steps) {
+    if (it.format === 'stat') return judgeStat(it, steps)
+    if (it.format === 'data') return judgeData(it, steps)
     const flow = it.flow || FLOWS[it.format], items = [], habits = new Set()
     const add = (i, good, msg, cat = '') => items.push({ i, good, msg, cat })
     const trap = v => it.traps?.find(t => t.value === v)
@@ -281,6 +351,9 @@ export function createApi(store, env) {
   }
   /** 正确做法，交卷后给孩子看 */
   function solution(it) {
+    if (it.format === 'stat') return { explain: it.explain, lines: [it.cats.map((c, j) => `${c} ${it.vals[j]}`).join('，') + `，合计 ${it.answer}`,
+      ...it.asks.map((q, j) => `（${j + 1}）${q.flow[0] === 'pickcat' ? `${q.kind === 'max' ? '最多' : '最少'}的是${it.cats[q.ans]}` : `${it.vals[q.use[0]]} ${q.use[1]} ${it.vals[q.use[2]]} = ${q.ans}（${q.unit}）  ${q.pre} ${q.ans} ${q.unit}`}`)] }
+    if (it.format === 'data') { const t = { over: x => x > it.over, under: x => x < it.over, atleast: x => x >= it.over }[it.kind]; return { explain: it.explain, lines: [`符合的是 ${it.nums.filter(t).join('、')}`, `${it.ask} ${it.answer} ${it.unit}`] } }
     const t = it.choices ? toTokens(it.choices.find(c => c.ok).t) : ['steps', 'oral', 'estimate', 'fix'].includes(it.format) ? toTokens(it.text) : null
     const lines = t && exprSteps(t)?.length > 1 ? [showExpr(t), ...exprSteps(t).map(st => '= ' + showExpr(reduceAt(st.t, st.k, st.v)))] : t ? [`${showExpr(t)} = ${it.answer}`] : []
     if (it.format === 'first') lines.push(`先算 ${it.tokens[it.first]}`)
@@ -295,7 +368,9 @@ export function createApi(store, env) {
     const s = ctx.state, ok = J.ok, firstOk = ok && !rec.caught
     const pb = rec.l2 ? 0 : { word: J.kw, steps: J.chainOk ? 2 : 0, estimate: J.rangeOk ? 2 : 0, multi: J.blankMiss ? 0 : 2, plan: J.goalOk ? 2 : 0 }[it.format] || 0
     const extra = ctx.day.groups.find(g => g.id === 'extra')?.items.includes(it.id)
-    let { c, core } = coinsFor(it.price, ok ? 1 : 0, pb), bonus = false
+    // 统计表按小问给金币：答对几问拿几份（每问一样多），答错的那问不给
+    const frac = J.partsOk ? J.partsOk.filter(Boolean).length / J.partsOk.length : ok ? 1 : 0
+    let { c, core } = coinsFor(it.price, frac, ok ? pb : 0), bonus = false
     if (extra) c = Math.ceil(c / 2)                      // 加练的题金币减半
     if (firstOk) { s.combo++; s.best = Math.max(s.best, s.combo); if (s.combo % 5 === 0) { c += 5; bonus = true } } else if (!rec.caught) s.combo = 0   // 被守护接住的，连击不断
     // 技能点：做出习惯就攒，攒满 SKILL_EVERY 次得 1 点，每个本领每天最多 1 点
@@ -323,7 +398,7 @@ export function createApi(store, env) {
     // 3 级守护没用上：这周的次数退回
     let refund = ''
     if (rec.guard) { const U = s.uses?.[rec.guard]; if (U && U.w3 > 0) U.w3--; refund = SKILLS.find(x => x.k === rec.guard).n; rec.guard = null }
-    rec.fin = { c, core, ok, pb, bonus, points, point: points[0] || '', extra: !!extra, grew: 0, items: J.items, habits: J.habits, caught: rec.caught || null, help: rec.help || [], refund, l2: !!rec.l2, ...solution(it) }
+    rec.fin = { c, core, ok, partsOk: J.partsOk || null, pb, bonus, points, point: points[0] || '', extra: !!extra, grew: 0, items: J.items, habits: J.habits, caught: rec.caught || null, help: rec.help || [], refund, l2: !!rec.l2, ...solution(it) }
     ctx.log.push(row(ctx, it, { try: rec.caught ? 2 : 1, correct: ok, given: J.given, coins: c, trap_error_type: ok ? null : J.items.find(x => x.good === 'n')?.cat || it.err,
       step_failed: ok ? null : J.unitMiss && J.items.filter(x => x.good === 'n').length === 1 ? '忘写单位' : STEP_NAME[(it.flow || FLOWS[it.format])[J.items.find(x => x.good === 'n')?.i]] || null,
       ms: rec.ms, help: rec.help?.length ? rec.help : null, steps: (it.flow || FLOWS[it.format]).map((_, i) => J.items.filter(x => x.i === i).every(x => x.good === 'y') ? 1 : 0).join('') }))

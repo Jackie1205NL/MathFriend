@@ -179,7 +179,8 @@ function startQ(g, it) {
 function enter() {
   const b = step(), r = Q.rec[Q.i] || {}
   Object.assign(Q, { input: r.v != null ? String(r.v) : '', unit: r.unit ?? null, sel: new Set(r.sel || []), pick: r.i ?? null, expr: (r.expr || []).map((x, j) => ({ x, chip: r.chips?.[j] })), zone: r.zone ?? null,
-    vals: r.vals ? [...r.vals] : (b.blanks || []).map(() => ''), cur: 0, lines: null, op: null, fx: {} })
+    vals: r.vals ? [...r.vals] : (b.blanks || []).map(() => ''), cur: 0, lines: null, op: null, fx: {},
+    cells: r.cells ? [...r.cells] : (b.cats || []).map(() => '').concat(''), pos: 0 })
   sayPet(TIPS[b.type] || '')
   if (b.type === 'chain') {
     const start = b.start || built()
@@ -189,7 +190,9 @@ function enter() {
   }
 }
 const fi = type => Q.flow.findIndex(b => b.type === type)
-const built = () => { const bi = fi('build'), r = Q.rec[bi]; return !r ? [] : r.expr || (r.i != null ? toTokens(curItem().flow[bi].choices[r.i]) : []) }
+const chipVal = (b, i) => b.stat ? Number(Q.rec[0]?.cells?.[b.chips[i].cat]) : b.chips[i].v
+const lastOf = type => { for (let j = Math.min(Q.i, Q.flow.length - 1); j >= 0; j--) if (Q.flow[j].type === type) return j; return Q.flow.findIndex(b => b.type === type) }
+const built = () => { const bi = lastOf('build'), r = Q.rec[bi]; return !r ? [] : r.expr || (r.i != null ? toTokens(curItem().flow[bi].choices[r.i]) : []) }
 const chainFinal = () => { const r = Q.rec[fi('chain')]; if (!r) return null; let t = stripParens(curItem().flow[fi('chain')].start || built()); for (const L of r.lines) t = reduceAt(t, L.k, L.v); return t.length === 1 ? t[0] : null }
 function autoOp() { const L = Q.lines.at(-1), ks = L.t.flatMap((x, k) => canTap(L.t, k) ? [k] : []); Q.op = ks.length === 1 && L.t.filter(isOp).length === 1 ? ks[0] : null }
 function save(x) { Q.rec[Q.i] = { ...(Q.rec[Q.i] || {}), ...x } }
@@ -208,6 +211,10 @@ function submitQ() {
 // 题干：应用题按段显示（圈关键词时能点），其他题型一句话
 function qText(mode) {
   const it = curItem()
+  if (it.format === 'stat') {
+    const tb = Q.flow[0], own = Q.rec[0]?.cells || Q.cells, q = step()?.t || ''
+    return `${statTable(tb, own, false)}${q && step()?.type !== 'say' ? `<div class="bubble plain good">${esc(q)}</div>` : ''}`
+  }
   if (it.segs) {
     const ci = fi('circle'), circ = new Set(Q.rec[ci]?.sel || []), last = it.segs.length - 1
     return `<div class="card q">${it.segs.map((s, i) => {
@@ -219,9 +226,23 @@ function qText(mode) {
   }
   return it.text ? `<div class="card q">${esc(it.text)}</div>` : ''
 }
+/** 统计记录：每一类后面是正字或 ✓；稳稳爪 2 级时在每个整的「正」下面标 5 */
+const record = b => `<div class="card rec"><p class="dim">${esc(curItem().title)}，记录如下。</p>${b.cats.map((c, i) => `<div><b>${esc(c)}</b><span>${[...b.marks[i]].map(m => m === '正' && Q.fx.five ? '<i>正<sub>5</sub></i>' : esc(m)).join('')}</span></div>`).join('')}</div>`
+function statTable(b, cells, live) {
+  const n = b.cats.length, td = i => live ? `<td><button class="tc ${i === Q.pos ? 'cur' : ''} ${Q.fx.flash && (cells[i] ?? '') === '' ? 'bad' : ''}" data-a="tcell" data-v="${i}" aria-label="${i < n ? esc(b.cats[i]) : '合计'}">${esc(cells[i] ?? '')}</button></td>` : `<td><b>${esc(cells[i] ?? '')}</b></td>`
+  return `<div class="card stab"><p class="dim">${esc(curItem().title)}统计表</p><table><tr><th>种类</th>${b.cats.map(c => `<th>${esc(c)}</th>`).join('')}<th>合计</th></tr><tr><th>${esc(b.head || '数量')}</th>${b.cats.map((_, i) => td(i)).join('')}${td(n)}</tr></table></div>`
+}
 const box = (v, cur = true, cls = '') => `<span class="box ${cur ? 'cur' : ''} ${cls}">${v === '' || v == null ? '&nbsp;' : esc(v)}</span>`
 function vStep() {
   const it = curItem(), b = step(), go = lastStep() ? '交卷' : '下一步'
+  if (b.type === 'table') return `${record(b)}${statTable(b, Q.cells, true)}<p class="dim">点一个格子再填数，合计也要填。</p>${pad(null, go, 'stepgo')}`
+  if (b.type === 'pickcat') return `${qText()}<div class="opts">${b.opts.map((o, i) => `<button data-a="pickgo" data-v="${i}">${esc(o)}</button>`).join('')}</div>`
+  if (b.type === 'tapnum') {
+    const order = b.nums.map((_, i) => i); if (Q.fx.sorted) order.sort((x, y) => b.nums[x] - b.nums[y])
+    const slot = Q.unit ? `<button class="uchip" data-a="unit" data-v="">${esc(Q.unit)}</button>` : V.tuning.unit_hint ? '<span class="uslot" aria-label="空着的单位格"></span>' : ''
+    return `<div class="card q">${esc(b.text)}</div><div class="card nums">${order.map(i => `<button class="${Q.sel.has(i) ? 'on' : ''}" data-a="seg" data-v="${i}">${b.nums[i]}</button>`).join('')}</div>
+      <div class="card"><div class="ans">${esc(b.ask)} ${box(Q.input)} ${slot}</div></div>${pad(b.units, go, 'stepgo')}`
+  }
   if (b.type === 'fill') {
     const r = fi('range'), spot = fi('spot')
     if (it.format === 'fix') return `<div class="card"><div class="line">${esc(curItem().flow[spot].text)}</div>${curItem().flow[spot].shown.map((t, i) => `<div class="frow ${i === Q.rec[spot]?.i ? 'bad' : ''}">${esc(t)}</div>`).join('')}<div class="line">正确的得数 ＝ ${box(Q.input)}</div></div>${pad(null, go, 'stepgo')}`
@@ -238,7 +259,7 @@ function vStep() {
     const gi = fi('goal'), head = gi >= 0 ? `<div class="bubble plain good">先求：${esc(it.flow[gi].opts[Q.rec[gi]?.i] ?? '')}</div>` : ''
     if (b.tier === 0) return `${qText()}${head}<p class="dim">选一个算式。选了直接进下一步，交卷后再看对不对。</p><div class="opts">${b.choices.map((o, i) => `<button data-a="pickgo" data-v="${i}">${esc(o)}</button>`).join('')}</div>`
     const circ = new Set(Q.rec[fi('circle')]?.sel || [])
-    const chips = b.chips.map((c, i) => `<button class="chip ${c.seg >= 0 && circ.has(c.seg) ? 'circ' : ''}" data-a="chip" data-v="${i}" ${Q.expr.some(e => e.chip === i) ? 'disabled' : ''}>${c.v}<small>${c.seg >= 0 && circ.has(c.seg) ? '圈过的' : '&nbsp;'}</small></button>`).join('')
+    const chips = b.chips.map((c, i) => `<button class="chip ${c.seg >= 0 && circ.has(c.seg) ? 'circ' : ''}" data-a="chip" data-v="${i}" ${Q.expr.some(e => e.chip === i) ? 'disabled' : ''}>${b.stat ? esc(chipVal(b, i)) : c.v}<small>${b.stat ? esc(c.l) : c.seg >= 0 && circ.has(c.seg) ? '圈过的' : '&nbsp;'}</small></button>`).join('')
     return `${qText()}${head}<div class="card"><div class="expr">${Q.expr.length ? esc(showExpr(Q.expr.map(e => e.x))) : '<span class="ph">点下面的数和符号拼算式</span>'}</div></div>
       <div class="chips">${chips}</div>
       <div class="ops">${['+', '−', '×', '÷', '(', ')'].map(o => `<button data-a="op" data-v="${o}">${o}</button>`).join('')}<button data-a="del" aria-label="退一格">⌫</button><button data-a="clr">清空</button></div>
@@ -258,7 +279,7 @@ function vStep() {
   }
   if (b.type === 'say') {
     const slot = Q.unit ? `<button class="uchip" data-a="unit" data-v="">${esc(Q.unit)}</button>` : V.tuning.unit_hint ? '<span class="uslot" aria-label="空着的单位格"></span>' : ''
-    const ex = built(), fin = chainFinal()
+    const ex = built(), fin = curItem().format === 'stat' ? null : chainFinal()
     return `${qText()}${ex.length ? `<div class="card"><div class="expr">${esc(showExpr(ex))}${fin != null ? ` ＝ ${fin}` : ''}</div></div>` : ''}<div class="card"><div class="ans">${esc(b.ask)} ${box(Q.input, true, Q.fx.flash && !Q.input ? 'bad' : '')} ${slot} ${esc(b.tail || '')}</div></div>${pad(b.units, go, 'stepgo')}`
   }
   return ''
@@ -300,23 +321,24 @@ async function useSkill(k, L) {
   V = r.view; Q.menu = null
   if (!r.fx) { if (r.msg) sayPet(r.msg); return }
   const fx = r.fx, L1 = {
-    审题: { circle: '（嗅嗅）先看最后一句，它问的是什么？我在下面留了一串脚印。', build: '（嗅嗅）看清楚题目问的是什么，要用的数都在题目里。', goal: '（嗅嗅）想想问题问的是什么，要知道它，先得知道什么？' },
+    审题: { pickcat: '（嗅嗅）看清楚问的是最多还是最少。', tapnum: '（嗅嗅）看清楚条件：「超过」包不包括它本身？', circle: '（嗅嗅）先看最后一句，它问的是什么？我在下面留了一串脚印。', build: '（嗅嗅）看清楚题目问的是什么，要用的数都在题目里。', goal: '（嗅嗅）想想问题问的是什么，要知道它，先得知道什么？' },
     概念不清: '有括号先算括号里的；没括号先算乘除，再算加减。',
-    计算失误: { range: '先看最高位，大概是几百、几十？', blanks: '每个空算完，再对一遍。', default: '交之前估一估：得数大概几位数？和你写的对得上吗？' },
+    计算失误: { table: '一个「正」是 5。先数整的正，再数零头。', range: '先看最高位，大概是几百、几十？', blanks: '每个空算完，再对一遍。', default: '交之前估一估：得数大概几位数？和你写的对得上吗？' },
     格式规范: '写完了从头读一遍答句，看看有没有落下什么。',
     策略缺失: '（拿出小地图）这题要走两步：先求一个中间的数，再求问题问的。',
   }
   if (L === 3) { Q.guard = k; sayPet(`${sk.n}守着这道题。交卷时如果${GUARD[k]}，它会先拦下来。`, 'skill') }
   if (L === 1) {
     if (k === '审题' && b.type === 'circle') Q.fx.trail = true
-    if (k === '漏题') { const n = b.type === 'blanks' ? Q.vals.filter(v => v === '').length : (Q.input ? 0 : 1) + (Q.unit ? 0 : 1); Q.fx.flash = true; sayPet(n ? `（巡逻绕一圈）还有 ${n} 个格子空着。` : '（巡逻绕一圈）每个格子都填了。', 'skill') }
+    if (k === '漏题') { const n = b.type === 'blanks' ? Q.vals.filter(v => v === '').length : b.type === 'table' ? Q.cells.filter(v => v === '').length : (Q.input ? 0 : 1) + (Q.unit ? 0 : 1); Q.fx.flash = true; sayPet(n ? `（巡逻绕一圈）还有 ${n} 个格子空着。` : '（巡逻绕一圈）每个格子都填了。', 'skill') }
     else { const t = L1[k], line = typeof t === 'string' ? t : t[b.type] || t.default || ''; sayPet(fx.hint ? `${line} ${fx.hint}` : line, 'skill') }
   }
   if (L === 2) {
     if (k === '审题') { Q.fx.grey = fx.grey; Q.sel.delete(fx.grey); sayPet('（嗅嗅）变灰的这句和算数没关系，不用管它。', 'skill') }
     if (k === '概念不清') { Q.fx.mark = true; sayPet('先算标着 ① 的那块。', 'skill') }
     if (k === '计算失误') {
-      if (b.type === 'chain') { const L = Q.lines.at(-1), j = nextOp(L.t); sayPet(`（爪子比一比）这一行先算的那块，得数是 ${String(calcOp(L.t[j - 1], L.t[j], L.t[j + 1])).length} 位数。`, 'skill') }
+      if (b.type === 'table') { Q.fx.five = true; sayPet('每个整的「正」下面都标了 5，零头自己数。', 'skill') }
+      else if (b.type === 'chain') { const L = Q.lines.at(-1), j = nextOp(L.t); sayPet(`（爪子比一比）这一行先算的那块，得数是 ${String(calcOp(L.t[j - 1], L.t[j], L.t[j + 1])).length} 位数。`, 'skill') }
       else sayPet(`（爪子比一比）得数是 ${fx.digits} 位数。`, 'skill')
     }
     if (k === '格式规范') {
@@ -324,7 +346,7 @@ async function useSkill(k, L) {
       try { const u = new SpeechSynthesisUtterance(text.replace(/……/g, '，嗯，')); u.lang = 'zh-CN'; speechSynthesis.cancel(); speechSynthesis.speak(u) } catch { /* 不支持朗读就只显示文字 */ }
       sayPet(`（读出声）「${text}」${Q.unit ? '' : '……读到最后好像停住了？'}`, 'skill')
     }
-    if (k === '漏题') sayPet(b.type === 'say' ? '验算：把答句里的得数代回题目想一想，说得通吗？' : '验算：每个空填好后，从头到尾再算一遍。', 'skill')
+    if (k === '漏题') { if (b.type === 'tapnum') Q.fx.sorted = true; sayPet(b.type === 'say' ? '验算：把答句里的得数代回题目想一想，说得通吗？' : b.type === 'table' ? '验算：把各类加起来，和合计对一对。' : b.type === 'tapnum' ? '我把数从小到大排好了，你再找。' : '验算：每个空填好后，从头到尾再算一遍。', 'skill') }
     if (k === '策略缺失') { Q.fx.strike = fx.strike; sayPet('（探路跑了一圈）这条路走不通，我先帮你划掉。', 'skill') }
   }
   Q.fire = { k, text: `${sk.n} ${L} 级 · ${LV[L]}` }
@@ -337,7 +359,8 @@ const HABIT = { 审题: '圈得刚刚好', 格式规范: '单位第一次就写�
 function vQResult(g) {
   const d = Q.fin, more = g.items.some(x => !x.done), b = d.boss, mark = { y: '✓', n: '✗', h: '!' }
   const sk = cat => { const x = SKILLS.find(s => s.k === cat); return x && S().skill[cat] ? `<small class="dim"> · ${x.n}管这个</small>` : '' }
-  const habits = (d.habits || []).filter(h => HABIT[h]).map(h => `<span class="cond ok">${HABIT[h]}</span>`).join('')
+  const it = curItem(), lab = h => it.format === 'stat' ? { 审题: '看清了问的是什么', 计算失误: '统计表填对了' }[h] || HABIT[h] : it.format === 'data' ? { 审题: '条件看清楚了' }[h] || HABIT[h] : HABIT[h]
+  const habits = (d.habits || []).filter(h => lab(h)).map(h => `<span class="cond ok">${lab(h)}</span>`).join('')
   const extra = [...(d.help || []).map(h => `<div class="h"><i>★</i><span>本领帮了你 · ${esc(h)}</span></div>`),
     ...(d.caught ? [`<div class="h"><i>◆</i><span>被${esc(d.caught.n)}接住了一次（不算第一次就做对，金币照给）</span></div>`] : []),
     ...(d.refund ? [`<div class="y"><i>↺</i><span>${esc(d.refund)}守着这题，没用上，这周的守护次数退回去了</span></div>`] : [])].join('')
@@ -356,7 +379,7 @@ function vQ() {
   const g = groups().find(x => x.id === Q.gid), it = g.items.find(x => x.id === Q.id), idx = g.items.indexOf(it) + 1
   const bar = Q.flow.length > 1 ? `<div class="steps" style="grid-template-columns:repeat(${Q.flow.length},1fr)">${Q.flow.map((t, i) => `<span class="${Q.fin || i < Q.i ? 'done' : i === Q.i ? 'now' : ''}">${STEP_NAME[t.type]}</span>`).join('')}</div>` : ''
   return `<div class="top"><button class="back" data-a="go" data-v="quests" aria-label="回到任务">‹</button><h1>${esc(g.name)} ${idx}/${g.items.length}</h1>${coin('最高 ' + (g.extra ? Math.ceil(it.max / 2) : it.max))}</div>
-  <div class="body qbody">${Q.cover ? `<div class="cover"><img src="${face('thinking')}" alt=""><b style="font:400 30px var(--kid)">慢慢来</b><span>${name()}在帮你把题目再读一遍……</span></div>` : ''}${bar}${Q.fin ? (it.segs ? qText() : '') + vQResult(g) : vStep()}</div>
+  <div class="body qbody">${Q.cover ? `<div class="cover"><img src="${face('thinking')}" alt=""><b style="font:400 30px var(--kid)">慢慢来</b><span>${name()}在帮你把题目再读一遍……</span></div>` : ''}${bar}${Q.fin ? (it.segs || it.format === 'stat' ? qText() : '') + vQResult(g) : vStep()}</div>
   ${vDock()}${Q.menu ? vMenu() : ''}${Q.catch ? vCatch() : ''}${Q.fire ? `<div class="toast fire"><img src="/pet/badge-${SKILLS.find(x => x.k === Q.fire.k).badge}.webp" alt="">${esc(Q.fire.text)}</div>` : ''}`
 }
 const QA = {
@@ -366,7 +389,8 @@ const QA = {
     const b = step(), edit = v => k === '⌫' ? v.slice(0, -1) : (v + k).slice(0, 5)
     if (b.type === 'blanks') { Q.vals[Q.cur] = edit(Q.vals[Q.cur]); return }
     if (b.type === 'chain' && Q.op == null) { sayPet('先点你要先算的那个符号。'); return }
-    if (['fill', 'chain', 'say'].includes(b.type)) Q.input = edit(Q.input)
+    if (b.type === 'table') { Q.cells[Q.pos] = (k === '⌫' ? Q.cells[Q.pos].slice(0, -1) : (Q.cells[Q.pos] + k).slice(0, 3)); return }
+    if (['fill', 'chain', 'say', 'tapnum'].includes(b.type)) Q.input = edit(Q.input)
   },
   submit() { if (page === 'login') return run(async () => { try { await api('/login', { pin }); loginErr = ''; V = await api('/state'); page = 'home'; chat() } catch (e) { loginErr = e.message } pin = '' }) },
   stepgo() {
@@ -386,13 +410,16 @@ const QA = {
       Q.lines.push({ t: nt }); autoOp(); sayPet(Q.op != null ? '只剩一个符号了，直接算。' : '下一行，先点你要先算的符号。'); return
     }
     if (b.type === 'say') { if (!Q.input) return sayPet('还没填得数呢。'); save({ v: Number(Q.input), unit: Q.unit }); return next() }
+    if (b.type === 'table') { save({ cells: [...Q.cells] }); return next() }
+    if (b.type === 'tapnum') { if (!Q.input) return sayPet('还没填个数呢。'); save({ sel: [...Q.sel], v: Number(Q.input), unit: Q.unit }); return next() }
   },
   pick(i) { Q.pick = +i },
   pickgo(i) { if (Q.fin || Q.catch) return; save({ i: +i }); return next() },
   zone(z) { Q.zone = +z },
   blank(i) { Q.cur = +i },
   seg(i) { i = +i; if (Q.fx.grey === i) return; Q.sel.has(i) ? Q.sel.delete(i) : Q.sel.add(i) },
-  chip(i) { i = +i; if (Q.expr.some(e => e.chip === i)) return; Q.expr.push({ x: step().chips[i].v, chip: i }) },
+  chip(i) { i = +i; if (Q.expr.some(e => e.chip === i)) return; Q.expr.push({ x: chipVal(step(), i), chip: i }) },
+  tcell(i) { Q.pos = +i },
   op(o) { Q.expr.push({ x: o }) },
   del() { Q.expr.pop() },
   clr() { Q.expr = [] },
