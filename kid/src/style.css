@@ -371,6 +371,14 @@ h2 .hb{width:44px;height:44px;border-radius:50%;vertical-align:-10px;margin-righ
 .scratch{position:fixed;inset:0;z-index:7;background:#fffef6;display:grid;grid-template-rows:1fr auto;gap:12px;padding:20px 20px calc(20px + env(safe-area-inset-bottom,0px));background-image:linear-gradient(#e9efe6 1px,transparent 1px),linear-gradient(90deg,#e9efe6 1px,transparent 1px);background-size:40px 40px}
 .scratch canvas{width:100%;height:100%;touch-action:none;border:2px dashed var(--line);border-radius:16px}
 .scratch .duo{max-width:700px;width:100%;margin:0 auto}
+.col.div{justify-content:center}
+.drow{display:grid;grid-auto-flow:column;grid-auto-columns:70px;justify-items:stretch;align-items:center;min-height:60px}
+.drow>span{display:grid;place-items:center;height:100%}
+.drow.dtop>span{height:64px;border-top:4px solid var(--ink)}
+.drow.dtop>span.dv{border-top:0;border-right:4px solid var(--ink);border-radius:0 0 22px 0;justify-items:end;padding-right:14px}
+.drow>span.u{border-bottom:3px solid var(--ink);padding-bottom:4px}
+.cslot.sm{width:52px;height:52px;font-size:28px}
+.ans.big2{font-size:30px;font-weight:700;justify-content:center;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
 /* 小狗动作 */
 .breathe{animation:breathe 3.2s ease-in-out infinite;transform-origin:50% 90%}
 @keyframes breathe{50%{transform:scale(1.025,.975)}}

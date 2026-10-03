@@ -34,11 +34,11 @@ export const SKILL_EVERY = { 审题: 9, 概念不清: 9, 计算失误: 12, 格�
 // 本领在答题时：1 级提醒每天 3 次，2 级帮忙每天 1 次，3 级守护每周 1 次（每个本领单独算）。孩子点了才用。
 export const SKILL_USES = { 1: 3, 2: 1, 3: 1 }
 // 每种积木上哪些本领的徽章会亮；L2 是 2 级「帮忙」能用的积木（其他积木上 2 级用不上）
-export const SKILL_AT = { 审题: ['circle', 'build', 'goal', 'pickcat', 'tapnum'], 概念不清: ['build', 'chain'], 计算失误: ['chain', 'say', 'fill', 'range', 'blanks', 'table', 'column'], 格式规范: ['say', 'tapnum'], 漏题: ['say', 'blanks', 'spot', 'table', 'tapnum', 'column'], 策略缺失: ['goal', 'build'] }
+export const SKILL_AT = { 审题: ['circle', 'build', 'goal', 'pickcat', 'tapnum'], 概念不清: ['build', 'chain'], 计算失误: ['chain', 'say', 'fill', 'range', 'blanks', 'table', 'column', 'check'], 格式规范: ['say', 'tapnum'], 漏题: ['say', 'blanks', 'spot', 'table', 'tapnum', 'column', 'check'], 策略缺失: ['goal', 'build'] }
 export const SKILL_L2 = { 审题: ['circle'], 概念不清: ['chain'], 计算失误: ['chain', 'say', 'fill', 'table', 'column'], 格式规范: ['say'], 漏题: ['say', 'blanks', 'table', 'tapnum', 'column'], 策略缺失: ['goal'] }
 // 题型默认由哪些积木拼成；word / plan 的模板可以写 flow 改（只能从默认里删步骤，不能换顺序）
 export const FLOWS = { oral: ['fill'], first: ['first'], clock: ['clock'], estimate: ['range', 'fill'], steps: ['chain'], fix: ['spot', 'fill'], multi: ['blanks'], word: ['circle', 'build', 'chain', 'say'], plan: ['goal', 'build', 'chain', 'say'], data: ['tapnum'], column: ['column'] }   // stat 的积木按小问由模板定
-export const STEP_NAME = { fill: '填得数', first: '先算哪一步', clock: '拨时针', range: '估一估', chain: '一行一行算', spot: '找错行', blanks: '填空', circle: '圈关键词', goal: '先求什么', build: '列式', say: '写答句', table: '填统计表', pickcat: '选一类', tapnum: '找出来再数', column: '列竖式' }
+export const STEP_NAME = { fill: '填得数', first: '先算哪一步', clock: '拨时针', range: '估一估', chain: '一行一行算', spot: '找错行', blanks: '填空', circle: '圈关键词', goal: '先求什么', build: '列式', say: '写答句', table: '填统计表', pickcat: '选一类', tapnum: '找出来再数', column: '列竖式', check: '验算' }
 export const GOODS = [
   { k: 'cookie', n: '骨头饼干', d: '饱食 ＋10', p: 10, kind: 'food', full: 10 },
   { k: 'rice', n: '鸡肉蔬菜饭', d: '饱食 ＋35', p: 40, kind: 'food', full: 35 },
@@ -220,6 +220,23 @@ export function columnLayout(a, op, b) {
   } else return null
   return cells
 }
+/**
+ * 除法竖式（除数一位）：返回 { q: 每一位商（还没开始商的位是 null）, rows: 下面各行 [{ kind: 'prod' | 'rem', v, col }], rem }。
+ * col 是这一行最后一位对齐到被除数的第几位（从左数，0 起）。商中间是 0 的那一步不写乘积，直接落下一位。
+ */
+export function divLayout(a, d) {
+  const ds = String(a).split('').map(Number), n = ds.length, q = [], steps = []
+  let r = 0, started = false
+  ds.forEach((x, j) => {
+    const cur = r * 10 + x
+    if (!started && cur < d && j < n - 1) { q.push(null); r = cur; return }
+    started = true
+    const qd = Math.floor(cur / d); q.push(qd); steps.push({ col: j, cur, q: qd, prod: qd * d }); r = cur - qd * d
+  })
+  const S = steps.filter((st, k) => k === 0 || st.q > 0), rows = []
+  S.forEach((st, k) => { rows.push({ kind: 'prod', v: st.prod, col: st.col }); const nx = S[k + 1]; rows.push(nx ? { kind: 'rem', v: nx.cur, col: nx.col } : { kind: 'rem', v: r, col: n - 1 }) })
+  return { q, rows, rem: r, zeroMid: steps.some((st, k) => k > 0 && k < steps.length - 1 && st.q === 0), zeroEnd: steps.length > 1 && steps.at(-1).q === 0 }
+}
 export function exprValue(t) { if (!validExpr(t)) return NaN; const st = exprSteps(t); return st ? (st.length ? st.at(-1).v : stripParens(t)[0]) : NaN }
 const sameNums = (a, b) => JSON.stringify(a.filter(isNum).sort((x, y) => x - y)) === JSON.stringify(b.filter(isNum).sort((x, y) => x - y))
 export { sameNums }
@@ -320,11 +337,23 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
       if (!item.answer || item.answer === cnt) { bad('一个都不符合或全都符合'); continue }
     } else if (t.format === 'column') {
       // 竖式：模板只写算式，格子由程序排
-      const m = fill(t.expression, v).replace(/\*/g, '×').replace(/-/g, '−').match(/^\s*(\d+)\s*([+−×])\s*(\d+)\s*$/)
+      const m = fill(t.expression, v).replace(/\*/g, '×').replace(/\//g, '÷').replace(/-/g, '−').match(/^\s*(\d+)\s*([+−×÷])\s*(\d+)\s*$/)
       if (!m) { bad('expression 只能是 a+b、a−b、a×b（乘一位数）'); continue }
-      const [a, op, b2] = [Number(m[1]), m[2], Number(m[3])], cells = columnLayout(a, op, b2)
-      if (!cells) { bad('竖式排不出来（乘数要一位数，减法要够减）'); continue }
-      Object.assign(item, { a, op, b: b2, cells, text: `${a} ${op} ${b2}`, answer: calcOp(a, op, b2) })
+      const [a, op, b2] = [Number(m[1]), m[2], Number(m[3])]
+      if (op === '÷') {
+        if (!(b2 >= 2 && b2 <= 9) || a < b2) { bad('除法竖式只做除数是一位数的'); continue }
+        const L = divLayout(a, b2)
+        Object.assign(item, { a, op, b: b2, div: L, text: `${a} ÷ ${b2}`, answer: Math.floor(a / b2), rem: L.rem })
+        if (t.need === 'zero' && !L.zeroMid) { bad('要商中间有 0 的，这一组数没有'); continue }
+        if (t.need === 'endzero' && !L.zeroEnd) { bad('要商末尾有 0 的，这一组数没有'); continue }
+        if (t.need === 'rem' && !L.rem) { bad('要有余数的，这一组除尽了'); continue }
+      } else {
+        const cells = columnLayout(a, op, b2)
+        if (!cells) { bad('竖式排不出来（乘数要一位数，减法要够减）'); continue }
+        Object.assign(item, { a, op, b: b2, cells, text: `${a} ${op} ${b2}`, answer: calcOp(a, op, b2) })
+      }
+      // 验算：除法用乘法验（商 × 除数 + 余数），加减用逆运算，乘法估一估
+      if (t.check) { item.check = op === '÷' ? 'mul' : op === '×' ? 'estimate' : 'back'; item.flow = ['column', 'check'] }
     } else if (t.format === 'multistep') {
       // 分步应用题：每一步「这一步求什么 → 列式 → 得数和单位」，上一步的得数变成下一步的数字卡；有 goals 就先选第一步求什么
       item.text = fill(t.text, v)
@@ -426,6 +455,8 @@ export function publicItem(it, o = {}) {
       if (type === 'build') return { type, ...part, t: q.t, tier: 1, stat: 1, chips: it.cats.map((l, cat) => ({ cat, l })) }
       if (type === 'say') return { type, ...part, t: q.t, ask: q.pre, units: q.units, tail: '' }
     }
+    if (type === 'column' && it.op === '÷') return { type, a: it.a, op: '÷', b: it.b, qcols: it.div.q.map(x => x != null), rows: it.div.rows.map(r => ({ kind: r.kind, len: String(r.v).length, col: r.col })) }
+    if (type === 'check') return { type, kind: it.check, a: it.a, op: it.op, b: it.b }
     if (type === 'column') return { type, a: it.a, op: it.op, b: it.b, width: Math.max(...it.cells.filter(c => c.kind === 'digit').map(c => c.col), String(it.a).length - 1) + 1 + (it.op === '−' ? 0 : 1) }
     if (it.format === 'multistep') {
       const k = it.stepOf[j], P = it.parts[k], last = k === it.parts.length - 1

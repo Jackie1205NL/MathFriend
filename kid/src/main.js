@@ -193,9 +193,10 @@ function startQ(g, it) {
 function enter() {
   const b = step(), r = Q.rec[Q.i] || {}
   Object.assign(Q, { input: r.v != null ? String(r.v) : '', unit: r.unit ?? null, sel: new Set(r.sel || []), pick: r.i ?? null, expr: (r.expr || []).map((x, j) => ({ x, chip: r.chips?.[j] })), zone: r.zone ?? null,
-    vals: r.vals ? [...r.vals] : r.vs ? r.vs.map(String) : Array(b.blanks ? b.blanks.join('').split('□').length - 1 : b.cells || (b.rem ? 2 : 0)).fill(''), units: r.units ? [...r.units] : [], cur: 0, lines: null, op: null, fx: {},
+    vals: r.vals ? [...r.vals] : r.vs ? r.vs.map(String) : Array(b.blanks ? b.blanks.join('').split('□').length - 1 : b.type === 'check' ? (b.kind === 'mul' ? 4 : b.kind === 'back' ? 3 : 2) : b.cells || (b.rem ? 2 : 0)).fill(''), units: r.units ? [...r.units] : [], cur: 0, lines: null, op: null, fx: {},
     cells: r.cells ? (Array.isArray(r.cells) ? [...r.cells] : { ...r.cells }) : b.type === 'column' ? {} : (b.cats || []).map(() => '').concat(''), pos: 0 })
-  if (b.type === 'column') { Q.seq = colSeq(b); Q.pos = Math.max(0, Q.seq.findIndex(k => k[0] === 'd' && Q.cells[k] == null)) }
+  if (b.type === 'column' && b.op === '÷') { Q.seq = divSeq(b); Q.pos = Math.max(0, Q.seq.findIndex(k => Q.cells[k] == null)) }
+  else if (b.type === 'column') { Q.seq = colSeq(b); Q.pos = Math.max(0, Q.seq.findIndex(k => k[0] === 'd' && Q.cells[k] == null)) }
   sayPet(TIPS[b.type] || '')
   if (b.type === 'chain') {
     const start = b.start || built()
@@ -208,6 +209,20 @@ const fi = type => Q.flow.findIndex(b => b.type === type)
 const chipVal = (b, i) => b.stat ? Number(Q.rec[0]?.cells?.[b.chips[i].cat]) : b.chips[i].from != null ? Number(Q.rec[Q.flow.findIndex(x => x.type === 'say' && x.ms === b.chips[i].from)]?.v ?? 0) : b.chips[i].v
 /** 竖式填格子的顺序：个位得数 → 写在十位上的进位 → 十位得数 → …… */
 const colSeq = b => { const out = []; for (let c = 0; c < b.width; c++) { out.push('d' + c); if (c < b.width - 1) out.push('c' + (c + 1)) } return out }
+const divSeq = b => { const n = String(b.a).length, out = [...Array(n).keys()].map(j => 'q' + j); b.rows.forEach((r, k) => { for (let p = 0; p < r.len; p++) out.push(`r${k}_${p}`) }); return out }
+/** 除法竖式：商在上面，除数在左边，下面一行乘积、一行减下来再落下一位 */
+function divGrid(b) {
+  const n = String(b.a).length, cell = (k, small) => { const v = Q.cells[k], cur = Q.seq[Q.pos] === k
+    return `<button class="cslot ${small ? 'sm' : ''} ${cur ? 'cur' : ''} ${Q.fx.flash && v == null && k[0] === 'q' ? 'bad' : ''}" data-a="ccell" data-v="${k}">${v ?? ''}</button>` }
+  const line = xs => `<div class="drow"><span></span>${xs.join('')}</div>`, span = x => `<span>${x}</span>`
+  let out = line([...Array(n).keys()].map(j => span(cell('q' + j))))
+  out += `<div class="drow dtop"><span class="dv">${b.b}</span>${[...String(b.a)].map((x, j) => `<span class="${j === 0 ? 'br' : ''}">${x}</span>`).join('')}</div>`
+  b.rows.forEach((r, k) => {
+    const from = r.col - r.len + 1
+    out += `<div class="drow"><span></span>${[...Array(n).keys()].map(j => j >= from && j <= r.col ? `<span class="${r.kind === 'prod' ? 'u' : ''}">${cell(`r${k}_${j - from}`, true)}</span>` : span('')).join('')}</div>`
+  })
+  return `<div class="card col div">${out}</div>`
+}
 function colGrid(b) {
   const w = b.width, A = String(b.a).padStart(w, ' '), B = String(b.b).padStart(w, ' '), cell = k => {
     const v = Q.cells[k], cur = Q.seq[Q.pos] === k, paw = k[0] === 'c' && Q.fx.paws?.includes(+k.slice(1))
@@ -263,6 +278,12 @@ function statTable(b, cells, live) {
 const box = (v, cur = true, cls = '') => `<span class="box ${cur ? 'cur' : ''} ${cls}">${v === '' || v == null ? '&nbsp;' : esc(v)}</span>`
 function vStep() {
   const it = curItem(), b = step(), go = lastStep() ? '交卷' : '下一步'
+  if (b.type === 'column' && b.op === '÷') return `<p class="dim">用竖式计算 ${b.a} ÷ ${b.b}。从最高位除起，商写在上面；一位不够除，商就写 0。下面一行写乘积，一行写减下来的数和落下来的一位。</p>${divGrid(b)}${pad(null, go, 'stepgo')}`
+  if (b.type === 'check') {
+    const tpl = { mul: '□ × □ + □ = □', back: it.op === '+' ? '□ − □ = □' : '□ + □ = □', estimate: `□ × ${b.b} ≈ □` }[b.kind], parts = tpl.split('□')
+    return `<div class="bubble plain good">验算一下：${b.kind === 'mul' ? '商 × 除数 + 余数，应该等于被除数（没有余数就填 0）' : b.kind === 'back' ? (it.op === '+' ? '和 − 一个加数 = 另一个加数' : '差 + 减数 = 被减数') : `把 ${b.a} 看成接近它的整十或整百数，估一估`}</div>
+      <div class="card"><div class="ans big2">${parts.map((x, j) => esc(x) + (j < parts.length - 1 ? `<button class="bx" data-a="blank" data-v="${j}">${box(Q.vals[j], Q.cur === j)}</button>` : '')).join('')}</div></div>${pad(null, go, 'stepgo')}`
+  }
   if (b.type === 'column') return `<p class="dim">用竖式计算 ${b.a} ${b.op} ${b.b}，从个位算起。${b.op === '−' ? '退位' : '进位'}写在上面的小格里，没有就空着。点格子可以改。</p>${colGrid(b)}${pad(null, go, 'stepgo')}`
   if (b.type === 'table') return `${record(b)}${statTable(b, Q.cells, true)}<p class="dim">点一个格子再填数，合计也要填。</p>${pad(null, go, 'stepgo')}`
   if (b.type === 'pickcat') return `${qText()}<div class="opts">${b.opts.map((o, i) => `<button data-a="pickgo" data-v="${i}">${esc(o)}</button>`).join('')}</div>`
@@ -455,7 +476,7 @@ const QA = {
     if (Q?.walk) { Q.walk.input = k === '⌫' ? Q.walk.input.slice(0, -1) : (Q.walk.input + k).slice(0, 5); Q.walk.bad = false; return }
     if (!Q || Q.cover || Q.fin || Q.catch) return
     const b = step(), edit = v => k === '⌫' ? v.slice(0, -1) : (v + k).slice(0, 5)
-    if (b.type === 'blanks' || (b.type === 'fill' && b.rem) || (b.type === 'say' && b.cells)) { Q.vals[Q.cur] = edit(Q.vals[Q.cur]); return }
+    if (b.type === 'blanks' || b.type === 'check' || (b.type === 'fill' && b.rem) || (b.type === 'say' && b.cells)) { Q.vals[Q.cur] = edit(Q.vals[Q.cur]); return }
     if (b.type === 'chain' && Q.op == null) { sayPet('先点你要先算的那个符号。'); return }
     if (b.type === 'column') { const key = Q.seq[Q.pos]; if (k === '⌫') { delete Q.cells[key]; return } Q.cells[key] = String(k); const nx = Q.seq.findIndex((x, i) => i > Q.pos && Q.cells[x] == null); Q.pos = nx >= 0 ? nx : Math.min(Q.pos + 1, Q.seq.length - 1); return }
     if (b.type === 'table') { Q.cells[Q.pos] = (k === '⌫' ? Q.cells[Q.pos].slice(0, -1) : (Q.cells[Q.pos] + k).slice(0, 3)); return }
@@ -483,6 +504,7 @@ const QA = {
     if (b.type === 'say') { if (!Q.input) return sayPet('还没填得数呢。'); save({ v: Number(Q.input), unit: Q.unit }); return next() }
     if (b.type === 'table') { save({ cells: [...Q.cells] }); return next() }
     if (b.type === 'column') { save({ cells: { ...Q.cells } }); return next() }
+    if (b.type === 'check') { save({ vs: Q.vals.map(v => v === '' ? null : Number(v)) }); return next() }
     if (b.type === 'tapnum') { if (!Q.input) return sayPet('还没填个数呢。'); save({ sel: [...Q.sel], v: Number(Q.input), unit: Q.unit }); return next() }
   },
   pick(i) { Q.pick = +i },

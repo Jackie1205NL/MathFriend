@@ -252,6 +252,41 @@ export function createApi(store, env) {
     return { items, ok, habits: [...habits], given: `点了 ${[...sel].map(j => it.nums[j]).join(',')} | ${v ?? ''}${unit}`, kw: 0, unitMiss: !unit && v === want.length }
   }
   /** 竖式：每一位对不对，能认出「忘了加进位」「忘了退位」 */
+  /** 除法竖式：商每一位、下面各行、余数 */
+  function judgeDiv(it, steps) {
+    const items = [], habits = new Set(), add = (good, msg, cat = '') => items.push({ i: 0, good, msg, cat }), got = steps?.[0]?.cells || {}, L = it.div
+    const num = x => x === '' || x == null ? null : Number(x), WEI = n => ['个位', '十位', '百位', '千位'][n] || ''
+    const n = String(it.a).length, place = j => WEI(n - 1 - j)
+    let ok = true, rowsOk = true
+    L.q.forEach((x, j) => {
+      const w = num(got['q' + j])
+      if (x == null) { if (w) { ok = false; add('n', `${String(it.a).slice(0, j + 1)} 比 ${it.b} 小，不够商 1，商的${place(j)}不写`, '计算失误') } return }
+      if (w === x) return
+      ok = false
+      if (x === 0 && w == null) add('n', `商的${place(j)}漏了 0：这一位不够除，要在商上写 0`, '计算失误')
+      else if (w == null) add('n', `商的${place(j)}空着没填`, '漏题')
+      else add('n', `商的${place(j)}应该是 ${x}，你写了 ${w}`, '计算失误')
+    })
+    L.rows.forEach((r, k) => {
+      const len = String(r.v).length, w = num([...Array(len).keys()].map(p => got[`r${k}_${p}`] ?? '').join(''))
+      const last = k === L.rows.length - 1
+      if (w === r.v) return
+      if (last) { ok = false; add('n', w != null && w >= it.b ? `余数 ${w} 比除数 ${it.b} 还大，商还能再大` : `最后的余数应该是 ${r.v}，你写了 ${w ?? '空'}`, '计算失误') }
+      else { rowsOk = false; add('h', `第 ${k + 1} 行应该是 ${r.v}${r.kind === 'prod' ? '（商 × 除数）' : '（减下来再落下一位）'}，你写了 ${w ?? '空'}`, '计算失误') }
+    })
+    if (ok) { add('y', `${it.text} = ${it.answer}${it.rem ? ` …… ${it.rem}` : ''}，商和余数都对`); if (rowsOk) habits.add('计算失误') }
+    return { items, ok, habits: [...habits], given: L.q.map((_, j) => got['q' + j] ?? '_').join('') + '……' + (got[`r${L.rows.length - 1}_0`] ?? ''), kw: 0, chainOk: ok && rowsOk }
+  }
+  /** 验算：除法用乘法验，加减用逆运算，乘法估一估。只算过程，对了给过程奖 */
+  function judgeCheck(it, a, i, J) {
+    const v = (Array.isArray(a?.vs) ? a.vs : []).map(x => x === '' || x == null ? null : Number(x)), add = (good, msg) => J.items.push({ i, good, msg, cat: good === 'y' ? '' : '漏题' })
+    let good = false
+    if (it.check === 'mul') good = v[0] === it.answer && v[1] === it.b && (v[2] ?? 0) === it.rem && v[3] === it.a
+    if (it.check === 'back') good = it.op === '+' ? v[0] === it.answer && v[1] === it.b && v[2] === it.a : v[0] === it.answer && v[1] === it.b && v[2] === it.a
+    if (it.check === 'estimate') good = v[0] != null && v[0] % 10 === 0 && Math.abs(v[0] - it.a) <= (v[0] % 100 === 0 ? 50 : 5) && v[1] === v[0] * it.b
+    add(good ? 'y' : 'h', good ? '验算对上了' : { mul: `验算：${it.answer} × ${it.b}${it.rem ? ` + ${it.rem}` : ''} = ${it.a}`, back: it.op === '+' ? `验算：${it.answer} − ${it.b} = ${it.a}` : `验算：${it.answer} + ${it.b} = ${it.a}`, estimate: '估算：把第一个数看成接近它的整十或整百数，再乘' }[it.check])
+    return good
+  }
   function judgeColumn(it, steps) {
     const items = [], habits = new Set(), add = (good, msg, cat = '') => items.push({ i: 0, good, msg, cat }), got = steps?.[0]?.cells || {}
     const NAME = ['个位', '十位', '百位', '千位', '万位'], num = x => x === '' || x == null ? null : Number(x), da = String(it.a).split('').reverse().map(Number), db = String(it.b).split('').reverse().map(Number)
@@ -311,7 +346,11 @@ export function createApi(store, env) {
     return { items, ok, habits: [...habits], given: given.join(' | '), kw: 0, goalOk, unitMiss: items.filter(x => x.good === 'n').every(x => x.msg.includes('忘写单位')) && items.some(x => x.msg.includes('忘写单位')) }
   }
   function judge(it, steps) {
-    if (it.format === 'column') return judgeColumn(it, steps)
+    if (it.format === 'column') {
+      const J = it.op === '÷' ? judgeDiv(it, steps) : judgeColumn(it, steps)
+      if (it.check) { const g = judgeCheck(it, steps?.[1], 1, J); J.chainOk = J.chainOk && g }
+      return J
+    }
     if (it.format === 'multistep') return judgeMulti(it, steps)
     if (it.format === 'stat') return judgeStat(it, steps)
     if (it.format === 'data') return judgeData(it, steps)
@@ -441,6 +480,7 @@ export function createApi(store, env) {
   }
   /** 正确做法，交卷后给孩子看 */
   function solution(it) {
+    if (it.format === 'column' && it.op === '÷') return { explain: it.explain, lines: [`${it.text} = ${it.answer}${it.rem ? ` …… ${it.rem}` : ''}`, ...(it.div.zeroMid ? ['商的中间有一位不够除，要写 0'] : []), `验算：${it.answer} × ${it.b}${it.rem ? ` + ${it.rem}` : ''} = ${it.a}`] }
     if (it.format === 'column') { const ca = it.cells.filter(c => c.kind === 'carry' && c.v).map(c => `往${['个', '十', '百', '千'][c.col]}位${it.op === '−' ? '退' : '进'} ${c.v}`); return { explain: it.explain, lines: [`${it.text} = ${it.answer}`, ...(ca.length ? [ca.join('，')] : [])] } }
     if (it.format === 'multistep') return { explain: it.explain, lines: [...(it.goals ? [`先求：${it.goals.find(g => g.ok).t}`] : []), ...it.parts.map((P, k) => `第${'一二三四'[k]}步：求${P.ask}  ${P.e} = ${P.v}（${P.unit}）`), `${it.ask} ${it.answer} ${it.unit}`] }
     if (it.format === 'stat') return { explain: it.explain, lines: [it.cats.map((c, j) => `${c} ${it.vals[j]}`).join('，') + `，合计 ${it.answer}`,
@@ -463,7 +503,8 @@ export function createApi(store, env) {
   function walk(it) {
     const out = [], NAME = ['个位', '十位', '百位', '千位', '万位']
     const chainOf = t => (exprSteps(t) || []).forEach(st => out.push({ q: `${showExpr(st.t)}，先算 ${showExpr(st.t.slice(st.k - 1, st.k + 2))} = □`, a: st.v }))
-    if (it.format === 'column') it.cells.filter(c => c.kind === 'digit').forEach(c => out.push({ q: `${it.text}：${NAME[c.col]}写几？${c.cin ? `（别忘了${it.op === '−' ? '退位' : '进位'} ${c.cin}）` : ''} □`, a: c.v }))
+    if (it.format === 'column' && it.op === '÷') { it.div.q.forEach((x, j) => { if (x != null) out.push({ q: `${it.text}：商的第 ${j + 1} 位（对着被除数的第 ${j + 1} 位）写几？ □`, a: x }) }); if (it.rem) out.push({ q: `余数是 □`, a: it.rem }) }
+    else if (it.format === 'column') it.cells.filter(c => c.kind === 'digit').forEach(c => out.push({ q: `${it.text}：${NAME[c.col]}写几？${c.cin ? `（别忘了${it.op === '−' ? '退位' : '进位'} ${c.cin}）` : ''} □`, a: c.v }))
     else if (it.format === 'stat') { it.cats.forEach((c, j) => out.push({ q: `${c}：□`, a: it.vals[j] })); out.push({ q: '合计：□', a: it.answer }); it.asks.forEach((q, j) => { if (q.use) out.push({ q: `（${j + 1}）${it.vals[q.use[0]]} ${q.use[1]} ${it.vals[q.use[2]]} = □`, a: q.ans, unit: q.unit, units: q.units }) }) }
     else if (it.format === 'data') out.push({ q: `${it.ask} □`, a: it.answer, unit: it.unit, units: it.units })
     else if (it.format === 'multistep') it.parts.forEach((P, k) => out.push({ q: `第${'一二三四'[k]}步：${P.e} = □`, a: P.v, unit: P.unit, units: P.units }))
@@ -585,9 +626,11 @@ export function createApi(store, env) {
       r.l2 = true
       if (k === '审题') fx.grey = it.segs?.findIndex(x => x.n) ?? -1
       if (k === '策略缺失') fx.strike = it.goals ? it.goals.map((g, i) => [g, i]).filter(([g]) => !g.ok).at(-1)?.[1] ?? -1 : -1
-      if (k === '计算失误' && type === 'column') fx.paws = it.cells.filter(c => c.kind === 'carry' && c.v).map(c => c.col)
+      if (k === '计算失误' && type === 'column' && it.op === '÷') fx.digits = String(it.answer).length
+      else if (k === '计算失误' && type === 'column') fx.paws = it.cells.filter(c => c.kind === 'carry' && c.v).map(c => c.col)
       else if (k === '计算失误' && type !== 'chain') fx.digits = String(it.answer).length
-      if (k === '漏题' && type === 'column') { const r10 = x => x >= 100 ? Math.round(x / 100) * 100 : Math.round(x / 10) * 10, ea = r10(it.a), eb = it.op === '×' ? it.b : r10(it.b); fx.est = `${it.a} 接近 ${ea}${it.op === '×' ? '' : `，${it.b} 接近 ${eb}`}，${ea} ${it.op} ${eb} = ${calcOp(ea, it.op, eb)}。你的得数和它接近吗？` }
+      if (k === '漏题' && type === 'column' && it.op === '÷') { const h = Math.pow(10, String(it.a).length - 1), ea = Math.round(it.a / h) * h; fx.est = `${it.a} 接近 ${ea}，${ea} ÷ ${it.b} 大约是 ${Math.round(ea / it.b)}。你的商和它接近吗？` }
+      else if (k === '漏题' && type === 'column') { const r10 = x => x >= 100 ? Math.round(x / 100) * 100 : Math.round(x / 10) * 10, ea = r10(it.a), eb = it.op === '×' ? it.b : r10(it.b); fx.est = `${it.a} 接近 ${ea}${it.op === '×' ? '' : `，${it.b} 接近 ${eb}`}，${ea} ${it.op} ${eb} = ${calcOp(ea, it.op, eb)}。你的得数和它接近吗？` }
     }
     if (L === 1 && k === it.err && it.hint) fx.hint = it.hint
     if (L === 1) U.d1++; else if (L === 2) U.d2++; else U.w3++
