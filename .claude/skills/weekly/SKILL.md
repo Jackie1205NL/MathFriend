@@ -11,7 +11,7 @@ description: 数伴每周归集。家长把扫描件放进 inbox 后运行 /week
 
 - `/weekly`：处理 inbox 里的全部文件（归集）。
 - `/weekly 2026-W37`：处理并强制归到指定周。
-- `/weekly sheet 2026-W37`：为该周出练习题并生成辅导单 PDF。
+- `/weekly sheet 2026-W37`：为该周出练习题并生成辅导单 PDF。家长说了「这周有 N 天」就按 N 天分卷，每天两页（见 rules.md 第 8 节）。
 
 ## 归集流程
 
@@ -39,13 +39,13 @@ description: 数伴每周归集。家长把扫描件放进 inbox 后运行 /week
 
 ## 出题与辅导单（`/weekly sheet <周>`）
 
-1. 运行 `npm run sheet plan <周>`，得到本周重点问题（最多 3 个，含代表错题）和 `preview`（下周预习知识点）。
+1. 运行 `npm run sheet plan <周>`，得到本周重点问题（前 3 个，错 2 题以上的可补到 5 个，含代表错题）和 `preview`（下周预习知识点）。
 2. 按 rules.md 第 8 节为**每个重点问题**和**每个预习知识点**各出一组题，写成「practice.json 格式」，保存到 `/tmp/shuban-practice.json`。重点问题的组 `scope` 写 `错题`，预习的组写 `预习`。
 3. 运行
    ```bash
    npm run sheet practice <周> /tmp/shuban-practice.json
    ```
-   程序验算每题，算不通过的会丢弃并报数；丢弃多于 2 题时改题重来。PDF 在 `辅导单/<周>.pdf`，页面上的「下载辅导单」按钮同步可用。
+   程序验算每题，算不通过的会丢弃并报数；丢弃多于 2 题时改题重来。提示「超过两页」时按 rules.md 第 8 节删题重跑。PDF 在 `辅导单/<周>.pdf`，页面上的「下载辅导单」按钮同步可用。
 4. 汇报重点问题、预习知识点和练习题数。
 
 只改排版不重新出题时，用 `npm run sheet build <周>`。
