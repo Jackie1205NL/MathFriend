@@ -236,7 +236,7 @@ export function createApi(store, env) {
   /** 整理数据：点出符合条件的数，再数个数 */
   function judgeData(it, steps) {
     const items = [], habits = new Set(), add = (good, msg, cat = '') => items.push({ i: 0, good, msg, cat }), a = steps?.[0] || {}
-    const sel = new Set((a.sel || []).map(Number)), test = { over: x => x > it.over, under: x => x < it.over, atleast: x => x >= it.over }[it.kind]
+    const sel = new Set((Array.isArray(a.sel) ? a.sel : []).map(Number)), test = { over: x => x > it.over, under: x => x < it.over, atleast: x => x >= it.over }[it.kind]
     const want = it.nums.flatMap((x, j) => test(x) ? [j] : []), word = { over: '超过', under: '少于', atleast: '不少于' }[it.kind]
     const eq = [...sel].filter(j => it.nums[j] === it.over && !test(it.over)), extra = [...sel].filter(j => !test(it.nums[j]) && it.nums[j] !== it.over), miss = want.filter(j => !sel.has(j))
     if (eq.length) add('n', `点了 ${it.over}：「${word} ${it.over}」不包括 ${it.over} 本身`, '审题')
@@ -401,7 +401,7 @@ export function createApi(store, env) {
           else { ok = false; add(i, 'n', `${t}：应该是 ${want.join('、')}，你写了 ${got.join('、')}`, '计算失误') }
         })
       } else if (type === 'circle') {
-        const sel = new Set((a.sel || []).map(Number)), keys = it.segs.flatMap((s, j) => s.k ? [j] : []), noise = it.segs.flatMap((s, j) => s.n ? [j] : [])
+        const sel = new Set((Array.isArray(a.sel) ? a.sel : []).map(Number)), keys = it.segs.flatMap((s, j) => s.k ? [j] : []), noise = it.segs.flatMap((s, j) => s.n ? [j] : [])
         const missed = keys.filter(j => !sel.has(j)).length, extra = noise.filter(j => sel.has(j)).length
         kw = missed ? 0 : extra ? 1 : 2
         if (kw === 2) habits.add('审题')
@@ -786,12 +786,13 @@ export function createApi(store, env) {
     const body = await req.json().catch(() => ({}))
     if (p === '/answer') {
       if (!ctx.pack) return json({ error: '还没有题库' }, 400)
-      const res = answer(ctx, body)
+      let res
+      try { res = answer(ctx, body) } catch (e) { console.error(e); return json({ error: '这道题的作答格式不对，刷新一下再做' }, 400) }
       if (res instanceof Response) return res
       await save(ctx)
       return json({ ...res, view: view(ctx) })
     }
-    if (p === '/act') { const res = act(ctx, body); await save(ctx); return json({ ...res, view: view(ctx) }) }
+    if (p === '/act') { let res; try { res = act(ctx, body) } catch (e) { console.error(e); return json({ error: '出错了，刷新一下再试' }, 400) } await save(ctx); return json({ ...res, view: view(ctx) }) }
     return json({ error: '找不到' }, 404)
   }
 }

@@ -537,10 +537,10 @@ const QA = {
 }
 
 function vResult() {
-  const its = allItems(), first = its.filter(it => it.done?.w === 0).length, fix = its.filter(it => it.done?.w && it.done?.ok).length, again = its.filter(it => it.done && !it.done.ok).length
+  const its = allItems(), first = its.filter(it => it.done?.ok && !it.done.caught).length, fix = its.filter(it => it.done?.ok && it.done.caught).length, again = its.filter(it => it.done && !it.done.ok).length
   return `<div class="top"><h1>今天完成啦</h1></div><div class="body">
     <div class="room"><div class="pet"><div class="a-hop"><span class="wear"><img src="${stage() ? `/pet/s${stage()}-act-wag.webp` : '/pet/s0.webp'}" alt=""></span></div></div></div><div class="sum"><i class="ico coin"></i>＋${its.reduce((a, it) => a + (it.done?.c || 0), 0)}</div>
-    <div class="card rows"><span>第一次就答对</span><b>${first} 题</b><span>订正后答对</span><b>${fix} 题</b><span>过两天换个样子再来</span><b>${again} 题</b><span>最长认真连击</span><b>${S().best} 题</b><span>已陪伴</span><b>${S().days} 天</b></div>
+    <div class="card rows"><span>第一次就答对</span><b>${first} 题</b>${fix ? `<span>本领接住后改对</span><b>${fix} 题</b>` : ''}<span>过两天换个样子再来</span><b>${again} 题</b><span>最长认真连击</span><b>${S().best} 题</b><span>已陪伴</span><b>${S().days} 天</b></div>
     <button class="btn" data-a="go" data-v="home">回小屋</button>
     <button class="btn alt" data-a="extra">再练一会儿<small>最多再加几题，金币减半</small></button></div>`
 }
