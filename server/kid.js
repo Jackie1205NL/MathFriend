@@ -3,7 +3,8 @@
 //   npm run kid tune 2026-W40 键=值 …        改本周的调节项（见 rules.md 第 9 节），改完要再 push
 //   npm run kid pack 2026-W40 [输出文件]     只生成题库包，不推送；写成文件可以到孩子端管理员页面上传
 //   npm run kid push 2026-W40               生成题库包并推送到孩子端（Netlify）；按每天都来做不够 14 天的不推
-//   npm run kid pull 2026-W40               取回该周答题记录，按「知识点 × 错因」汇总写进周 md 的「答题」段
+//   npm run kid pull 2026-W40               取回该周答题记录，按「知识点 × 错因」汇总写进周 md 的「答题」段；不写周就取上次推送的那一周
+//   npm run kid check                       看孩子端连不连得上（/weekly 自动推题库前先跑）
 //   npm run kid link <孩子端网址> <同步令牌>  保存地址和令牌（存在应用数据目录，不进项目文件夹）
 //   KID_URL=<dev 网址> npm run kid demo    把 rules.md 的示例模板拼成体验题库，推到 dev 分支部署试玩（不需要错题数据）
 //   npm run kid demo 2026-W40 demo.json    体验题库写成文件，到 dev 站管理员页面上传（站点开了 Netlify 登录保护、命令行推不上去时）
@@ -149,7 +150,7 @@ export function demoPack(week) {
 const isoWeekNow = () => { const d = new Date(), w = d.getUTCDay() || 7; d.setUTCDate(d.getUTCDate() + 4 - w); const y = d.getUTCFullYear(); return `${y}-W${String(Math.ceil(((d - Date.UTC(y, 0, 1)) / 86400000 + 1) / 7)).padStart(2, '0')}` }
 
 // ---------- 命令行 ----------
-const [cmd, week, arg] = process.argv.slice(2)
+const [cmd, weekArg, arg] = process.argv.slice(2), week = cmd === 'pull' && !weekArg ? loadSettings().kidLastPush : weekArg   // pull 不写周：取上次推送那一周
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) try {
   if (cmd === 'link') { saveSettings({ kidUrl: week, kidToken: arg }); console.log(`已保存孩子端地址 ${week}`) }
   else if (cmd === 'clock') {
@@ -168,7 +169,15 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const r = await sync('PUT', '/pack', pack)
     console.log(`已把体验题库推到 ${process.env.KID_URL}：${r.week}，${r.items} 道题`)
   }
-  else if (!/^\d{4}-W\d{2}$/.test(week || '')) throw new Error('用法：npm run kid bank|tune|pack|push|pull <周> …，或 npm run kid link <网址> <令牌>')
+  else if (cmd === 'check') {
+    // /weekly 推题库前先确认连得上：没设地址退出码 2，连不上退出码 1
+    const saved = loadSettings(), kidUrl = process.env.KID_URL || saved.kidUrl
+    if (!kidUrl || !(process.env.KID_TOKEN || saved.kidToken)) { console.log('还没设置孩子端地址：npm run kid link <网址> <同步令牌>'); process.exit(2) }
+    await sync('GET', `/log?week=${isoWeekNow()}`)
+    console.log(`孩子端连得上：${kidUrl}${!process.env.KID_URL && saved.kidLastPush ? `，上次推送的是 ${saved.kidLastPush} 的题库` : '，还没推送过题库'}`)
+  }
+  else if (cmd === 'pull' && !week) console.log('还没推送过题库，没有答题记录可取。')
+  else if (!/^\d{4}-W\d{2}$/.test(week || '')) throw new Error('用法：npm run kid bank|tune|pack|push|pull <周> …，npm run kid pull（取上次推送那一周），npm run kid check，或 npm run kid link <网址> <令牌>')
   else if (cmd === 'bank') {
     const bank = JSON.parse(fs.readFileSync(arg, 'utf8'))
     if (!Array.isArray(bank.groups) || !Array.isArray(bank.templates)) throw new Error('模板 json 要有 groups 和 templates 两个数组')
@@ -205,6 +214,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     printUncovered(week, readWeek(week).bank)
     if (printDays(pack) < PACK_DAYS && !process.env.KID_SHORT) throw new Error(`题库不够 ${PACK_DAYS} 天，没有推送。按上面的提示补模板再 bank 一次（实在要推，命令前加 KID_SHORT=1）`)
     const r = await sync('PUT', '/pack', pack)
+    if (!process.env.KID_URL) saveSettings({ kidLastPush: week })     // 推到 dev（临时 KID_URL）不算
     console.log(`已推送 ${r.week}：${r.items} 道题`)
   } else if (cmd === 'pull') {
     // 默认取第一个孩子账号的记录；KID_USER=用户名 取别的账号

@@ -2,7 +2,7 @@
 
 三年级数学教陪。一个仓库、两个应用：
 
-- **家长端**（`server/`、`src/`）：只在本地 Mac 上跑。每周用 `/weekly` 归集扫描件里的错题，`/weekly sheet` 出纸质辅导单。文件即数据：`错题/`、`知识点.md`、`辅导单/`（都在 .gitignore 里）。设计见 `PRD.md`。
+- **家长端**（`server/`、`src/`）：只在本地 Mac 上跑。每周用 `/weekly` 归集扫描件里的错题（归集完自动生成孩子端题库并推送），`/weekly sheet` 出纸质辅导单。文件即数据：`错题/`、`知识点.md`、`辅导单/`（都在 .gitignore 里）。设计见 `PRD.md`。
 - **孩子端**（`kid/`）：养柴犬做题，部署在 Netlify。题目每周由家长端按错题生成并推送，答题记录每周取回。
 
 **接手孩子端开发前，先读 [`kid/开发记录.md`](kid/开发记录.md)**：设计决定、分期计划、当前进度、怎么验证都在里面。做完一段工作后把进度和新决定写回这份记录。
@@ -25,6 +25,7 @@ npm start                      # 家长端：构建并启动 http://localhost:51
 npm run kid:dev                # 孩子端本地开发 http://localhost:5175（孩子账号「宝贝」密码 1234，管理员 admin 密码 9999，同步令牌 dev，存档在系统临时目录）
 npm run kid:build              # 孩子端构建到 dist-kid（Netlify 用）
 npm run kid bank <周> <json>   # 模板入库并逐题验算
-npm run kid push|pull <周>     # 推送题库 / 取回答题记录
+npm run kid push|pull <周>     # 推送题库 / 取回答题记录（pull 不写周取上次推送那一周）
+npm run kid check              # 孩子端连不连得上
 npm run lint && npx tsc --noEmit -p .
 ```
