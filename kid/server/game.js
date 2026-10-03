@@ -2,7 +2,7 @@
 // 存储只要有 get(key) / set(key, value) 两个方法：线上是 Netlify Blobs（kid/functions/kid.mjs），本地开发是文件（kid/vite.config.js）。
 import { PACK_VERSION, FORMATS, MIN_SECONDS, SKILLS, SKILL_COST, GOODS, DECAY, NEED_FLOOR, PATS_PER_DAY, LEVELS, LEVEL_MIX, STORY_PAGES, BOSS_SIZE, BOSS_PASS, BOSS_COINS, EXTRA_STEP, STAGES,
   SEASON, PLACES, POSTCARDS, POSTCARD_DAYS, JAR, TRIP_MOOD, EVENT_COINS, coinsFor, publicItem, stageOf, placeOpen, eventOf, cleanName, addDays,
-  SKILL_EVERY, SKILL_USES, SKILL_AT, SKILL_L2, FLOWS, STEP_NAME, flowOf, dailyOf, toTokens, showExpr, validExpr, exprValue, exprSteps, sameNums, stripParens, nextOp, canTap, calcOp, reduceAt } from '../../shared/contract.js'
+  SKILL_EVERY, SKILL_USES, SKILL_AT, SKILL_L2, FLOWS, STEP_NAME, flowOf, dailyOf, packDays, toTokens, showExpr, validExpr, exprValue, exprSteps, sameNums, stripParens, nextOp, canTap, calcOp, reduceAt } from '../../shared/contract.js'
 
 const DAY = 86400000
 const today = (now = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(now)
@@ -686,7 +686,7 @@ export function createApi(base, env) {
   function act(ctx, b) {
     const s = ctx.state, date = ctx.date, st = stageOf(s, date), kid = s.kid || '小主人'
     if (b.kind === 'name') { const n = cleanName(b.name); if (!n) return { msg: '先给它起个名字吧。' }; if (!s.name) mark(s, date, `给小狗起名叫${n}`); s.name = n; return { msg: `我叫${n}！那你叫什么名字？` } }
-    if (b.kind === 'kidname') { const n = cleanName(b.name); if (!n) return { msg: `写上你的名字，${s.name || '小狗'}才知道怎么叫你。` }; s.kid = n; return { msg: `${n}，你好！` } }
+    if (b.kind === 'kidname') { const n = cleanName(b.name); if (!n) return { msg: `写上你的名字，${s.name || '小狗'}才知道怎么叫你。` }; if (!s.kid) s.greet = date; s.kid = n; return { msg: `${n}，你好！` } }      // 第一次认识就算今天打过招呼了
     if (b.kind === 'skill') return useSkill(ctx, b)
     if (b.kind === 'greet') { s.greet = date; return { msg: `${kid}，我们今天也一起慢慢来！`, act: 'wag' } }
     if (b.kind === 'buy') {
@@ -790,6 +790,15 @@ export function createApi(base, env) {
     return { msg: '' }
   }
 
+  /** 存题库包（家长端 push，或管理员页面上传）。家长用 tune 改了名字：写进第一个孩子账号的存档 */
+  async function savePack(pack, S) {
+    if (pack?.v !== PACK_VERSION || !/^\d{4}-W\d{2}$/.test(pack.week || '') || !Array.isArray(pack.items) || !pack.items.length) return json({ error: '题库包格式不对' }, 400)
+    await store.set('pack', pack)
+    const t = pack.tuning || {}, st = await S.get('state')
+    if (st && (cleanName(t.kid_name) || cleanName(t.pet_name))) { if (cleanName(t.kid_name)) st.kid = cleanName(t.kid_name); if (cleanName(t.pet_name)) st.name = cleanName(t.pet_name); await S.set('state', st) }
+    return json({ ok: true, week: pack.week, items: pack.items.length, days: Math.min(...packDays(pack).filter(g => pack.items.some(it => it.group === g.id)).map(g => g.days)) })
+  }
+
   // ---------- 账号管理（管理员） ----------
   async function admin(req, p, body) {
     let list = await users()
@@ -798,8 +807,11 @@ export function createApi(base, env) {
       // 顺便带上每个孩子的小狗名字和陪伴天数，方便认人（不带答题记录）
       const out = []
       for (const u of list) { const st = await scoped(store, u.id).get('state'); out.push({ ...pub(u), pet: st?.name || '', days: st?.days || 0 }) }
-      return json({ users: out })
+      const pack = await store.get('pack'), days = pack && packDays(pack).filter(g => pack.items.some(it => it.group === g.id))
+      return json({ users: out, pack: pack ? { week: pack.week, items: pack.items.length, days: Math.min(...days.map(g => g.days)), groups: days } : null })
     }
+    // 上传题库包：家长端 npm run kid pack <周> <文件> 生成的文件。命令行推不上去时（比如站点开了 Netlify 登录保护）用
+    if (p === '/admin/pack' && req.method === 'POST') return savePack(body.pack, scoped(store, 'main'))
     if (req.method !== 'POST') return json({ error: '不支持' }, 405)
     if (p === '/admin/users') {
       const name = userName(body.name)
@@ -829,15 +841,7 @@ export function createApi(base, env) {
       const list = await users(), who = url.searchParams.get('user'), u = who ? list.find(x => x.name === who) : list.find(x => x.id === 'main') || list[0]
       if (who && !u) return json({ error: `没有叫「${who}」的账号` }, 404)
       const S = scoped(store, u?.id || 'main')
-      if (p === '/pack' && req.method === 'PUT') {
-        const pack = await req.json()
-        if (pack?.v !== PACK_VERSION || !/^\d{4}-W\d{2}$/.test(pack.week || '') || !Array.isArray(pack.items) || !pack.items.length) return json({ error: '题库包格式不对' }, 400)
-        await store.set('pack', pack)
-        // 家长用 tune 改了名字：推送时写进第一个孩子账号的存档
-        const t = pack.tuning || {}, st = await S.get('state')
-        if (st && (cleanName(t.kid_name) || cleanName(t.pet_name))) { if (cleanName(t.kid_name)) st.kid = cleanName(t.kid_name); if (cleanName(t.pet_name)) st.name = cleanName(t.pet_name); await S.set('state', st) }
-        return json({ ok: true, week: pack.week, items: pack.items.length })
-      }
+      if (p === '/pack' && req.method === 'PUT') return savePack(await req.json().catch(() => null), S)
       if (p === '/log' && req.method === 'GET') return json({ week: url.searchParams.get('week'), user: u?.name || null, log: (await S.get(`log:${url.searchParams.get('week')}`)) ?? [], state: await S.get('state') })
       return json({ error: '不支持' }, 405)
     }

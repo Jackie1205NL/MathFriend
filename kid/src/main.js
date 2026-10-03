@@ -42,6 +42,7 @@ const name = () => esc(S().name || '小狗')
 const kid = () => esc(S().kid || '小朋友')
 const fillNames = t => esc(t).replace(/\{name\}/g, name()).replace(/\{kid\}/g, kid())
 const now = () => new Date(Date.now() + clockSkew)
+const hello = () => { const h = (now().getUTCHours() + 8) % 24; return h < 12 ? '早上好' : h < 18 ? '下午好' : '晚上好' }
 const late = () => { const d = now(), [h, m] = String(V?.tuning?.bedtime || '20:30').split(':').map(Number); return d.getHours() * 60 + d.getMinutes() >= h * 60 + m }
 const month = () => +D().slice(5, 7)
 const winter = () => D() >= `${D().slice(0, 4)}-12-01` || month() <= 2
@@ -119,7 +120,7 @@ function growCard() {
 }
 
 // ---------- 登录和账号管理 ----------
-let loginName = ls.get('kid-user', ''), adminMode = false, ADM = null, admMsg = '', admEdit = null
+let loginName = ls.get('kid-user', ''), adminMode = false, ADM = null, ADMP = null, admMsg = '', admEdit = null
 function vLogin() {
   const n = adminMode ? 8 : 4
   return `<div class="top"><h1>${adminMode ? '管理员登录' : '团团小屋'}</h1></div><div class="body login">
@@ -139,9 +140,11 @@ function vAdmin() {
     <div class="card"><b>新建孩子账号</b><p class="dim">每个账号有自己的小狗和存档，题目大家共用。用户名最多 12 个字，密码是 4 位数字。</p>
       <div class="field"><input id="adm-name" maxlength="12" placeholder="用户名" aria-label="用户名"><input id="adm-pin" inputmode="numeric" maxlength="4" placeholder="4 位密码" aria-label="密码"><button class="btn" data-a="admadd">新建</button></div></div>
     ${us.map(row).join('') || '<p class="dim">还没有账号。</p>'}
+    <div class="card"><b>题库</b><p class="dim">${ADMP ? `现在是 ${esc(ADMP.week)} 的题库，${ADMP.items} 道题，按每天都来做够 ${ADMP.days} 天${ADMP.days < 14 ? '（不够两周）' : ''}。` : '还没有题库，孩子进来会看到「还没有题」。'}平时用家长端 <code>npm run kid push</code> 推送；推不上去时，用 <code>npm run kid pack &lt;周&gt; &lt;文件&gt;</code> 生成文件，在这里上传。</p>
+      <div class="field"><input id="adm-pack" type="file" accept=".json,application/json" aria-label="题库包文件"><button class="btn" data-a="admpack">上传</button></div></div>
     <p class="dim">管理员只管账号，看不到孩子的答题记录。停用的账号登录不了，存档还在，启用后接着玩。</p></div>`
 }
-async function loadAdmin() { ADM = (await api('/admin/users')).users; page = 'admin' }
+async function loadAdmin() { const r = await api('/admin/users'); ADM = r.users; ADMP = r.pack; page = 'admin' }
 function vHome() {
   const s = S(), n = s.needs, st = stage(), bag = kind => GOODS.filter(g => g.kind === kind).reduce((a, g) => a + (s.bag[g.k] || 0), 0)
   const pats = s.pats.date === D() ? s.pats.n : 0, tricks = TRICKS.filter(t => s.skill[t.k] >= 1).length
@@ -521,6 +524,11 @@ const QA = {
   admedit(v) { const [id, k] = v.split(':'); admEdit = { id, k } },
   admcancel() { admEdit = null },
   admsave() { const v = document.getElementById('adm-v')?.value, e = admEdit; return run(async () => { try { const r = await api('/admin/users/' + e.id, e.k === 'pin' ? { pin: v } : { name: v }); admMsg = e.k === 'pin' ? `「${r.user.name}」的密码改好了，告诉孩子新密码。` : `改名了：${r.user.name}`; admEdit = null; await loadAdmin() } catch (er) { admMsg = er.message } }) },
+  admpack() {
+    const f = document.getElementById('adm-pack')?.files?.[0]
+    if (!f) { admMsg = '先选一个题库包文件。'; return }
+    return run(async () => { try { const r = await api('/admin/pack', { pack: JSON.parse(await f.text()) }); admMsg = `题库换好了：${r.week}，${r.items} 道题，够 ${r.days} 天。`; await loadAdmin() } catch (e) { admMsg = e instanceof SyntaxError ? '这个文件不是题库包。' : e.message } })
+  },
   admoff(id) { const u = ADM.find(x => x.id === id); return run(async () => { try { await api('/admin/users/' + id, { off: !u.off }); admMsg = `「${u.name}」${u.off ? '启用' : '停用'}了。`; await loadAdmin() } catch (e) { admMsg = e.message } }) },
   stepgo() {
     if (!Q || Q.cover || Q.fin || Q.catch) return
@@ -789,7 +797,7 @@ function vSheet() {
   if (page === 'home' && !sheet && V.morning) {
     const M = V.morning, f = M.facts, gift = M.gift === 'cookie' ? '一块骨头饼干（放进背包了）' : M.gift === 'coins' ? '10 金币' : ''
     const said = [f.fixed ? `昨天你订正对了 ${f.fixed} 道题，我都看见了。` : f.firstOk ? `昨天你有 ${f.firstOk} 道题第一次就做对了！` : '', f.focus ? `这周我们一起练「${esc(f.focus)}」。` : '', f.lastSay ? `昨天的答句我还记得：「${esc(f.lastSay)}」` : ''].filter(Boolean).join('')
-    return `<div class="sheet"><div class="morning"><div class="hello"><img src="${stage() ? `/pet/s${stage()}-act-wag.webp` : '/pet/s0.webp'}" alt=""><div><h2>早上好，${kid()}！</h2><p class="dim">${cnDate(D())} · 已陪伴 ${S().days} 天</p></div></div>
+    return `<div class="sheet"><div class="morning"><div class="hello"><img src="${stage() ? `/pet/s${stage()}-act-wag.webp` : '/pet/s0.webp'}" alt=""><div><h2>${hello()}，${kid()}！</h2><p class="dim">${cnDate(D())} · 已陪伴 ${S().days} 天</p></div></div>
       ${gift ? `<div class="gift"><i class="ico coin"></i>昨天你把我照顾得好好的，我叼来了${gift}。</div>` : ''}
       ${M.note ? `<div class="note">${esc(M.note)}<br><small class="dim">爸爸妈妈的留言，${name()}来转达</small></div>` : ''}
       ${said ? `<div class="bubble plain">${said}</div>` : ''}

@@ -1,18 +1,19 @@
 // 家长端 ↔ 孩子端：题库模板入库、生成题库包、推送到孩子端、取回答题记录。
 //   npm run kid bank 2026-W40 <模板 json>   校验模板，逐题验算，自动带上往周的模板，写进 错题/周.md 的「题库」段
 //   npm run kid tune 2026-W40 键=值 …        改本周的调节项（见 rules.md 第 9 节），改完要再 push
-//   npm run kid pack 2026-W40 [输出文件]     只生成题库包（检查用，不推送）
-//   npm run kid push 2026-W40               生成题库包并推送到孩子端（Netlify）
+//   npm run kid pack 2026-W40 [输出文件]     只生成题库包，不推送；写成文件可以到孩子端管理员页面上传
+//   npm run kid push 2026-W40               生成题库包并推送到孩子端（Netlify）；按每天都来做不够 14 天的不推
 //   npm run kid pull 2026-W40               取回该周答题记录，按「知识点 × 错因」汇总写进周 md 的「答题」段
 //   npm run kid link <孩子端网址> <同步令牌>  保存地址和令牌（存在应用数据目录，不进项目文件夹）
 //   KID_URL=<dev 网址> npm run kid demo    把 rules.md 的示例模板拼成体验题库，推到 dev 分支部署试玩（不需要错题数据）
+//   npm run kid demo 2026-W40 demo.json    体验题库写成文件，到 dev 站管理员页面上传（站点开了 Netlify 登录保护、命令行推不上去时）
 //   KID_URL=<dev 网址> npm run kid clock 2027-01-22   拨 dev 站的日期（看长大、毕业），不写日期拨回今天
 //   KID_URL=… / KID_TOKEN=…                任何命令前加上，临时换推送地址和令牌，不改保存的设置
 //   KID_USER=用户名 npm run kid pull <周>  取某个孩子账号的答题记录（不写就是第一个孩子账号）
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { readWeek, writeWeek, listWeeks, loadSettings, saveSettings } from './store.js'
+import { readWeek, writeWeek, listWeeks, loadSettings, saveSettings, computeProgress, readKnowledge } from './store.js'
 import { verifyItem } from './sheet.js'
 import { buildPack, packDays, LEVELS, PACK_DAYS } from '../shared/contract.js'
 
@@ -28,12 +29,34 @@ export function makePack(week) {
   return { pack, report, dropped: before - pack.items.length }
 }
 
+/**
+ * 最近 4 周纸面错题里，题库（本周新写的 + 自动带入的）没覆盖到的「知识点 × 错因」；「已改善」的不算。
+ * 家长只在周末同步，两次同步之间孩子做的就是这一份，要尽量覆盖最近所有错过的地方。
+ */
+export function uncovered(week, bank) {
+  const weeks = listWeeks().filter(w => w <= week), have = new Set(bank.templates.map(t => `${t.knowledge_point}|${t.error_type}`))
+  const state = Object.fromEntries(computeProgress(weeks, readKnowledge()).rows.map(r => [`${r.knowledge_point}|${r.error_type}`, r]))
+  const miss = {}
+  for (const d of weeks.slice(-4).map(readWeek)) for (const e of d.entries) {
+    const key = `${e.knowledge_point}|${e.error_type}`
+    if (e.verdict !== 'wrong' || e.ahead || have.has(key) || state[key]?.state === '已改善') continue
+    ;(miss[key] ||= { knowledge_point: e.knowledge_point, title: state[key]?.title || e.knowledge_point, error_type: e.error_type, n: 0 }).n++
+  }
+  return Object.values(miss).sort((a, b) => b.n - a.n)
+}
+function printUncovered(week, bank) {
+  const miss = uncovered(week, bank)
+  if (miss.length) console.log(`⚠ 最近 4 周纸面上错过、题库还没覆盖：${miss.map(m => `${m.knowledge_point}${m.title === m.knowledge_point ? "" : " " + m.title} ${m.error_type}（错 ${m.n} 题）`).join('、')}。给它们补模板再 bank 一次（往周的错题可以单独建一组「以前的题」）`)
+  else console.log('最近 4 周纸面上错过的「知识点 × 错因」，题库都覆盖到了')
+}
+
 /** 这份题库按每天都来做够几天；不够 PACK_DAYS 的组指出来 */
 function printDays(pack) {
   const all = packDays(pack), none = all.filter(g => !pack.items.some(it => it.group === g.id)), days = all.filter(g => !none.includes(g)), short = days.filter(g => g.days < PACK_DAYS), min = Math.min(...days.map(g => g.days))
   if (none.length) console.log(`⚠ 这些组没有模板：${none.map(g => g.name).join('、')}`)
   console.log(`按每天都来做，这份题库够 ${min} 天（各组：${days.map(g => `${g.name} ${g.days} 天`).join('，')}）`)
   if (short.length) console.log(`⚠ 不够 ${PACK_DAYS} 天：${short.map(g => `${g.name}（${g.days} 天）`).join('、')}。给这一组多写一两个模板，或者放宽取值范围`)
+  return min
 }
 function printReport(report, dropped) {
   for (const r of report) console.log(`${r.id.padEnd(6)} 生成 ${String(r.made).padStart(3)} 道${Object.keys(r.problems).length ? '　跳过：' + Object.entries(r.problems).map(([k, n]) => `${k} ×${n}`).join('、') : ''}${r.made < 10 ? '　⚠ 少于 10 道，放宽取值范围或换写法' : ''}`)
@@ -100,7 +123,7 @@ async function sync(method, path, body) {
   if (!kidUrl || !kidToken) throw new Error('还没设置孩子端地址：npm run kid link <网址> <同步令牌>')
   const r = await fetch(kidUrl.replace(/\/$/, '') + '/api/kid' + path, { method, headers: { 'content-type': 'application/json', 'x-sync-token': kidToken }, body: body && JSON.stringify(body) })
   const d = await r.json().catch(() => ({}))
-  if (!r.ok) throw new Error(d.error || `孩子端返回 ${r.status}`)
+  if (!r.ok) throw new Error(d.error || (r.status === 401 ? '被 Netlify 的登录保护挡住了（孩子端返回 401）。到 Netlify 把正式站的访问保护关掉；或者用 npm run kid pack <周> <文件> 生成文件，在孩子端用 admin 登录，到账号管理页上传' : `孩子端返回 ${r.status}`))
   return d
 }
 
@@ -140,7 +163,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const w = /^\d{4}-W\d{2}$/.test(week || '') ? week : isoWeekNow(), { pack, report } = demoPack(w)
     printReport(report, 0)
     printDays(pack)
-    if (!process.env.KID_URL) throw new Error('体验题库只推到 dev：KID_URL=https://dev--mathfriend.netlify.app npm run kid demo')
+    if (arg) { fs.writeFileSync(arg, JSON.stringify(pack)); console.log(`体验题库写到 ${arg}，在 dev 站管理员页面上传（含答案，别放进 public/ 或提交）`); process.exit(0) }
+    if (!process.env.KID_URL) throw new Error('体验题库只推到 dev：KID_URL=https://dev--mathfriend.netlify.app npm run kid demo，或者 npm run kid demo <周> <文件> 写成文件去 dev 站管理员页面上传')
     const r = await sync('PUT', '/pack', pack)
     console.log(`已把体验题库推到 ${process.env.KID_URL}：${r.week}，${r.items} 道题`)
   }
@@ -155,6 +179,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     printDays(pack)
     if (c.redo.length) console.log(`往周未过关，自动带入：${c.redo.map(t => `${t.id}（${t.knowledge_point} ${t.error_type}）`).join('、')}`)
     if (c.keep.length) console.log(`往周已过关，回来保温：${c.keep.map(t => `${t.id}（${t.knowledge_point} ${t.error_type}）`).join('、')}`)
+    printUncovered(week, c.bank)
     console.log(`已写入 错题/${week}.md 的「题库」段：${c.bank.templates.length} 个模板，共 ${pack.items.length} 道`)
   } else if (cmd === 'tune') {
     const data = readWeek(week)
@@ -177,7 +202,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   } else if (cmd === 'push') {
     const { pack, report, dropped } = makePack(week)
     printReport(report, dropped)
-    printDays(pack)
+    printUncovered(week, readWeek(week).bank)
+    if (printDays(pack) < PACK_DAYS && !process.env.KID_SHORT) throw new Error(`题库不够 ${PACK_DAYS} 天，没有推送。按上面的提示补模板再 bank 一次（实在要推，命令前加 KID_SHORT=1）`)
     const r = await sync('PUT', '/pack', pack)
     console.log(`已推送 ${r.week}：${r.items} 道题`)
   } else if (cmd === 'pull') {
