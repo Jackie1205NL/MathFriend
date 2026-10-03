@@ -15,7 +15,9 @@ export interface Mistake {
 
 export interface PracticeItem { kind: 'calc' | 'word'; level: string; text: string; expression: string; answer: number; unit?: string; hint?: string }
 export interface PracticeSet { topic: string; scope: '错题' | '预习'; items: PracticeItem[] }
-export interface WeekData { week: string; materials: Material[]; attempts: Record<string, number>; entries: Mistake[]; preview: string[]; practice: PracticeSet[] }
+/** 孩子端屏幕答题，按「知识点 × 错因」汇总；不参与纸面错误率 */
+export interface ScreenRow { knowledge_point: string; error_type: string; items: number; first_ok: number; by_error: Record<string, number>; forgot_unit: number }
+export interface WeekData { week: string; materials: Material[]; attempts: Record<string, number>; entries: Mistake[]; preview: string[]; practice: PracticeSet[]; screen?: ScreenRow[] }
 
 export interface KnowledgeNode { id: string; title: string; unit: string; unitTitle: string; manual: boolean; core: string; example: string; guide: string; pitfalls: string }
 export interface Knowledge { units: { id: string; title: string; type: string }[]; nodes: KnowledgeNode[] }

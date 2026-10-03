@@ -2,6 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     { "name": "server", "runtimeExecutable": "npm", "runtimeArgs": ["run", "server"], "port": 5174 },
-    { "name": "web", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 5173 }
+    { "name": "web", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 5173 },
+    { "name": "kid", "runtimeExecutable": "npm", "runtimeArgs": ["run", "kid:dev"], "port": 5175 }
   ]
 }

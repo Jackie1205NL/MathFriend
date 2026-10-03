@@ -78,7 +78,7 @@ const yamlIn = text => Object.fromEntries(text.split('\n').filter(Boolean).map(l
 }))
 const readJson = (block, fallback) => { try { return JSON.parse((block.match(/```json\n([\s\S]*?)```/) || [])[1] || '') } catch { return fallback } }
 
-export function emptyWeek(week) { return { week, materials: [], attempts: {}, entries: [], preview: [], practice: [] } }
+export function emptyWeek(week) { return { week, materials: [], attempts: {}, entries: [], preview: [], practice: [], bank: null, screen: [] } }
 
 export function readWeek(week) {
   const file = path.join(DIRS.mistakes, `${week}.md`)
@@ -92,12 +92,12 @@ export function readWeek(week) {
     const field = label => ((chunk.match(new RegExp(`\\*\\*${label}\\*\\* ([^\\n]*)`)) || [])[1] || '').trim()
     return { ...yamlIn(yaml), problem: field('题目'), student_answer: field('孩子答案'), corrected_answer: field('订正'), correct_answer: field('正确答案'), analysis: field('卡点'), coach_prompt: field('引导') }
   })
-  return { week, materials, attempts, entries, preview: readJson(section('预习'), []), practice: readJson(section('练习'), []) }
+  return { week, materials, attempts, entries, preview: readJson(section('预习'), []), practice: readJson(section('练习'), []), bank: readJson(section('题库'), null), screen: readJson(section('答题'), []) }
 }
 
 export function writeWeek(data) {
   ensureDirs()
-  const { week, materials, attempts, entries, preview = [], practice = [] } = data
+  const { week, materials, attempts, entries, preview = [], practice = [], bank = null, screen = [] } = data
   const summary = table(['编号', '来源', '知识点', '错因', '判题依据'], entries.map(e => [e.id, e.source_name, e.knowledge_point, e.error_type, e.graded_by]))
   const body = entries.map(e => {
     const { problem, student_answer, corrected_answer, correct_answer, analysis, coach_prompt, ...meta } = e
@@ -108,6 +108,9 @@ export function writeWeek(data) {
     '## 各知识点题量', table(['知识点', '题数'], Object.entries(attempts)), '',
     '## 预习', '```json', JSON.stringify(preview), '```', '',
     '## 练习', '```json', JSON.stringify(practice), '```', '',
+    // 孩子端：题库模板（/weekly sheet 写入）和取回的屏幕答题汇总（npm run kid pull 写入）
+    ...(bank ? ['## 题库', '```json', JSON.stringify(bank), '```', ''] : []),
+    ...(screen.length ? ['## 答题', '```json', JSON.stringify(screen), '```', ''] : []),
     '## 错题', summary, '', body, ''].join('\n')
   fs.writeFileSync(path.join(DIRS.mistakes, `${week}.md`), md)
 }

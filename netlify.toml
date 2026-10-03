@@ -1,0 +1,6 @@
+# Netlify 只部署孩子端（kid/），家长端只在本地运行。
+# 环境变量：KID_PIN（孩子的口令）、SYNC_TOKEN（家长端 npm run kid push/pull 用的同步令牌）。
+[build]
+  command = "npm run kid:build"
+  publish = "dist-kid"
+  functions = "kid/functions"

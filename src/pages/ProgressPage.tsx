@@ -13,6 +13,7 @@ interface Row {
   perWeek: { week: string; mistakes: number }[]
   breakdown: { label: string; n: number; drill: Drill }[]
   state: string
+  screen: { items: number; first_ok: number } | null
 }
 
 export function ProgressPage({ state, onDrill }: { state: State; onDrill: (d: Drill) => void }) {
@@ -37,6 +38,8 @@ export function ProgressPage({ state, onDrill }: { state: State; onDrill: (d: Dr
       return rs.some(r => r.state === '需关注') ? '需关注' : rs.some(r => r.state === '练习中') ? '练习中'
         : rs.some(r => r.state === '已改善') ? '已改善' : rs.length ? '未验证' : ''
     }
+    // 孩子端屏幕练习只做参考，不进错误率
+    const screenOf = (kps: string[]) => { const rs = data.flatMap(w => w.screen || []).filter(r => kps.includes(r.knowledge_point)); const items = rs.reduce((n, r) => n + r.items, 0); return items ? { items, first_ok: rs.reduce((n, r) => n + r.first_ok, 0) } : null }
     type E = typeof entries[0]
     // 每个维度：怎么分组、标题、分母、下钻看什么
     const spec = {
@@ -78,6 +81,7 @@ export function ProgressPage({ state, onDrill }: { state: State; onDrill: (d: Dr
         perWeek: inScope.map(w => ({ week: w, mistakes: list.filter(e => e._week === w).length })),
         breakdown: Object.entries(counts).map(([label, n]) => ({ label, n, drill: spec.byDrill(key, label) })).sort((a, b) => b.n - a.n),
         state: dim === '知识点' || dim === '单元' ? stateOf([...new Set(list.map(e => e.knowledge_point))]) : '',
+        screen: dim === '知识点' ? screenOf([key]) : null,
       }
     }).sort((a, b) => b.mistakes - a.mistakes)
     return { rows, weeks: inScope, totalMistakes: entries.length }
@@ -107,7 +111,7 @@ export function ProgressPage({ state, onDrill }: { state: State; onDrill: (d: Dr
             <span>{dim === '错因' ? `${totalMistakes ? Math.round(r.mistakes / totalMistakes * 100) : 0}%` : r.attempts ?? '—'}</span>
             <span>{rate === null ? '—' : <><i style={{ '--rate': `${Math.round(rate * 100)}%` } as React.CSSProperties}></i>{Math.round(rate * 100)}%</>}</span>
             <span className="spark">{r.perWeek.slice(-4).map(p => <b key={p.week} title={`${p.week} 错 ${p.mistakes} 道`} className={p.mistakes > 2 ? 'bad' : p.mistakes ? 'mid' : 'none'} />)}</span>
-            <span>{r.state ? <span className={`state ${r.state}`}>{r.state}</span> : <em className="muted">{r.breakdown[0]?.label}</em>}</span>
+            <span>{r.state ? <span className={`state ${r.state}`}>{r.state}</span> : <em className="muted">{r.breakdown[0]?.label}</em>}{r.screen && <em className="muted" title="孩子端屏幕练习，第一次就答对的比例，不计入错误率">屏幕 {Math.round(r.screen.first_ok / r.screen.items * 100)}%（{r.screen.items} 题）</em>}</span>
             <span><button className="text-button" onClick={() => onDrill(r.drill)}><ListFilter size={14} />看错题</button></span>
           </div>
           {open === r.key && <div className="row-detail">{r.breakdown.map(b => <button key={b.label} onClick={() => onDrill(b.drill)}><b>{b.label}</b>{b.n} 道</button>)}</div>}

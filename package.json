@@ -14,9 +14,14 @@
     "prepare:site-data": "node scripts/prepare-site-data.mjs",
     "build": "npm run prepare:site-data && tsc && vite build && node scripts/copy-site-worker.mjs",
     "start": "npm run build && node server/index.js",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "kid": "node server/kid.js",
+    "kid:dev": "vite --config kid/vite.config.js",
+    "kid:build": "vite build --config kid/vite.config.js",
+    "kid:assets": "node scripts/kid-assets.mjs"
   },
   "dependencies": {
+    "@netlify/blobs": "^11.1.3",
     "@openai/sites-vite-plugin": "^0.2.0",
     "express": "^5.2.1",
     "lucide-react": "^1.41.0",
