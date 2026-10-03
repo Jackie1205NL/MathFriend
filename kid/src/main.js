@@ -1,6 +1,7 @@
 // 孩子端页面：小屋、学期地图、今日任务、题型、本领、小卖部、纪念册。答案和金币都在后端（kid/server/game.js），这里只负责显示和把操作发过去。
 import './style.css'
-import { SKILLS, SKILL_COST, GOODS, STORY_PAGES, STAGES, SCARF_AT, SEASON, PLACES, POSTCARDS, JAR, TRICKS, POSE_MS, placeOpen, addDays, dayDiff } from '../../shared/contract.js'
+import { SKILLS, SKILL_COST, GOODS, STORY_PAGES, STAGES, SCARF_AT, SEASON, PLACES, POSTCARDS, JAR, TRICKS, POSE_MS, placeOpen, addDays, dayDiff,
+  SKILL_AT, SKILL_L2, STEP_NAME, toTokens, showExpr, validExpr, stripParens, nextOp, canTap, calcOp, reduceAt, isOp } from '../../shared/contract.js'
 import { LINES } from './lines.js'
 import { STORY } from './story.js'
 
@@ -154,78 +155,257 @@ function vQuests() {
   }).join('')}<p class="dim">金币多的题，是你这周最需要练的题。</p></div>`
 }
 
-function pad(units, go = '交卷') {
-  const u = units ? units.map(x => `<button class="u" data-a="unit" data-v="${esc(x)}">${esc(x)}</button>`).join('') + '<span></span>'.repeat(Math.max(0, 4 - units.length)) : ''
-  return `<div class="pad">${[1, 2, 3, '⌫', 4, 5, 6, 0, 7, 8, 9].map(k => `<button data-a="key" data-v="${k}">${k}</button>`).join('')}<button class="go" data-a="submit">${go}</button>${u}</div>`
+// ---------- 做题：题目由积木拼成，每一步只收作答，整道题做完再判 ----------
+function pad(units, go = '交卷', goAct = 'submit') {
+  const u = units ? units.map(x => `<button class="u ${Q?.unit === x ? 'on' : ''}" data-a="unit" data-v="${esc(x)}">${esc(x)}</button>`).join('') + '<span></span>'.repeat(Math.max(0, 4 - units.length)) : ''
+  return `<div class="pad">${[1, 2, 3, '⌫', 4, 5, 6, 0, 7, 8, 9].map(k => `<button data-a="key" data-v="${k}">${k}</button>`).join('')}<button class="go" data-a="${goAct}" ${go ? '' : 'disabled'}>${go || '　'}</button>${u}</div>`
 }
-function segText(it, mode) {
-  const k = Q.kw
-  return it.segs.map((s, i) => {
-    const on = Q.sel.has(i), t = esc(s.t)
-    if (mode === 'pick') return `<span class="seg ${on ? 'on' : ''}" role="button" tabindex="0" data-a="seg" data-v="${i}">${t}</span>`
-    const key = k.keys.includes(i), noise = k.noise.includes(i), was = k.sel.includes(i)
-    if (mode === 'reveal') { const c = key ? (was ? 'key' : 'miss') : noise ? (was ? 'noise' : '') : was ? 'on' : ''; return c ? `<span class="seg fixed ${c}">${t}</span>` : t }
-    return key ? `<span class="seg fixed key">${t}</span>` : t
+const curItem = () => groups().find(x => x.id === Q.gid).items.find(x => x.id === Q.id)
+const step = () => Q.flow[Q.i]
+const lastStep = () => Q.i === Q.flow.length - 1
+const sayPet = (t, kind = '') => { Q.say = t; Q.sk = kind }
+const TIPS = { fill: '算好了填进去。', first: '点一下你觉得要先算的那个符号。', clock: '点钟面边上的小圆点，时针就会指过去。', range: '先不急着算。估一估，得数大概在哪一段？', chain: '每一行先点你要先算的符号，再填得数。',
+  spot: '这是小狗做的题，有一步算错了。点出最先出错的那一行。', blanks: '点一个空再填数。每个空都要填。', circle: '你觉得哪些地方最要紧，就点哪里，可以点好几处。', goal: '这道题一步算不出来。要先求出什么？', build: '点下面的数和符号，自己拼出算式。', say: '把答句写完整。' }
+function startQ(g, it) {
+  Q = { gid: g.id, id: it.id, flow: it.flow, i: 0, rec: [], t0: Date.now(), say: '', sk: '', menu: null, fire: null, fin: null, catch: null, cover: false, mood: '', guard: it.guard, caught: it.caught }
+  enter()
+  if (S().slow > 0 && S().slowFrom !== it.id) {      // 「慢慢来」：先盖住 3 秒，剩几题由服务器记
+    Q.cover = true
+    setTimeout(() => { if (Q?.id === it.id) { Q.cover = false; Q.t0 = Date.now(); render() } }, 3000)
+  }
+  page = 'q'
+}
+/** 进入一步：沿用这一步以前填过的内容（被守护拦下回来改时要用） */
+function enter() {
+  const b = step(), r = Q.rec[Q.i] || {}
+  Object.assign(Q, { input: r.v != null ? String(r.v) : '', unit: r.unit ?? null, sel: new Set(r.sel || []), pick: r.i ?? null, expr: (r.expr || []).map((x, j) => ({ x, chip: r.chips?.[j] })), zone: r.zone ?? null,
+    vals: r.vals ? [...r.vals] : (b.blanks || []).map(() => ''), cur: 0, lines: null, op: null, fx: {} })
+  sayPet(TIPS[b.type] || '')
+  if (b.type === 'chain') {
+    const start = b.start || built()
+    Q.lines = [{ t: stripParens(start) }]
+    if (Q.lines[0].t.length < 2) { save({ lines: [] }); return next() }     // 列出来就是一个数，不用算
+    autoOp()
+  }
+}
+const fi = type => Q.flow.findIndex(b => b.type === type)
+const built = () => { const bi = fi('build'), r = Q.rec[bi]; return !r ? [] : r.expr || (r.i != null ? toTokens(curItem().flow[bi].choices[r.i]) : []) }
+const chainFinal = () => { const r = Q.rec[fi('chain')]; if (!r) return null; let t = stripParens(curItem().flow[fi('chain')].start || built()); for (const L of r.lines) t = reduceAt(t, L.k, L.v); return t.length === 1 ? t[0] : null }
+function autoOp() { const L = Q.lines.at(-1), ks = L.t.flatMap((x, k) => canTap(L.t, k) ? [k] : []); Q.op = ks.length === 1 && L.t.filter(isOp).length === 1 ? ks[0] : null }
+function save(x) { Q.rec[Q.i] = { ...(Q.rec[Q.i] || {}), ...x } }
+function next() { if (lastStep()) return submitQ(); Q.i++; enter() }
+function submitQ() {
+  return run(async () => {
+    const res = await api('/answer', { item: Q.id, ms: Date.now() - Q.t0, steps: Q.rec })
+    V = res.view; Q.t0 = Date.now()
+    if (res.caught) { Q.catch = res.caught; Q.guard = null; Q.mood = 'think'; return }
+    const d = res.fin
+    Q.fin = d; Q.menu = null; Q.mood = d.ok ? 'hop' : 'think'; sayPet('')
+    if (d.points?.length) cere = d.points.join('」「')
+  })
+}
+
+// 题干：应用题按段显示（圈关键词时能点），其他题型一句话
+function qText(mode) {
+  const it = curItem()
+  if (it.segs) {
+    const ci = fi('circle'), circ = new Set(Q.rec[ci]?.sel || []), last = it.segs.length - 1
+    return `<div class="card q">${it.segs.map((s, i) => {
+      let c = 'seg'
+      if (mode === 'pick') { if (Q.sel.has(i)) c += ' on'; if (Q.fx.grey === i) c += ' grey' } else if (circ.has(i)) c += ' on'
+      if (Q.fx.trail && i === last) c += ' trail'
+      return `<span class="${c}" ${mode === 'pick' && Q.fx.grey !== i ? `role="button" tabindex="0" data-a="seg" data-v="${i}"` : ''}>${esc(s.t)}</span>`
+    }).join('')}</div>`
+  }
+  return it.text ? `<div class="card q">${esc(it.text)}</div>` : ''
+}
+const box = (v, cur = true, cls = '') => `<span class="box ${cur ? 'cur' : ''} ${cls}">${v === '' || v == null ? '&nbsp;' : esc(v)}</span>`
+function vStep() {
+  const it = curItem(), b = step(), go = lastStep() ? '交卷' : '下一步'
+  if (b.type === 'fill') {
+    const r = fi('range'), spot = fi('spot')
+    if (it.format === 'fix') return `<div class="card"><div class="line">${esc(curItem().flow[spot].text)}</div>${curItem().flow[spot].shown.map((t, i) => `<div class="frow ${i === Q.rec[spot]?.i ? 'bad' : ''}">${esc(t)}</div>`).join('')}<div class="line">正确的得数 ＝ ${box(Q.input)}</div></div>${pad(null, go, 'stepgo')}`
+    return `<div class="card q big">${esc(b.text)} ＝ ${box(Q.input)}</div>${r >= 0 ? `<p class="dim">你估的是 ${esc(curItem().flow[r].opts[Q.rec[r]?.i] ?? '')}。现在算出准确的得数。</p>` : ''}${pad(null, go, 'stepgo')}`
+  }
+  if (b.type === 'first') return `<div class="card q big">${b.tokens.map((t, i) => /^[+−×÷]$/.test(t) ? `<button class="tok ${Q.pick === i ? 'on' : ''}" data-a="pick" data-v="${i}">${t}</button>` : `<span>${esc(t)}</span>`).join(' ')}</div><button class="btn" data-a="stepgo" ${Q.pick == null ? 'disabled' : ''}>就先算它</button>`
+  if (b.type === 'clock') return `${qText()}${clock(b)}<button class="btn" data-a="stepgo" ${Q.zone == null ? 'disabled' : ''}>拨好了</button>`
+  if (b.type === 'range') return `<div class="card q big">${esc(b.text)}</div><div class="opts">${b.opts.map((o, i) => `<button data-a="pickgo" data-v="${i}">${esc(o)}</button>`).join('')}</div>`
+  if (b.type === 'spot') return `<div class="card"><div class="line">${esc(b.text)}</div>${b.shown.map((t, i) => `<button class="frow" data-a="pickgo" data-v="${i}">${esc(t)}</button>`).join('')}</div>`
+  if (b.type === 'blanks') return `${it.text ? `<p class="dim">${esc(it.text)}</p>` : ''}<div class="card multi">${b.blanks.map((t, i) => { const [l, r = ''] = t.split('□'); return `<button class="mrow ${i === Q.cur ? 'cur' : ''} ${Q.fx.flash && Q.vals[i] === '' ? 'bad' : ''}" data-a="blank" data-v="${i}">${esc(l)}${box(Q.vals[i], false)}${esc(r)}</button>` }).join('')}</div>${pad(null, go, 'stepgo')}`
+  if (b.type === 'circle') return `${qText('pick')}<p class="dim">可以点好几处，再点一下取消。圈完不会马上对答案，整道题做完再一起看。</p><button class="btn" data-a="stepgo" ${Q.sel.size ? '' : 'disabled'}>圈好了，去列式</button>`
+  if (b.type === 'goal') return `${qText()}<div class="opts">${b.opts.map((o, i) => `<button class="${i === Q.fx.strike ? 'struck' : ''}" data-a="pickgo" data-v="${i}" ${i === Q.fx.strike ? 'disabled' : ''}>${esc(o)}</button>`).join('')}</div>`
+  if (b.type === 'build') {
+    const gi = fi('goal'), head = gi >= 0 ? `<div class="bubble plain good">先求：${esc(it.flow[gi].opts[Q.rec[gi]?.i] ?? '')}</div>` : ''
+    if (b.tier === 0) return `${qText()}${head}<p class="dim">选一个算式。选了直接进下一步，交卷后再看对不对。</p><div class="opts">${b.choices.map((o, i) => `<button data-a="pickgo" data-v="${i}">${esc(o)}</button>`).join('')}</div>`
+    const circ = new Set(Q.rec[fi('circle')]?.sel || [])
+    const chips = b.chips.map((c, i) => `<button class="chip ${c.seg >= 0 && circ.has(c.seg) ? 'circ' : ''}" data-a="chip" data-v="${i}" ${Q.expr.some(e => e.chip === i) ? 'disabled' : ''}>${c.v}<small>${c.seg >= 0 && circ.has(c.seg) ? '圈过的' : '&nbsp;'}</small></button>`).join('')
+    return `${qText()}${head}<div class="card"><div class="expr">${Q.expr.length ? esc(showExpr(Q.expr.map(e => e.x))) : '<span class="ph">点下面的数和符号拼算式</span>'}</div></div>
+      <div class="chips">${chips}</div>
+      <div class="ops">${['+', '−', '×', '÷', '(', ')'].map(o => `<button data-a="op" data-v="${o}">${o}</button>`).join('')}<button data-a="del" aria-label="退一格">⌫</button><button data-a="clr">清空</button></div>
+      <button class="btn" data-a="stepgo" ${Q.expr.length ? '' : 'disabled'}>列好了</button>`
+  }
+  if (b.type === 'chain') {
+    const rows = Q.lines.map((L, r) => {
+      const live = r === Q.lines.length - 1
+      return `<div class="line">${r ? '= ' : ''}${L.t.map((x, k) => {
+        if (live && isOp(x)) return `<button class="op ${Q.fx.mark && k === nextOp(L.t) ? 'mark' : ''} ${Q.op === k ? 'used' : ''}" data-a="tapop" data-v="${k}" ${canTap(L.t, k) ? '' : 'disabled'}>${x}</button>`
+        if (!live && k >= L.k - 1 && k <= L.k + 1) return `<span class="used">${x}</span>`
+        return `<span>${x}</span>`
+      }).join(' ')}</div>`
+    }).join('')
+    const L = Q.lines.at(-1), nl = Q.op == null ? '' : `<div class="line">= ${[...L.t.slice(0, Q.op - 1), '□', ...L.t.slice(Q.op + 2)].map(x => x === '□' ? box(Q.input) : `<span>${x}</span>`).join(' ')}</div>`
+    return `${qText()}<div class="card">${rows}${nl}</div><p class="dim">算错了也不会被打断，交卷后一起看。</p>${pad(null, Q.op == null ? '' : '填好了', 'stepgo')}`
+  }
+  if (b.type === 'say') {
+    const slot = Q.unit ? `<button class="uchip" data-a="unit" data-v="">${esc(Q.unit)}</button>` : V.tuning.unit_hint ? '<span class="uslot" aria-label="空着的单位格"></span>' : ''
+    const ex = built(), fin = chainFinal()
+    return `${qText()}${ex.length ? `<div class="card"><div class="expr">${esc(showExpr(ex))}${fin != null ? ` ＝ ${fin}` : ''}</div></div>` : ''}<div class="card"><div class="ans">${esc(b.ask)} ${box(Q.input, true, Q.fx.flash && !Q.input ? 'bad' : '')} ${slot} ${esc(b.tail || '')}</div></div>${pad(b.units, go, 'stepgo')}`
+  }
+  return ''
+}
+// 陪伴条：小狗、它说的话、这一步用得上的本领徽章
+function vDock() {
+  const it = curItem(), b = Q.fin ? null : step(), sk = b ? SKILLS.filter(x => S().skill[x.k] > 0 && SKILL_AT[x.k].includes(b.type)) : []
+  const f = Q.catch ? 'shy' : Q.fin ? (Q.fin.ok ? 'proud' : 'thinking') : Q.mood === 'think' ? 'thinking' : 'happy'
+  const badges = sk.map(x => {
+    const lv = S().skill[x.k], any = [1, 2, 3].some(L => L <= lv && canUse(x.k, L, b) === '')
+    return `<button class="badge ${any ? 'can' : 'used'} ${Q.guard === x.k ? 'guard' : ''} ${Q.fire?.k === x.k ? 'fire' : ''}" data-a="menu" data-v="${x.k}" aria-label="${x.n} ${lv} 级"><img src="/pet/badge-${x.badge}.webp" alt=""><b>${x.n}</b><span class="dots">${[1, 2, 3].map(i => `<i class="${i <= lv ? 'f' : ''}"></i>`).join('')}</span>${Q.guard === x.k ? '<span class="shield">守护中</span>' : ''}</button>`
   }).join('')
+  const said = Q.say || (Q.fin ? (Q.fin.ok ? '做对啦！' : '没关系，看看正确做法。') : '我陪着你。')
+  return `<div class="dock"><span class="dog ${Q.mood ? 'a-' + (Q.mood === 'think' ? 'think' : 'hop') : ''}"><img src="${face(f)}" alt=""></span><div class="say ${Q.sk}">${esc(said)}</div><div class="badges">${badges}</div></div>${it ? '' : ''}`
 }
-function buddy(it) {
-  const sk = SKILLS.find(s => s.k === it.err) || SKILLS[0], p = S().prog[sk.k] || 0
-  const f = Q.mood === 'think' ? 'thinking' : Q.fin?.ok ? 'proud' : 'happy'
-  return `<span class="buddy"><span class="ava ${Q.mood ? 'a-' + (Q.mood === 'think' ? 'think' : 'hop') : ''}"><img src="${face(f)}" alt=""></span><span class="ring" style="--p:${p * 20}"><b>${p}/5</b></span><small><b>${sk.n}</b>技能点</small></span>`
+const LV = ['', '提醒', '帮忙', '守护']
+const GUARD = { 审题: '题目里的条件用错', 概念不清: '先算错了顺序', 计算失误: '算错了数', 格式规范: '答句单位没写对', 漏题: '有空着的就交', 策略缺失: '先求的东西选错' }
+const HELP2 = { 审题: '把一句用不上的话变灰', 概念不清: '给先算的那块标 ①', 计算失误: '说出得数是几位数', 格式规范: '把答句读出声', 漏题: '陪你验算', 策略缺失: '划掉一个走不通的' }
+const HELP1 = { 审题: '提醒先看它问什么', 概念不清: '提醒运算顺序的规矩', 计算失误: '提醒估一估', 格式规范: '提醒从头读一遍答句', 漏题: '看看还有几个空着', 策略缺失: '告诉你这题要走几步' }
+/** 这一级现在能不能用：'' 能用，否则是原因 */
+function canUse(k, L, b) {
+  if (L === 2 && !SKILL_L2[k].includes(b.type)) return '这一步用不上'
+  if (L === 3 && (Q.guard || Q.caught)) return Q.guard === k ? '正在守着这道题' : '这题已经有本领守着了'
+  if ((V.uses?.[k]?.[L] ?? 0) <= 0) return `${L === 3 ? '这周' : '今天'}的次数用完了`
+  return ''
+}
+function vMenu() {
+  const k = Q.menu, x = SKILLS.find(s => s.k === k), b = step()
+  const rows = [1, 2, 3].filter(L => L <= S().skill[k]).map(L => {
+    const why = canUse(k, L, b), d = L === 1 ? HELP1[k] : L === 2 ? HELP2[k] : `守着这道题：交卷时如果${GUARD[k]}，先拦下让你改`
+    return `<button class="opt pw" data-a="use" data-v="${k}:${L}" ${why ? 'disabled' : ''}><span class="ic lv">${L}</span><span><b>${L} 级 · ${LV[L]}</b><small>${esc(why && why !== `${L === 3 ? '这周' : '今天'}的次数用完了` ? why : d)}</small></span><span class="r">${L === 3 ? '这周' : '今天'}剩 ${Math.max(0, V.uses?.[k]?.[L] ?? 0)}</span></button>`
+  }).join('')
+  return `<div class="sheet" data-a="shut"><div><h2><img class="hb" src="/pet/badge-${x.badge}.webp" alt="">请${x.n}帮什么？</h2>${rows}<p class="dim">${L2note()}</p><button class="btn alt" data-a="shut">先不用了</button></div></div>`
+}
+const L2note = () => '用了 2 级帮忙，这题就没有过程奖；3 级守护没用上，次数会退回。'
+async function useSkill(k, L) {
+  const it = curItem(), b = step(), sk = SKILLS.find(x => x.k === k)
+  const r = await api('/act', { kind: 'skill', k, L, item: it.id, step: Q.i })
+  V = r.view; Q.menu = null
+  if (!r.fx) { if (r.msg) sayPet(r.msg); return }
+  const fx = r.fx, L1 = {
+    审题: { circle: '（嗅嗅）先看最后一句，它问的是什么？我在下面留了一串脚印。', build: '（嗅嗅）看清楚题目问的是什么，要用的数都在题目里。', goal: '（嗅嗅）想想问题问的是什么，要知道它，先得知道什么？' },
+    概念不清: '有括号先算括号里的；没括号先算乘除，再算加减。',
+    计算失误: { range: '先看最高位，大概是几百、几十？', blanks: '每个空算完，再对一遍。', default: '交之前估一估：得数大概几位数？和你写的对得上吗？' },
+    格式规范: '写完了从头读一遍答句，看看有没有落下什么。',
+    策略缺失: '（拿出小地图）这题要走两步：先求一个中间的数，再求问题问的。',
+  }
+  if (L === 3) { Q.guard = k; sayPet(`${sk.n}守着这道题。交卷时如果${GUARD[k]}，它会先拦下来。`, 'skill') }
+  if (L === 1) {
+    if (k === '审题' && b.type === 'circle') Q.fx.trail = true
+    if (k === '漏题') { const n = b.type === 'blanks' ? Q.vals.filter(v => v === '').length : (Q.input ? 0 : 1) + (Q.unit ? 0 : 1); Q.fx.flash = true; sayPet(n ? `（巡逻绕一圈）还有 ${n} 个格子空着。` : '（巡逻绕一圈）每个格子都填了。', 'skill') }
+    else { const t = L1[k], line = typeof t === 'string' ? t : t[b.type] || t.default || ''; sayPet(fx.hint ? `${line} ${fx.hint}` : line, 'skill') }
+  }
+  if (L === 2) {
+    if (k === '审题') { Q.fx.grey = fx.grey; Q.sel.delete(fx.grey); sayPet('（嗅嗅）变灰的这句和算数没关系，不用管它。', 'skill') }
+    if (k === '概念不清') { Q.fx.mark = true; sayPet('先算标着 ① 的那块。', 'skill') }
+    if (k === '计算失误') {
+      if (b.type === 'chain') { const L = Q.lines.at(-1), j = nextOp(L.t); sayPet(`（爪子比一比）这一行先算的那块，得数是 ${String(calcOp(L.t[j - 1], L.t[j], L.t[j + 1])).length} 位数。`, 'skill') }
+      else sayPet(`（爪子比一比）得数是 ${fx.digits} 位数。`, 'skill')
+    }
+    if (k === '格式规范') {
+      const text = `${b.ask} ${Q.input || '……'} ${Q.unit || '……'} ${b.tail || ''}`
+      try { const u = new SpeechSynthesisUtterance(text.replace(/……/g, '，嗯，')); u.lang = 'zh-CN'; speechSynthesis.cancel(); speechSynthesis.speak(u) } catch { /* 不支持朗读就只显示文字 */ }
+      sayPet(`（读出声）「${text}」${Q.unit ? '' : '……读到最后好像停住了？'}`, 'skill')
+    }
+    if (k === '漏题') sayPet(b.type === 'say' ? '验算：把答句里的得数代回题目想一想，说得通吗？' : '验算：每个空填好后，从头到尾再算一遍。', 'skill')
+    if (k === '策略缺失') { Q.fx.strike = fx.strike; sayPet('（探路跑了一圈）这条路走不通，我先帮你划掉。', 'skill') }
+  }
+  Q.fire = { k, text: `${sk.n} ${L} 级 · ${LV[L]}` }
+}
+function vCatch() {
+  const c = Q.catch, x = SKILLS.find(s => s.k === c.k)
+  return `<div class="sheet"><div class="catch"><img class="big" src="/pet/badge-${x.badge}.webp" alt=""><h2>${x.n}接住了！</h2><p>${esc(c.msg)}。</p><p class="dim">回去改这一步再交。这次金币照给，但不算第一次就做对。</p><button class="btn" data-a="fix">回去改</button></div></div>`
+}
+const HABIT = { 审题: '圈得刚刚好', 格式规范: '单位第一次就写对', 概念不清: '先算的顺序都对', 计算失误: '每一步都算对了', 策略缺失: '先求什么找对了' }
+function vQResult(g) {
+  const d = Q.fin, more = g.items.some(x => !x.done), b = d.boss, mark = { y: '✓', n: '✗', h: '!' }
+  const sk = cat => { const x = SKILLS.find(s => s.k === cat); return x && S().skill[cat] ? `<small class="dim"> · ${x.n}管这个</small>` : '' }
+  const habits = (d.habits || []).filter(h => HABIT[h]).map(h => `<span class="cond ok">${HABIT[h]}</span>`).join('')
+  const extra = [...(d.help || []).map(h => `<div class="h"><i>★</i><span>本领帮了你 · ${esc(h)}</span></div>`),
+    ...(d.caught ? [`<div class="h"><i>◆</i><span>被${esc(d.caught.n)}接住了一次（不算第一次就做对，金币照给）</span></div>`] : []),
+    ...(d.refund ? [`<div class="y"><i>↺</i><span>${esc(d.refund)}守着这题，没用上，这周的守护次数退回去了</span></div>`] : [])].join('')
+  return `<div class="verdict"><b>${d.ok ? '做对了！' : '这题没做对，一起看看'}</b>${d.ok ? `<span class="sum"><i class="ico coin"></i>＋${d.c}</span>` : ''}</div>
+    ${habits ? `<div class="conds">${habits}</div>` : ''}
+    <div class="card items">${(d.items || []).map(x => `<div class="${x.good}"><i>${mark[x.good]}</i><span>${esc(x.msg)}${x.good !== 'y' ? sk(x.cat) : ''}</span></div>`).join('')}${extra}</div>
+    ${d.ok ? '' : `<div class="right"><b>正确做法</b><br>${d.lines.map(esc).join('<br>')}${d.explain ? `<br><span class="dim">${esc(d.explain)}</span>` : ''}</div>`}
+    <p class="dim">${d.ok ? [d.bonus ? '连续 5 题第一次就对，再加 5。' : '', d.l2 ? '用了 2 级帮忙，这题没有过程奖。' : d.pb ? `过程奖 ＋${d.pb} 已算在里面。` : '', d.patrol ? '今天没有急着答错的题，得到 1 个「巡逻」技能点。' : '', d.extra ? '加练的题金币减半。' : ''].join('') : (d.flash ? '太快啦，还没看清题。接下来几题我们慢慢来。' : '答错的题不给金币。过两天它会换个样子再来。')}</p>
+    ${d.day ? `<div class="bubble plain">今天的任务做完了，${name()}已经陪你 ${d.day} 天。</div>` : ''}
+    ${d.grew ? `<div class="bubble plain">${name()}长大了，现在是${STAGES[d.grew].n}！${PLACES.find(p => p.st === d.grew) ? `${PLACES.find(p => p.st === d.grew).n}开放了，` : ''}回小屋看看。</div>` : ''}
+    ${d.wish ? `<div class="bubble plain">这周来满啦！可以去找爸爸妈妈兑换心愿：${esc(d.wish)}。</div>` : ''}
+    ${b ? `<div class="bubble plain">${b.pass ? `闯关成功！${b.n} 题答对 ${b.okN} 题，再得 ${b.coins} 金币${b.story ? `，解锁了故事书第 ${b.story} 页` : b.card ? `。这一章的故事读完了，${name()}带回一张明信片` : ''}。` : `闯关 ${b.n} 题答对 ${b.okN} 题，差一点。下周五再来。`}</div>` : ''}
+    ${b?.pass && b.story ? `<button class="btn" data-a="story" data-v="${b.story - 1}">看新故事</button>` : `<button class="btn" data-a="next">${more ? '下一题' : V.allDone ? '看今天的成绩' : '回到任务'}</button>`}`
 }
 function vQ() {
   const g = groups().find(x => x.id === Q.gid), it = g.items.find(x => x.id === Q.id), idx = g.items.indexOf(it) + 1
-  let body = ''
-  const msg = Q.msg ? `<div class="bubble plain ${Q.flash ? 'warn' : ''}">${Q.msg}</div>` : ''
-  if (Q.fin) {
-    const d = Q.fin, more = g.items.some(x => !x.done)
-    const b = d.boss
-    body = `<div class="card q">${it.format === 'word' ? segText(it, 'fixed') : esc(it.format === 'first' ? it.tokens.join(' ') : it.text || '这一组小题')}</div>
-      <div class="fb ${d.ok ? '' : 'zero'}">${d.ok ? `<span class="fly">＋${d.c}</span><b class="c"><i class="ico coin"></i>＋${d.c}</b>${d.w === 0 ? '第一次就答对了！' : '订正对了，拿到一部分金币。'}${d.bonus ? ' 连续 5 题第一次就对，再加 5。' : ''}${d.patrol ? ' 今天没有急着答错的题，得到 1 个「巡逻」技能点。' : ''}${d.extra ? ' 加练的题金币减半。' : ''}` : `<b>这道题先放一放</b><br>${esc(d.explain)}<br>过两天它会换个样子再来。`}</div>
-      ${d.w && d.ok ? `<div class="bubble plain">${esc(d.explain)}</div>` : ''}
-      ${d.day ? `<div class="bubble plain">今天的任务做完了，${name()}已经陪你 ${d.day} 天。</div>` : ''}
-      ${d.grew ? `<div class="bubble plain">${name()}长大了，现在是${STAGES[d.grew].n}！${PLACES.find(p => p.st === d.grew) ? `${PLACES.find(p => p.st === d.grew).n}开放了，` : ''}回小屋看看。</div>` : ''}
-      ${d.wish ? `<div class="bubble plain">这周来满啦！可以去找爸爸妈妈兑换心愿：${esc(d.wish)}。</div>` : ''}
-      ${b ? `<div class="bubble plain">${b.pass ? `闯关成功！${b.n} 题答对 ${b.okN} 题，再得 ${b.coins} 金币${b.story ? `，解锁了故事书第 ${b.story} 页` : b.card ? `。这一章的故事读完了，${name()}带回一张明信片` : ''}。` : `闯关 ${b.n} 题答对 ${b.okN} 题，差一点。下周五再来。`}</div>` : ''}
-      ${b?.pass && b.story ? `<button class="btn" data-a="story" data-v="${b.story - 1}">看新故事</button>` : `<button class="btn" data-a="next">${more ? '下一题' : V.allDone ? '看今天的成绩' : '回到任务'}</button>`}`
-  } else if (it.format === 'oral') body = `<div class="card q big">${esc(it.text)} ＝ <span class="box">${Q.input}</span></div>${msg}${pad()}`
-  else if (it.format === 'first') body = `<p class="dim">点一下先算的那个符号。</p><div class="card q big">${it.tokens.map((t, i) => /^[+−×÷]$/.test(t) ? `<button class="tok" data-a="tok" data-v="${i}">${t}</button>` : `<span>${esc(t)}</span>`).join(' ')}</div>${msg}`
-  else if (it.format === 'clock') body = `<div class="card q">${esc(it.text)}。<span class="dim">点钟面边上的小圆点，时针就会指过去。</span></div>${clock(it)}${msg}<button class="btn" data-a="submit" ${Q.zone == null ? 'disabled' : ''}>拨好了</button>`
-  else if (it.format === 'estimate') body = Q.step === 0
-    ? `<div class="card q big">${esc(it.text)}</div><p class="dim">先不急着算。估一估，得数大概在哪一段？</p>${msg}<div class="opts">${it.ranges.map((r, i) => `<button data-a="range" data-v="${i}">${esc(r)}</button>`).join('')}</div>`
-    : `<div class="card q big">${esc(it.text)} ＝ <span class="box">${Q.input}</span></div><p class="dim">你估的是 ${esc(it.ranges[Q.range] ?? '')}。现在算出准确的得数。</p>${msg}${pad()}`
-  else if (it.format === 'steps') body = `<div class="card"><div class="line">${esc(it.text)}</div>${it.lines.map((pre, i) => i > Q.vals.length ? '' : `<div class="line">${esc(pre)}<span class="box">${i < Q.vals.length ? Q.vals[i] : Q.input}</span></div>`).join('')}</div><p class="dim">一行一行填，最后一行是一个数。</p>${msg}${pad()}`
-  else if (it.format === 'fix') body = `<p class="dim">${Q.step === 0 ? `这是${name()}做的题，有一步算错了。点出最先出错的那一行。` : '找对了！那正确的得数是多少？'}</p>
-    <div class="card"><div class="line">${esc(it.text)}</div>${it.shown.map((t, i) => Q.step === 0 ? `<button class="frow" data-a="spot" data-v="${i}">${esc(t)}</button>` : `<div class="frow ${i === Q.spot ? 'bad' : ''}">${esc(t)}</div>`).join('')}${Q.step ? `<div class="line">正确的得数 ＝ <span class="box">${Q.input}</span></div>` : ''}</div>${msg}${Q.step ? pad() : ''}`
-  else if (it.format === 'multi') body = `${it.text ? `<p class="dim">${esc(it.text)}</p>` : ''}<div class="card multi">${it.blanks.map((t, i) => { const ok = Q.okIdx[i], bad = Q.okIdx.length && !ok && Q.vals[i] !== ''; const [l, r = ''] = t.split('□')
-      return `<button class="mrow ${i === Q.cur && !ok ? 'cur' : ''} ${ok ? 'ok' : bad ? 'bad' : ''}" ${ok ? 'disabled' : ''} data-a="blank" data-v="${i}">${esc(l)}<span class="box">${esc(Q.vals[i])}</span>${esc(r)}</button>` }).join('')}</div><p class="dim">点一个空再填数。每个空都要填。</p>${msg}${pad()}`
-  else if (it.format === 'plan') {
-    const st = Q.step, cur = st === 0 ? 0 : st === 3 ? 2 : 1
-    const tabs = `<div class="steps">${['先求什么', '选算式', '算和答'].map((n, i) => `<span class="${i < cur ? 'done' : i === cur ? 'now' : ''}">${n}</span>`).join('')}</div><div class="card q">${esc(it.text)}</div>`
-    const goal = st ? `<div class="bubble plain">先求：${esc(it.goals[Q.goal] ?? '')}</div>` : ''
-    if (st === 0) body = `${tabs}<p class="dim">这道题一步算不出来。要先求出什么？</p>${msg}<div class="opts">${it.goals.map((t, i) => `<button data-a="goal" data-v="${i}">${esc(t)}</button>`).join('')}</div>`
-    else if (st < 3) body = `${tabs}${goal}${msg}<div class="opts">${Q.order.map(i => `<button data-a="choice" data-v="${i}">${esc(it.choices[i])}</button>`).join('')}</div>`
-    else {
-      const slot = Q.unit ? `<button class="uchip" data-a="unit" data-v="">${esc(Q.unit)}</button>` : V.tuning.unit_hint ? '<span class="uslot" aria-label="空着的单位格"></span>' : ''
-      body = `${tabs}<div class="card"><div class="expr">${esc(Q.expr)} ＝ <span class="box">${Q.input}</span></div><div class="ans">${esc(it.ask)} <b>${Q.input || '＿＿'}</b> ${slot} ${esc(it.tail || '')}</div></div>${msg}${pad(it.units)}`
-    }
-  } else {
-    const st = Q.step, cur = st <= 1 ? 0 : st - 1          // 第 0、1 步都属于「圈关键词」
-    const tabs = `<div class="steps">${['圈关键词', '选算式', '算和答'].map((n, i) => `<span class="${i < cur ? 'done' : i === cur ? 'now' : ''}">${n}</span>`).join('')}</div>`
-    if (st === 0) body = `${tabs}<p class="dim">你觉得哪些地方最要紧，就点哪里，可以点好几处。</p><div class="card q">${segText(it, 'pick')}</div>${msg}<button class="btn" data-a="circled" ${Q.sel.size ? '' : 'disabled'}>圈好了，对一对</button>`
-    if (st === 1) {
-      const k = Q.kw, line = k.kw === 2 ? '圈得刚刚好！关键词一个不落，也没圈多余的。' : k.kw === 1 ? `关键词都圈到了，还多圈了 ${k.extra} 处用不上的。` : `漏了 ${k.missed} 个关键词，橙色虚线的就是。`
-      body = `${tabs}<div class="card q">${segText(it, 'reveal')}</div><div class="legend"><span><i style="background:var(--ok);border:2px solid var(--leaf)"></i>圈对了</span><span><i style="background:var(--miss);border:2px dashed var(--coin)"></i>漏了</span><span><i style="background:#f1f1ec;border:2px solid #b9bfb2"></i>用不上</span></div><div class="bubble plain">${line}${S().skill['审题'] && k.kw ? ' 灵鼻子也嗅出来了。' : ''}<br>${esc(k.why)}</div><button class="btn" data-a="kwok">知道了，下一步</button>`
-    }
-    if (st === 2) body = `${tabs}<div class="card q">${segText(it, 'fixed')}</div>${msg}<div class="opts">${Q.order.map(i => `<button data-a="choice" data-v="${i}">${esc(it.choices[i])}</button>`).join('')}</div>`
-    if (st === 3) {
-      const slot = Q.unit ? `<button class="uchip" data-a="unit" data-v="">${esc(Q.unit)}</button>` : V.tuning.unit_hint ? '<span class="uslot" aria-label="空着的单位格"></span>' : ''
-      body = `${tabs}<div class="card q">${segText(it, 'fixed')}</div><div class="card"><div class="expr">${esc(Q.expr)} ＝ <span class="box">${Q.input}</span></div><div class="ans">${esc(it.ask)} <b>${Q.input || '＿＿'}</b> ${slot} ${esc(it.tail || '')}</div></div>${msg}${pad(it.units)}`
-    }
-  }
-  return `<div class="top"><button class="back" data-a="go" data-v="quests" aria-label="回到任务">‹</button><h1>${esc(g.name)} ${idx}/${g.items.length}</h1>${buddy(it)}</div>
-  <div class="body">${Q.cover ? `<div class="cover"><img src="${face('thinking')}" alt=""><b style="font:400 22px var(--kid)">慢慢来</b><span>${name()}在帮你把题目再读一遍……</span></div>` : ''}${body}</div>`
+  const bar = Q.flow.length > 1 ? `<div class="steps" style="grid-template-columns:repeat(${Q.flow.length},1fr)">${Q.flow.map((t, i) => `<span class="${Q.fin || i < Q.i ? 'done' : i === Q.i ? 'now' : ''}">${STEP_NAME[t.type]}</span>`).join('')}</div>` : ''
+  return `<div class="top"><button class="back" data-a="go" data-v="quests" aria-label="回到任务">‹</button><h1>${esc(g.name)} ${idx}/${g.items.length}</h1>${coin('最高 ' + (g.extra ? Math.ceil(it.max / 2) : it.max))}</div>
+  <div class="body qbody">${Q.cover ? `<div class="cover"><img src="${face('thinking')}" alt=""><b style="font:400 30px var(--kid)">慢慢来</b><span>${name()}在帮你把题目再读一遍……</span></div>` : ''}${bar}${Q.fin ? (it.segs ? qText() : '') + vQResult(g) : vStep()}</div>
+  ${vDock()}${Q.menu ? vMenu() : ''}${Q.catch ? vCatch() : ''}${Q.fire ? `<div class="toast fire"><img src="/pet/badge-${SKILLS.find(x => x.k === Q.fire.k).badge}.webp" alt="">${esc(Q.fire.text)}</div>` : ''}`
 }
+const QA = {
+  key(k) {
+    if (page === 'login') { pin = k === '⌫' ? pin.slice(0, -1) : (pin + k).slice(0, 8); return }
+    if (!Q || Q.cover || Q.fin || Q.catch) return
+    const b = step(), edit = v => k === '⌫' ? v.slice(0, -1) : (v + k).slice(0, 5)
+    if (b.type === 'blanks') { Q.vals[Q.cur] = edit(Q.vals[Q.cur]); return }
+    if (b.type === 'chain' && Q.op == null) { sayPet('先点你要先算的那个符号。'); return }
+    if (['fill', 'chain', 'say'].includes(b.type)) Q.input = edit(Q.input)
+  },
+  submit() { if (page === 'login') return run(async () => { try { await api('/login', { pin }); loginErr = ''; V = await api('/state'); page = 'home'; chat() } catch (e) { loginErr = e.message } pin = '' }) },
+  stepgo() {
+    if (!Q || Q.cover || Q.fin || Q.catch) return
+    const b = step()
+    if (b.type === 'fill') { if (!Q.input) return sayPet('还没填得数呢。'); save({ v: Number(Q.input) }); return next() }
+    if (b.type === 'first') { save({ i: Q.pick }); return next() }
+    if (b.type === 'clock') { save({ zone: Q.zone }); return next() }
+    if (b.type === 'blanks') { const empty = Q.vals.filter(v => v === '').length; if (empty && V.tuning.blank_hint) return sayPet(`还有 ${empty} 个空没填，填完再交卷。`); save({ vals: Q.vals }); return next() }
+    if (b.type === 'circle') { save({ sel: [...Q.sel] }); return next() }
+    if (b.type === 'build') { const t = Q.expr.map(e => e.x); if (!validExpr(t)) return sayPet('算式还没写完整：数和符号要一个隔一个，括号要成对。'); save({ expr: t, chips: Q.expr.map(e => e.chip) }); return next() }
+    if (b.type === 'chain') {
+      if (!Q.input) return sayPet('还没填得数呢。')
+      const L = Q.lines.at(-1), v = Number(Q.input); Object.assign(L, { k: Q.op, v }); Q.input = ''
+      const nt = reduceAt(L.t, Q.op, v); Q.op = null; Q.fx.mark = false
+      if (nt.length === 1) { save({ lines: Q.lines.map(x => ({ k: x.k, v: x.v })) }); return next() }
+      Q.lines.push({ t: nt }); autoOp(); sayPet(Q.op != null ? '只剩一个符号了，直接算。' : '下一行，先点你要先算的符号。'); return
+    }
+    if (b.type === 'say') { if (!Q.input) return sayPet('还没填得数呢。'); save({ v: Number(Q.input), unit: Q.unit }); return next() }
+  },
+  pick(i) { Q.pick = +i },
+  pickgo(i) { if (Q.fin || Q.catch) return; save({ i: +i }); return next() },
+  zone(z) { Q.zone = +z },
+  blank(i) { Q.cur = +i },
+  seg(i) { i = +i; if (Q.fx.grey === i) return; Q.sel.has(i) ? Q.sel.delete(i) : Q.sel.add(i) },
+  chip(i) { i = +i; if (Q.expr.some(e => e.chip === i)) return; Q.expr.push({ x: step().chips[i].v, chip: i }) },
+  op(o) { Q.expr.push({ x: o }) },
+  del() { Q.expr.pop() },
+  clr() { Q.expr = [] },
+  tapop(k) { k = +k; const L = Q.lines.at(-1); if (Q.op === k) { Q.op = null; return } if (canTap(L.t, k)) Q.op = k },
+  unit(u) { if (Q && !Q.fin) Q.unit = u && Q.unit !== u ? u : null },
+  menu(k) { if (Q.fin || Q.catch) return; Q.menu = Q.menu === k ? null : k },
+  shut() { Q.menu = null },
+  use(v) { const [k, L] = v.split(':'); return run(() => useSkill(k, +L)) },
+  fix() { const c = Q.catch; Q.catch = null; Q.caught = c; Q.rec = Q.rec.slice(0, c.step + 1); Q.i = c.step; enter(); sayPet(`${c.n}接住了：${c.msg}。改好再交。`, 'skill'); Q.t0 = Date.now() },
+  next() { const g = groups().find(x => x.id === Q.gid), it = g.items.find(x => !x.done); if (it) return startQ(g, it); Q = null; page = V.allDone ? 'result' : 'quests'; if (V.allDone) chat('after_practice') },
+  group(id) { const g = groups().find(x => x.id === id), it = g?.items.find(x => !x.done); if (it) startQ(g, it) },
+}
+
 function vResult() {
   const its = allItems(), first = its.filter(it => it.done?.w === 0).length, fix = its.filter(it => it.done?.w && it.done?.ok).length, again = its.filter(it => it.done && !it.done.ok).length
   return `<div class="top"><h1>今天完成啦</h1></div><div class="body">
@@ -482,71 +662,14 @@ function render() {
   if (page !== lastPage) { if (page === 'map') document.getElementById('now')?.scrollIntoView({ block: 'center' }); else if (page !== 'q') window.scrollTo(0, 0) }
   lastPage = page
   if (!pose) act = ''
-  cere = null; if (Q) Q.mood = ''
+  cere = null; if (Q) { Q.mood = ''; Q.fire = null }
 }
 
-// ---------- 做题 ----------
-const curItem = () => groups().find(x => x.id === Q.gid).items.find(x => x.id === Q.id)
-function startQ(g, it) {
-  // 刷新后接着做：服务器记着每道题做到第几步（it.step、it.p）
-  Q = { gid: g.id, id: it.id, step: it.format === 'word' && it.step === 1 ? 2 : it.step, kw: it.kw, expr: it.expr, sel: new Set(it.kw?.sel || []), input: '', unit: null, msg: '', flash: false, fin: null, cover: false, mood: '', t0: Date.now(), order: (it.choices || []).map((_, i) => i),
-    zone: null, range: it.p?.range, spot: it.p?.spot, goal: it.p?.goal, vals: it.format === 'multi' ? (it.p?.vals || it.blanks.map(() => '')) : (it.p?.vals || []), okIdx: it.p?.ok || [], cur: 0 }
-  if (it.format === 'multi') Q.cur = Math.max(0, Q.vals.findIndex((v, i) => !Q.okIdx[i]))
-  if (S().slow > 0 && S().slowFrom !== it.id) {      // 「慢慢来」：先盖住 3 秒，剩几题由服务器记
-    Q.cover = true
-    setTimeout(() => { if (Q?.id === it.id) { Q.cover = false; Q.t0 = Date.now(); render() } }, 3000)
-  }
-  page = 'q'
-}
-async function send(payload) {
-  const res = await api('/answer', { item: Q.id, ms: Date.now() - Q.t0, ...payload })
-  V = res.view
-  if (res.fin) { Q.fin = res.fin; Q.msg = ''; Q.mood = res.fin.ok ? 'hop' : 'think'; if (res.fin.point) cere = res.fin.point; return }
-  if (res.ok) return res
-  Q.flash = !!res.flash; Q.mood = 'think'
-  if (res.okIdx) Q.okIdx = res.okIdx
-  Q.msg = (res.flash ? '太快啦，还没看清题。接下来几题我们慢慢来。<br>' : '') + esc(res.msg)
-  if (!res.keepInput) Q.input = ''
-  Q.order.sort(() => Math.random() - .5)
-  Q.t0 = Date.now()
-}
 const A = {
+  ...QA,
   go(v) { if (v === 'home' && page !== 'home') chat(); if (['shop', 'place'].includes(v)) say = ''; page = v; Q = null; sheet = null },
   story(i) { sp = i === '' || i == null ? null : +i; page = 'story'; Q = null },
-  key(k) {
-    if (page === 'login') { pin = k === '⌫' ? pin.slice(0, -1) : (pin + k).slice(0, 8); return }
-    if (!Q || Q.cover || Q.fin) return
-    const edit = v => k === '⌫' ? v.slice(0, -1) : (v + k).slice(0, 5)
-    if (curItem().format === 'multi') { if (!Q.okIdx[Q.cur]) Q.vals[Q.cur] = edit(Q.vals[Q.cur]) } else Q.input = edit(Q.input)
-  },
-  submit() {
-    if (page === 'login') return run(async () => { try { await api('/login', { pin }); loginErr = ''; V = await api('/state'); page = 'home'; chat() } catch (e) { loginErr = e.message } pin = '' })
-    if (!Q || Q.cover || Q.fin) return
-    const it = curItem(), now = () => { Q.input = ''; Q.msg = ''; Q.t0 = Date.now() }
-    if (it.format === 'clock') return run(() => send({ zone: Q.zone }))
-    if (it.format === 'multi') {
-      const empty = Q.vals.filter(v => v === '').length
-      if (empty && V.tuning.blank_hint) { Q.msg = `还有 ${empty} 个空没填，填完再交卷。`; return }   // 提醒档：不让交；不提醒档：交了算漏题
-      return run(() => send({ values: Q.vals }))
-    }
-    if (!Q.input) { Q.msg = '还没填得数呢。'; return }
-    if (it.format === 'steps') return run(async () => { const res = await send({ value: Q.input }); if (res) { Q.vals = res.vals; now() } })
-    return run(() => send(['word', 'plan'].includes(it.format) ? { step: 'answer', value: Q.input, unit: Q.unit } : { value: Q.input }))
-  },
-  goal(i) { return run(async () => { const res = await send({ step: 'goal', index: +i }); if (res) { Q.step = 1; Q.goal = res.goal; Q.msg = ''; Q.t0 = Date.now() } }) },
   extra() { return run(async () => { const r = await api('/act', { kind: 'extra' }); V = r.view; if (r.extra) page = 'quests'; else say = r.msg, page = 'home' }) },
-  zone(z) { Q.zone = +z },
-  blank(i) { Q.cur = +i },
-  range(i) { return run(async () => { const res = await send({ index: +i }); if (res) { Q.step = 1; Q.range = res.range; Q.msg = ''; Q.t0 = Date.now() } }) },
-  spot(i) { return run(async () => { const res = await send({ index: +i }); if (res) { Q.step = 1; Q.spot = res.spot; Q.msg = ''; Q.t0 = Date.now() } }) },
-  tok(i) { return run(() => send({ index: +i })) },
-  seg(i) { i = +i; Q.sel.has(i) ? Q.sel.delete(i) : Q.sel.add(i) },
-  circled() { return run(async () => { const res = await send({ step: 'keywords', sel: [...Q.sel] }); if (res) { Q.kw = res; Q.step = 1; Q.mood = res.kw === 2 ? 'hop' : 'think'; ls.set('kid-circled', ls.get('kid-circled', 0) + 1) } }) },
-  kwok() { Q.step = 2; Q.t0 = Date.now() },
-  choice(i) { return run(async () => { const res = await send({ step: 'choice', index: +i }); if (res) { Q.step = 3; Q.expr = res.expr; Q.msg = ''; Q.t0 = Date.now() } }) },
-  unit(u) { if (Q && !Q.fin) Q.unit = u || null },
-  next() { const g = groups().find(x => x.id === Q.gid), it = g.items.find(x => !x.done); if (it) return startQ(g, it); Q = null; page = V.allDone ? 'result' : 'quests'; if (V.allDone) chat('after_practice') },
-  group(id) { const g = groups().find(x => x.id === id), it = g?.items.find(x => !x.done); if (it) startQ(g, it) },
   // 初次见面：先给小狗起名，再问孩子的名字
   petname(v) { const n = v ?? document.getElementById('nm-pet')?.value; return run(async () => { const r = await api('/act', { kind: 'name', name: n }); V = r.view; if (S().name) meetBack = false; else showToast(r.msg) }) },
   kidname() { const n = document.getElementById('nm-kid')?.value; return run(async () => { const r = await api('/act', { kind: 'kidname', name: n }); V = r.view; if (S().kid) meetHi = true; else showToast(r.msg) }) },

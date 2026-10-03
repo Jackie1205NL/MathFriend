@@ -1,7 +1,8 @@
 // 孩子端后端：判分、金币、照顾、存档都在这里，页面拿不到答案。
 // 存储只要有 get(key) / set(key, value) 两个方法：线上是 Netlify Blobs（kid/functions/kid.mjs），本地开发是文件（kid/vite.config.js）。
 import { PACK_VERSION, FORMATS, MIN_SECONDS, SKILLS, SKILL_COST, GOODS, DECAY, NEED_FLOOR, PATS_PER_DAY, LEVELS, LEVEL_MIX, STORY_PAGES, BOSS_SIZE, BOSS_PASS, BOSS_COINS, EXTRA_STEP, STAGES,
-  SEASON, PLACES, POSTCARDS, POSTCARD_DAYS, JAR, TRIP_MOOD, EVENT_COINS, coinsFor, publicItem, stageOf, placeOpen, eventOf, cleanName, addDays } from '../../shared/contract.js'
+  SEASON, PLACES, POSTCARDS, POSTCARD_DAYS, JAR, TRIP_MOOD, EVENT_COINS, coinsFor, publicItem, stageOf, placeOpen, eventOf, cleanName, addDays,
+  SKILL_EVERY, SKILL_USES, SKILL_AT, SKILL_L2, FLOWS, STEP_NAME, toTokens, showExpr, validExpr, exprValue, exprSteps, sameNums, stripParens, nextOp, canTap, calcOp, reduceAt } from '../../shared/contract.js'
 
 const DAY = 86400000
 const today = (now = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(now)
@@ -19,7 +20,9 @@ const freshState = () => ({ name: '', kid: '', hatched: false, coins: 60, grow: 
   pts: Object.fromEntries(SKILLS.map(s => [s.k, 0])), prog: Object.fromEntries(SKILLS.map(s => [s.k, 0])), skill: Object.fromEntries(SKILLS.map(s => [s.k, 0])),
   // 第四期「学期之旅」
   season: SEASON.id, days: 0, lastDay: '', st: 0, minStage: 0, jar: 0, trip: null, cards: [], pcLast: '', gift: null, greet: '', event: '', hide: null,
-  alumni: [], grad: '', qn: 0, months: {}, visited: [], lastSay: '' })
+  alumni: [], grad: '', qn: 0, months: {}, visited: [], lastSay: '',
+  // 第五期：本领次数、列式档位、技能点每天上限
+  uses: {}, tiers: {}, ptDay: {} })
 
 /** 需求按时间慢慢下降，读的时候再算，不需要定时任务。 */
 function decay(s, now = Date.now()) {
@@ -87,7 +90,7 @@ function pickToday(pack, log, date, ladder) {
   const groups = pack.groups.filter(g => !(friday && g.boss)).map(g => {
     const pool = items.filter(it => it.group === g.id), fresh = pool.filter(it => !seen.has(it.id))
     const ordered = [...order(fresh.filter(it => redo.has(it.tpl))), ...order(fresh.filter(it => !redo.has(it.tpl))), ...order(pool.filter(it => seen.has(it.id)))]
-    const want = friday ? Math.ceil((g.daily || 4) / 2) : g.daily || 4, out = [], perTpl = {}
+    const daily = g.daily || (g.bucket === '已掌握保温' ? 6 : 4), want = friday ? Math.ceil(daily / 2) : daily, out = [], perTpl = {}
     for (const it of ordered) { if (out.length >= want) break; if ((perTpl[it.tpl] || 0) >= 2) continue; perTpl[it.tpl] = (perTpl[it.tpl] || 0) + 1; out.push(it.id) }
     return { id: g.id, items: out }
   }).filter(g => g.items.length)
@@ -151,7 +154,8 @@ export function createApi(store, env) {
       date, now: ctx.now,
       state: { ...s, hide: undefined, stage: st, good: good(s), finale: date >= SEASON.finale, graduated: !!s.grad, pcPending: POSTCARD_DAYS.some(d => d > (s.pcLast || '') && d <= date) },
       week: pack?.week || null, tuning: pack?.tuning || {},
-      today: day ? day.groups.map(dg => ({ ...(dg.id === 'friday' ? FRIDAY : dg.id === 'extra' ? EXTRA : pack.groups.find(g => g.id === dg.id)), items: dg.items.map(id => ({ ...publicItem(byId[id]), done: day.items[id]?.fin || null, step: day.items[id]?.step || 0, kw: day.items[id]?.kwRes || null, expr: day.items[id]?.expr || null, p: day.items[id]?.pub || null })) })) : [],
+      today: day ? day.groups.map(dg => ({ ...(dg.id === 'friday' ? FRIDAY : dg.id === 'extra' ? EXTRA : pack.groups.find(g => g.id === dg.id)), items: dg.items.map(id => { const it = byId[id], r = day.items[id] || {}; return { ...publicItem(it, { tier: s.tiers?.[`${it.kp}|${it.err}`]?.lv ?? 0 }), done: r.fin || null, guard: r.guard || null, caught: r.caught || null, l2: !!r.l2, help: r.help || [] } }) })) : [],
+      uses: usesLeft(s, date),
       allDone: !!day?.done,
       wish: pack?.tuning?.wish ? { text: String(pack.tuning.wish), need: Number(pack.tuning.wish_days) || 4, got: s.att.week === pack.week ? s.att.days.length : 0 } : null,
       morning: s.hatched && s.name && s.kid && s.greet !== date ? { gift: s.gift?.date === date ? s.gift.what : null, note: pack?.tuning?.note ? String(pack.tuning.note) : '', facts: facts(ctx) } : null,
@@ -174,29 +178,155 @@ export function createApi(store, env) {
     return card
   }
 
-  // ---------- 做题 ----------
-  function finish(ctx, it, rec) {
-    const s = ctx.state, w = rec.w
-    const q = w === 0 ? 1 : w === 1 ? (it.format === 'first' ? 0.3 : 0.5) : w === 2 ? 0.3 : 0
-    const pb = { word: rec.kw ?? 0, steps: 2, estimate: rec.rangeOk ? 2 : 0, multi: rec.blankMiss ? 0 : 2, plan: rec.goalOk ? 2 : 0 }[it.format] || 0
+  // ---------- 做题：整道题做完再判 ----------
+  /**
+   * 按积木逐步判分。每一步都照孩子自己的结果往下走：列错了式子，递等式就照他的式子算；
+   * 所以能分清是列式错还是计算错。返回 { items: [{ i, good: 'y'|'n'|'h', msg, cat }], ok, habits, given, final }
+   */
+  function judge(it, steps) {
+    const flow = it.flow || FLOWS[it.format], items = [], habits = new Set()
+    const add = (i, good, msg, cat = '') => items.push({ i, good, msg, cat })
+    const trap = v => it.traps?.find(t => t.value === v)
+    let expr = null, final = null, ok = true, given = [], kw = 0, goalOk = false, chainOk = true, rangeOk = false, blankMiss = false, unitMiss = false
+    flow.forEach((type, i) => {
+      const a = steps?.[i] || {}
+      if (type === 'fill') {
+        const v = a.v === '' || a.v == null ? null : Number(a.v); given.push(v)
+        if (v === it.answer) { add(i, 'y', `${it.format === 'fix' ? '正确的得数' : '得数'} ${v}，对`); return }
+        ok = false
+        if (v == null) return add(i, 'n', '得数没填', '漏题')
+        const tp = trap(v); add(i, 'n', tp?.say || `得数应该是 ${it.answer}，你写了 ${v}`, tp?.error_type || '计算失误')
+      } else if (type === 'first') {
+        const k = Number(a.i), right = it.first; given.push('先算 ' + (it.tokens[k] ?? '?'))
+        if (k === right) { habits.add('概念不清'); return add(i, 'y', `先算 ${it.tokens[k]}，对`) }
+        ok = false; add(i, 'n', `先算了 ${it.tokens[k] ?? '？'}。${it.tokens.includes('(') ? '有括号，先算括号里面的' : '没有括号，先算乘除，再算加减'}，应该先算 ${it.tokens[right]}`, it.err)
+      } else if (type === 'clock') {
+        const z = Number(a.zone); given.push(`钟面位置 ${z}`)
+        if (z === it.answer) return add(i, 'y', '时针拨对了')
+        ok = false; add(i, 'n', trap(z) ? '几时半，时针在两个数的正中间，不是正好指着整点' : '时针拨的位置不对', trap(z)?.error_type || it.err)
+      } else if (type === 'range') {
+        const k = Number(a.i); given.push(it.ranges[k]?.t)
+        if (it.ranges[k]?.ok) { rangeOk = true; habits.add('计算失误'); return add(i, 'y', `估在 ${it.ranges[k].t}，估得对`) }
+        ok = false; add(i, 'n', `估的范围不对，应该在 ${it.ranges.find(r => r.ok).t}。先看最高位，大概是几百、几十`, '计算失误')
+      } else if (type === 'spot') {
+        const k = Number(a.i); given.push(`第 ${k + 1} 行`)
+        if (k === it.bad) return add(i, 'y', `找到了，最先错的是第 ${k + 1} 行`)
+        ok = false; add(i, 'n', `最先出错的是第 ${it.bad + 1} 行，你点了第 ${k + 1} 行。从上往下一行一行对`, '漏题')
+      } else if (type === 'blanks') {
+        const vals = Array.isArray(a.vals) ? a.vals : []; given.push(vals.join(','))
+        it.blanks.forEach((b, j) => {
+          const v = String(vals[j] ?? '') === '' ? null : Number(vals[j]), t = b.t.replace('□', '（ ）')
+          if (v === b.a) add(i, 'y', `${t}：${v}，对`)
+          else if (v == null) { ok = false; blankMiss = true; add(i, 'n', `${t}：空着没填`, '漏题') }
+          else { ok = false; add(i, 'n', `${t}：应该是 ${b.a}，你写了 ${v}`, '计算失误') }
+        })
+      } else if (type === 'circle') {
+        const sel = new Set((a.sel || []).map(Number)), keys = it.segs.flatMap((s, j) => s.k ? [j] : []), noise = it.segs.flatMap((s, j) => s.n ? [j] : [])
+        const missed = keys.filter(j => !sel.has(j)).length, extra = noise.filter(j => sel.has(j)).length
+        kw = missed ? 0 : extra ? 1 : 2
+        if (kw === 2) habits.add('审题')
+        add(i, kw === 2 ? 'y' : 'h', kw === 2 ? '关键词圈得刚刚好' : missed ? `漏圈了 ${missed} 个关键词。${it.why || ''}` : `关键词都圈到了，还多圈了 ${extra} 处用不上的。${it.why || ''}`, kw === 2 ? '' : '审题')
+      } else if (type === 'goal') {
+        const k = Number(a.i); given.push('先求 ' + (it.goals[k]?.t ?? '?'))
+        if (it.goals[k]?.ok) { goalOk = true; habits.add('策略缺失'); return add(i, 'y', `先求「${it.goals[k].t}」，找对了`) }
+        add(i, 'n', `先求「${it.goals[k]?.t ?? '？'}」走不通，要先求「${it.goals.find(g => g.ok).t}」`, '策略缺失')
+      } else if (type === 'build') {
+        const t = a.i != null ? toTokens(it.choices[Number(a.i)]?.t || '') : (Array.isArray(a.expr) ? a.expr.map(x => typeof x === 'number' || /^\d+$/.test(x) ? Number(x) : String(x)) : [])
+        expr = validExpr(t) ? t : null; given.push(showExpr(t))
+        const v = expr ? exprValue(expr) : NaN, okT = toTokens(it.choices.find(c => c.ok).t)
+        if (!expr) { ok = false; return add(i, 'n', '算式没写完整', '漏题') }
+        if (v === it.answer && sameNums(expr, okT)) return add(i, 'y', `列式 ${showExpr(expr)}，方法对`)
+        if (v === it.answer) return add(i, 'h', `列式 ${showExpr(expr)} 得数碰巧对了，但用到的数和题目对不上`, '审题')
+        const tp = trap(v), part = (exprSteps(okT) || []).some(st => st.v === v)
+        add(i, 'n', `列式 ${showExpr(expr)}：${tp?.say || (part ? `这只算出了一部分（${v}），问题问的是「${(it.ask || '').replace(/^答：/, '')}……」，还差一步` : '和题目问的对不上')}`, tp?.error_type || (part ? '审题' : it.err))
+      } else if (type === 'chain') {
+        let t = stripParens(flow.includes('build') ? expr || [] : toTokens(it.text))
+        const lines = Array.isArray(a.lines) ? a.lines : []
+        if (!t.length) return
+        let r = 0, orderOk = true, calcOk = true
+        for (const L of lines) {
+          if (t.length < 2) break
+          const k = Number(L.k), v = Number(L.v), right = nextOp(t)
+          if (!canTap(t, k) || !Number.isInteger(v)) { ok = false; chainOk = false; add(i, 'n', `第 ${r + 1} 行没算完整`, '漏题'); t = []; break }
+          const part = showExpr(t.slice(k - 1, k + 2)), should = calcOp(t[k - 1], t[k], t[k + 1])
+          if (k !== right) {
+            orderOk = false; chainOk = false
+            add(i, 'n', `第 ${r + 1} 行先算了 ${part}，应该先算 ${showExpr(t.slice(right - 1, right + 2))}。${t.includes('(') ? '有括号先算括号里的' : '有乘除又有加减，先算乘除'}`, '概念不清')
+          } else if (v !== should) {
+            calcOk = false; chainOk = false
+            const tp = it.lines?.[r]?.traps?.find(x => x.value === v)
+            add(i, 'n', tp?.say || `第 ${r + 1} 行 ${part} 应该等于 ${should}，你写了 ${v}`, tp?.error_type || '计算失误')
+          } else add(i, 'y', `第 ${r + 1} 行 ${part} = ${v}，对`)
+          t = reduceAt(t, k, v); r++
+        }
+        if (t.length > 1) { ok = false; chainOk = false; add(i, 'n', '递等式还没算到最后', '漏题') }
+        else final = t[0]
+        if (orderOk && r) habits.add('概念不清')
+        if (calcOk && r) habits.add('计算失误')
+        if (it.format === 'steps') { given.push(final); if (!chainOk || final !== it.answer) ok = false }
+      } else if (type === 'say') {
+        const v = a.v === '' || a.v == null ? null : Number(a.v), unit = a.unit || ''
+        const fin = final ?? (expr ? exprValue(expr) : it.answer)
+        given.push(`${v ?? ''}${unit}`)
+        if (v == null) add(i, 'n', '答句里的得数没填', '漏题')
+        else if (v !== fin) add(i, 'n', `上面算出的是 ${fin}，答句里写了 ${v}`, '计算失误')
+        if (!unit) { unitMiss = true; add(i, 'n', '答句忘写单位', '格式规范') }
+        else if (unit !== it.unit) add(i, 'n', `单位写成了「${unit}」，这里应该是「${it.unit}」`, '格式规范')
+        else { habits.add('格式规范'); if (v === fin) add(i, 'y', `${it.ask} ${v} ${unit}，单位写对了`) }
+        if (!(v === it.answer && unit === it.unit)) ok = false
+      }
+    })
+    if (['word', 'plan'].includes(it.format) && !flow.includes('say')) ok = false
+    return { items, ok, habits: [...habits], given: given.filter(x => x != null && x !== '').join(' | '), kw, goalOk, chainOk, rangeOk, blankMiss, unitMiss }
+  }
+  /** 正确做法，交卷后给孩子看 */
+  function solution(it) {
+    const t = it.choices ? toTokens(it.choices.find(c => c.ok).t) : ['steps', 'oral', 'estimate', 'fix'].includes(it.format) ? toTokens(it.text) : null
+    const lines = t && exprSteps(t)?.length > 1 ? [showExpr(t), ...exprSteps(t).map(st => '= ' + showExpr(reduceAt(st.t, st.k, st.v)))] : t ? [`${showExpr(t)} = ${it.answer}`] : []
+    if (it.format === 'first') lines.push(`先算 ${it.tokens[it.first]}`)
+    if (it.format === 'clock') lines.push(`时针指在 ${it.minute ? `${Math.floor(it.answer / 2) || 12} 和 ${Math.floor(it.answer / 2) % 12 + 1} 的正中间` : `${Math.floor(it.answer / 2) || 12}`}`)
+    if (it.format === 'multi') lines.push(...it.blanks.map(b => b.t.replace('□', b.a)))
+    if (it.format === 'fix') lines.unshift(`最先错的是第 ${it.bad + 1} 行`)
+    if (it.format === 'plan') lines.unshift(`先求：${it.goals.find(g => g.ok).t}`)
+    if (it.ask) lines.push(`${it.ask} ${it.answer} ${it.unit}${it.tail ? ' ' + it.tail : ''}`)
+    return { lines, explain: it.explain }
+  }
+  function finish(ctx, it, rec, J) {
+    const s = ctx.state, ok = J.ok, firstOk = ok && !rec.caught
+    const pb = rec.l2 ? 0 : { word: J.kw, steps: J.chainOk ? 2 : 0, estimate: J.rangeOk ? 2 : 0, multi: J.blankMiss ? 0 : 2, plan: J.goalOk ? 2 : 0 }[it.format] || 0
     const extra = ctx.day.groups.find(g => g.id === 'extra')?.items.includes(it.id)
-    let { c, core } = coinsFor(it.price, q, pb), bonus = false, point = ''
+    let { c, core } = coinsFor(it.price, ok ? 1 : 0, pb), bonus = false
     if (extra) c = Math.ceil(c / 2)                      // 加练的题金币减半
-    if (w === 0) { s.combo++; s.best = Math.max(s.best, s.combo); if (s.combo % 5 === 0) { c += 5; bonus = true } } else s.combo = 0
-    if (w === 0 && it.level !== '同构' && s.prog[it.err] != null) { if (++s.prog[it.err] >= 5) { s.prog[it.err] = 0; s.pts[it.err]++; point = SKILLS.find(x => x.k === it.err).n } }
+    if (firstOk) { s.combo++; s.best = Math.max(s.best, s.combo); if (s.combo % 5 === 0) { c += 5; bonus = true } } else if (!rec.caught) s.combo = 0   // 被守护接住的，连击不断
+    // 技能点：做出习惯就攒，攒满 SKILL_EVERY 次得 1 点，每个本领每天最多 1 点
+    const points = []
+    for (const k of J.habits) if (SKILL_EVERY[k]) {
+      s.prog[k] = Math.min(SKILL_EVERY[k], (s.prog[k] || 0) + 1)
+      if (s.prog[k] >= SKILL_EVERY[k] && s.ptDay?.[k] !== ctx.date) { s.prog[k] = 0; s.pts[k]++; (s.ptDay ||= {})[k] = ctx.date; points.push(SKILLS.find(x => x.k === k).n) }
+    }
     if (!s.hatched) { s.hatched = true; s.st = 1; s.gift = { date: ctx.date, what: null }; mark(s, ctx.date, `从小窝里醒来了，${s.kid || '小主人'}给我起名叫${s.name || '小狗'}`) }
     s.coins += c; s.grow += c                            // grow 只是「一共赚过多少金币」，和长大无关
-    s.qn++; const ym = ctx.date.slice(0, 7), M = s.months[ym] ||= [0, 0]; M[0]++; if (w === 0) M[1]++
-    if (q > 0 && ['word', 'plan'].includes(it.format)) s.lastSay = `${it.ask} ${it.answer}${it.unit || ''}${it.tail || ''}`
+    s.qn++; const ym = ctx.date.slice(0, 7), M = s.months[ym] ||= [0, 0]; M[0]++; if (firstOk) M[1]++
+    if (ok && ['word', 'plan'].includes(it.format)) s.lastSay = `${it.ask} ${it.answer}${it.unit || ''}${it.tail || ''}`
     if (s.slow > 0 && s.slowFrom !== it.id) s.slow--
-    // 难度阶梯：只看每道题的第一次作答。最近 10 题 ≥85% 且跨两天升一档；最近 8 题 <60% 或连错 3 题降一档
-    const L = s.ladder[`${it.kp}|${it.err}`] ||= { lv: 1, hist: [] }, rate = a => a.reduce((n, x) => n + x[0], 0) / a.length
-    L.hist.push([w === 0 ? 1 : 0, ctx.date]); if (L.hist.length > 10) L.hist.shift()
-    const h = L.hist
-    if (L.lv < 2 && h.length >= 10 && rate(h) >= 0.85 && new Set(h.map(x => x[1])).size >= 2) Object.assign(L, { lv: L.lv + 1, hist: [], moved: { dir: 'up', at: ctx.date } })
-    else if (L.lv > 0 && ((h.length >= 8 && rate(h.slice(-8)) < 0.6) || (h.length >= 3 && h.slice(-3).every(x => !x[0])))) Object.assign(L, { lv: L.lv - 1, hist: [], moved: { dir: 'down', at: ctx.date } })
-    rec.fin = { c, core, q, w, pb, bonus, point, extra: !!extra, grew: 0, ok: q > 0, explain: it.explain }
-    if (q > 0) ctx.log.push(row(ctx, it, { try: w + 1, correct: true, given: it.format === 'first' ? '先算 ' + it.tokens[it.first] : it.format === 'multi' ? it.blanks.map(b => b.a).join(',') : it.answer + (it.unit || ''), coins: c }))
+    // 难度阶梯和列式档位：只看第一次交卷。最近 10 题 ≥85% 且跨两天升一档；最近 8 题 <60% 或连错 3 题降一档
+    const step = (L, max) => {
+      const rate = a => a.reduce((n, x) => n + x[0], 0) / a.length
+      L.hist.push([firstOk ? 1 : 0, ctx.date]); if (L.hist.length > 10) L.hist.shift()
+      const h = L.hist
+      if (L.lv < max && h.length >= 10 && rate(h) >= 0.85 && new Set(h.map(x => x[1])).size >= 2) Object.assign(L, { lv: L.lv + 1, hist: [], moved: { dir: 'up', at: ctx.date } })
+      else if (L.lv > 0 && ((h.length >= 8 && rate(h.slice(-8)) < 0.6) || (h.length >= 3 && h.slice(-3).every(x => !x[0])))) Object.assign(L, { lv: L.lv - 1, hist: [], moved: { dir: 'down', at: ctx.date } })
+    }
+    const key = `${it.kp}|${it.err}`
+    step(s.ladder[key] ||= { lv: 1, hist: [] }, 2)
+    if ((it.flow || FLOWS[it.format]).includes('build')) step((s.tiers ||= {})[key] ||= { lv: 0, hist: [] }, 2)   // 新的「知识点 × 错因」从第 0 档（选算式）开始
+    // 3 级守护没用上：这周的次数退回
+    let refund = ''
+    if (rec.guard) { const U = s.uses?.[rec.guard]; if (U && U.w3 > 0) U.w3--; refund = SKILLS.find(x => x.k === rec.guard).n; rec.guard = null }
+    rec.fin = { c, core, ok, pb, bonus, points, point: points[0] || '', extra: !!extra, grew: 0, items: J.items, habits: J.habits, caught: rec.caught || null, help: rec.help || [], refund, l2: !!rec.l2, ...solution(it) }
+    ctx.log.push(row(ctx, it, { try: rec.caught ? 2 : 1, correct: ok, given: J.given, coins: c, trap_error_type: ok ? null : J.items.find(x => x.good === 'n')?.cat || it.err,
+      step_failed: ok ? null : J.unitMiss && J.items.filter(x => x.good === 'n').length === 1 ? '忘写单位' : STEP_NAME[(it.flow || FLOWS[it.format])[J.items.find(x => x.good === 'n')?.i]] || null,
+      ms: rec.ms, help: rec.help?.length ? rec.help : null, steps: (it.flow || FLOWS[it.format]).map((_, i) => J.items.filter(x => x.i === i).every(x => x.good === 'y') ? 1 : 0).join('') }))
     const all = ctx.day.groups.flatMap(g => g.items)
     if (all.every(id => ctx.day.items[id]?.fin) && !ctx.day.done) {
       ctx.day.done = true; if (!ctx.day.flash) { s.pts['漏题']++; rec.fin.patrol = true }
@@ -225,89 +355,67 @@ export function createApi(store, env) {
     return { ok: true, fin: rec.fin }
   }
   const row = (ctx, it, x) => ({ item: it.id, tpl: it.tpl, kp: it.kp, err: it.err, format: it.format, level: it.level, bucket: it.bucket, day: ctx.date, at: new Date(ctx.now).toISOString(), trap_error_type: null, step_failed: null, ms: null, ...x })
-  function wrong(ctx, it, rec, { given, err, step, ms, note }) {
-    const strict = Number(ctx.pack.tuning?.slow ?? 1)      // 「慢慢来」严格度：0 关掉，1 标准，1.5 更严
-    const fast = strict > 0 && !['忘写单位', '漏空'].includes(step) && ms != null && ms < MIN_SECONDS[it.format] * 1000 * strict
-    rec.w++; ctx.state.combo = 0
-    if (fast) { ctx.day.flash++; ctx.state.slow = 3; ctx.state.slowFrom = it.id }   // 接下来 3 道题先盖住几秒
-    ctx.log.push(row(ctx, it, { try: rec.w, correct: false, given, trap_error_type: err, step_failed: step, ms }))
-    if (rec.w >= 3) return { ...finish(ctx, it, rec), ok: false }
-    return { ok: false, flash: fast, msg: note || (rec.w === 1 ? '提示：' + it.hint : '讲解：' + it.explain + ' 再试一次。') }
-  }
   function answer(ctx, body) {
     const it = ctx.pack?.items.find(x => x.id === body.item)
     if (!it || !ctx.day.groups.some(g => g.items.includes(it.id))) return json({ error: '这道题不在今天的任务里' }, 400)
-    const rec = ctx.day.items[it.id] ||= { w: 0, step: 0 }
+    if (!FORMATS.includes(it.format)) return json({ error: '不认识的题型' }, 400)
+    const rec = ctx.day.items[it.id] ||= {}
     if (rec.fin) return json({ error: '这道题已经做完了' }, 400)
-    const ms = Number(body.ms) || null
-    ctx.day.ms = (ctx.day.ms || 0) + Math.min(ms || 0, 180000)      // 今天做题用了多久（单步最多算 3 分钟）
-    let res
-    if (it.format === 'oral') {
-      const n = Number(body.value)
-      res = n === it.answer ? finish(ctx, it, rec) : wrong(ctx, it, rec, { given: n, err: it.traps.find(t => t.value === n)?.error_type || it.err, step: '得数', ms })
-    } else if (it.format === 'first') {
-      const i = Number(body.index)
-      res = i === it.first ? finish(ctx, it, rec) : wrong(ctx, it, rec, { given: '先算 ' + it.tokens[i], err: it.err, step: '先算哪一步', ms })
-    } else if (it.format === 'clock') {
-      const z = Number(body.zone)
-      res = z === it.answer ? finish(ctx, it, rec) : wrong(ctx, it, rec, { given: `钟面位置 ${z}`, err: it.traps.find(t => t.value === z)?.error_type || it.err, step: '拨时针', ms })
-    } else if (it.format === 'estimate' && rec.step === 0) {
-      const i = Number(body.index)
-      if (it.ranges[i]?.ok) { rec.step = 1; rec.rangeOk = rec.w === 0; rec.pub = { range: i }; res = { ok: true, range: i } }
-      else res = wrong(ctx, it, rec, { given: it.ranges[i]?.t, err: '计算失误', step: '估范围', ms, note: '再估一估：先看最高位，大概是几百、几十？' })
-    } else if (it.format === 'estimate') {
-      const n = Number(body.value)
-      res = n === it.answer ? finish(ctx, it, rec) : wrong(ctx, it, rec, { given: n, err: it.traps.find(t => t.value === n)?.error_type || it.err, step: '得数', ms })
-    } else if (it.format === 'steps') {
-      const ln = it.lines[rec.step], n = Number(body.value)
-      if (n === ln.a) { rec.step++; rec.pub = { vals: it.lines.slice(0, rec.step).map(l => l.a) }; res = rec.step >= it.lines.length ? finish(ctx, it, rec) : { ok: true, vals: rec.pub.vals } }
-      else res = wrong(ctx, it, rec, { given: n, err: ln.traps.find(t => t.value === n)?.error_type || '计算失误', step: `第 ${rec.step + 1} 行`, ms, note: ln.hint && rec.w === 0 ? '提示：' + ln.hint : undefined })
-    } else if (it.format === 'fix' && rec.step === 0) {
-      const i = Number(body.index)
-      if (i === it.bad) { rec.step = 1; rec.pub = { spot: i }; res = { ok: true, spot: i } }
-      else res = wrong(ctx, it, rec, { given: `第 ${i + 1} 行`, err: it.err, step: '找错行', ms, note: '不是这一行。从上往下一行一行对，看哪一步开始不对。' })
-    } else if (it.format === 'fix') {
-      const n = Number(body.value)
-      res = n === it.answer ? finish(ctx, it, rec) : wrong(ctx, it, rec, { given: n, err: '计算失误', step: '得数', ms })
-    } else if (it.format === 'multi') {
-      const vals = Array.isArray(body.values) ? body.values : [], blank = i => String(vals[i] ?? '') === ''
-      const okIdx = it.blanks.map((b, i) => !blank(i) && Number(vals[i]) === b.a), empty = it.blanks.filter((_, i) => blank(i)).length
-      rec.pub = { ok: okIdx, vals: okIdx.map((x, i) => x ? String(it.blanks[i].a) : '') }
-      if (okIdx.every(Boolean)) res = finish(ctx, it, rec)
-      else if (empty) { rec.blankMiss = true; res = wrong(ctx, it, rec, { given: `空了 ${empty} 处`, err: '漏题', step: '漏空', ms, note: `还有 ${empty} 处没填就交卷了。每个空都要填。` }) }
-      else res = wrong(ctx, it, rec, { given: vals.join(','), err: '计算失误', step: '得数', ms, note: rec.w === 0 ? '有的空不对，标红的再算一遍。' : undefined })
-      res = { ...res, okIdx, keepInput: true }
-    } else if (!['word', 'plan'].includes(it.format)) {
-      return json({ error: '不认识的题型' }, 400)
-    } else if (it.format === 'plan' && body.step === 'goal' && rec.step === 0) {
-      const i = Number(body.index)
-      if (it.goals[i]?.ok) { rec.step = 1; rec.goalOk = rec.w === 0; rec.pub = { goal: i }; res = { ok: true, goal: i } }
-      else res = wrong(ctx, it, rec, { given: it.goals[i]?.t, err: it.err, step: '先求什么', ms })
-    } else if (it.format === 'word' && body.step === 'keywords' && rec.step === 0) {
-      const sel = new Set((body.sel || []).map(Number)), keys = it.segs.flatMap((s, i) => s.k ? [i] : []), noise = it.segs.flatMap((s, i) => s.n ? [i] : [])
-      const hit = keys.filter(i => sel.has(i)).length, extra = noise.filter(i => sel.has(i)).length
-      rec.kw = hit < keys.length ? 0 : extra ? 1 : 2; rec.step = 1
-      rec.kwRes = { keys, noise, sel: [...sel], kw: rec.kw, why: it.why, missed: keys.length - hit, extra }
-      res = { ok: true, ...rec.kwRes }
-    } else if (body.step === 'choice' && rec.step >= 1 && rec.step < 3) {
-      const i = Number(body.index), ch = it.choices[i]
-      if (ch?.ok) { rec.step = 3; rec.expr = ch.t; res = { ok: true, expr: ch.t } }
-      else res = wrong(ctx, it, rec, { given: ch?.t, err: it.traps.find(t => t.value === ch?.v)?.error_type || it.err, step: '选算式', ms })
-    } else if (body.step === 'answer' && rec.step === 3) {
-      const n = Number(body.value), unit = body.unit || ''
-      if (n !== it.answer) res = wrong(ctx, it, rec, { given: n, err: it.traps.find(t => t.value === n)?.error_type || '计算失误', step: '得数', ms })
-      else if (!unit) res = { ...wrong(ctx, it, rec, { given: `${n}（没写单位）`, err: '格式规范', step: '忘写单位', ms, note: ctx.pack.tuning.unit_hint ? '得数算对了！答句里还有一个空格没填。' : '得数算对了！再读一遍答句，是不是少了点什么？' }), keepInput: true }
-      else if (unit !== it.unit) res = { ...wrong(ctx, it, rec, { given: n + unit, err: '格式规范', step: '单位不对', ms, note: `得数对了，「${unit}」放在这里对吗？` }), keepInput: true }
-      else res = finish(ctx, it, rec)
-    } else return json({ error: '步骤不对，请刷新一下' }, 400)
+    const ms = Math.min(Number(body.ms) || 0, 600000)
+    rec.ms = (rec.ms || 0) + ms
+    ctx.day.ms = (ctx.day.ms || 0) + Math.min(ms, 300000)      // 今天做题用了多久（一道题最多算 5 分钟）
+    const J = judge(it, Array.isArray(body.steps) ? body.steps : [])
+    // 3 级守护：错在它管的地方，先拦下来，回去改那一步再交（这次不算首答正确）
+    const first = J.items.find(x => x.good === 'n')
+    if (!J.ok && rec.guard && first && first.cat === rec.guard) {
+      const k = rec.guard; rec.guard = null
+      rec.caught = { k, n: SKILLS.find(x => x.k === k).n, msg: first.msg, step: first.i }
+      ctx.log.push(row(ctx, it, { try: 1, correct: false, caught: SKILLS.find(x => x.k === k).n, help: rec.help?.length ? rec.help : null, given: J.given, trap_error_type: first.cat, step_failed: STEP_NAME[(it.flow || FLOWS[it.format])[first.i]], ms }))
+      return { ok: false, caught: rec.caught }
+    }
+    // 急着答错：整道题的用时比最短思考时间还短。只是忘写单位不算
+    const strict = Number(ctx.pack.tuning?.slow ?? 1)
+    const fast = !J.ok && strict > 0 && !(J.unitMiss && J.items.filter(x => x.good === 'n').length === 1) && rec.ms < MIN_SECONDS[it.format] * 1000 * strict
+    if (fast) { ctx.day.flash++; ctx.state.slow = 3; ctx.state.slowFrom = it.id }   // 接下来 3 道题先盖住几秒
+    const res = finish(ctx, it, rec, J)
+    res.fin.flash = fast
     return res
   }
+  /** 孩子点了本领徽章：扣次数，返回效果。2 级要用到答案的信息在这里算，答案不出后端。 */
+  function useSkill(ctx, b) {
+    const s = ctx.state, k = b.k, L = Number(b.L), sk = SKILLS.find(x => x.k === k)
+    const it = ctx.pack?.items.find(x => x.id === b.item), rec = it && ctx.day?.items[it.id]
+    const type = it && (it.flow || FLOWS[it.format])[Number(b.step)]
+    if (!sk || ![1, 2, 3].includes(L) || (s.skill[k] || 0) < L) return { msg: '还没学会这一级。' }
+    if (!it || !ctx.day.groups.some(g => g.items.includes(it.id)) || rec?.fin) return { msg: '' }
+    if (!SKILL_AT[k].includes(type) || (L === 2 && !SKILL_L2[k].includes(type))) return { msg: '这一步用不上。' }
+    const U = s.uses[k] ||= {}, wk = isoWeek(ctx.date)
+    if (U.day !== ctx.date) Object.assign(U, { day: ctx.date, d1: 0, d2: 0 })
+    if (U.week !== wk) Object.assign(U, { week: wk, w3: 0 })
+    const used = L === 1 ? U.d1 : L === 2 ? U.d2 : U.w3
+    if (used >= SKILL_USES[L]) return { msg: `${L === 3 ? '这周' : '今天'}的次数用完了。` }
+    const r = ctx.day.items[it.id] ||= {}, fx = { k, L }
+    if (L === 3) { if (r.guard) return { msg: '这题已经有本领守着了。' }; r.guard = k }
+    if (L === 2) {
+      r.l2 = true
+      if (k === '审题') fx.grey = it.segs?.findIndex(x => x.n) ?? -1
+      if (k === '策略缺失') fx.strike = it.goals ? it.goals.map((g, i) => [g, i]).filter(([g]) => !g.ok).at(-1)?.[1] ?? -1 : -1
+      if (k === '计算失误' && type !== 'chain') fx.digits = String(it.answer).length
+    }
+    if (L === 1 && k === it.err && it.hint) fx.hint = it.hint
+    if (L === 1) U.d1++; else if (L === 2) U.d2++; else U.w3++
+    ;(r.help ||= []).push(`${sk.n} ${L} 级`)
+    return { msg: '', fx }
+  }
+  /** 每个本领今天 / 这周还剩几次 */
+  const usesLeft = (s, date) => Object.fromEntries(SKILLS.map(({ k }) => { const U = s.uses?.[k] || {}, d = U.day === date, w = U.week === isoWeek(date); return [k, { 1: SKILL_USES[1] - (d ? U.d1 : 0), 2: SKILL_USES[2] - (d ? U.d2 : 0), 3: SKILL_USES[3] - (w ? U.w3 : 0) }] }))
 
   // ---------- 照顾、买东西、学本领、散步、陪玩 ----------
   function act(ctx, b) {
     const s = ctx.state, date = ctx.date, st = stageOf(s, date), kid = s.kid || '小主人'
     if (b.kind === 'name') { const n = cleanName(b.name); if (!n) return { msg: '先给它起个名字吧。' }; if (!s.name) mark(s, date, `给小狗起名叫${n}`); s.name = n; return { msg: `我叫${n}！那你叫什么名字？` } }
     if (b.kind === 'kidname') { const n = cleanName(b.name); if (!n) return { msg: `写上你的名字，${s.name || '小狗'}才知道怎么叫你。` }; s.kid = n; return { msg: `${n}，你好！` } }
+    if (b.kind === 'skill') return useSkill(ctx, b)
     if (b.kind === 'greet') { s.greet = date; return { msg: `${kid}，我们今天也一起慢慢来！`, act: 'wag' } }
     if (b.kind === 'buy') {
       const x = GOODS.find(g => g.k === b.k); if (!x) return { msg: '没有这个东西。' }

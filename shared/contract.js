@@ -28,6 +28,17 @@ export const SKILLS = [
   { k: '策略缺失', n: '探路', s: '找规律', badge: 'path', d: '画图、列表、找规律。' },
 ]
 export const SKILL_COST = [3, 6, 10]
+// 技能点：做出这个习惯攒一次，攒满 SKILL_EVERY 次得 1 点，每个本领每天最多 1 点（巡逻另算：一整天没有急着答错得 1 点）。
+// 目标：常练的本领 1 级在第 2～3 周、2 级在第 6～8 周、3 级在第 12～14 周。上线后按真实数据调。
+export const SKILL_EVERY = { 审题: 9, 概念不清: 9, 计算失误: 12, 格式规范: 12, 策略缺失: 3 }
+// 本领在答题时：1 级提醒每天 3 次，2 级帮忙每天 1 次，3 级守护每周 1 次（每个本领单独算）。孩子点了才用。
+export const SKILL_USES = { 1: 3, 2: 1, 3: 1 }
+// 每种积木上哪些本领的徽章会亮；L2 是 2 级「帮忙」能用的积木（其他积木上 2 级用不上）
+export const SKILL_AT = { 审题: ['circle', 'build', 'goal'], 概念不清: ['build', 'chain'], 计算失误: ['chain', 'say', 'fill', 'range', 'blanks'], 格式规范: ['say'], 漏题: ['say', 'blanks', 'spot'], 策略缺失: ['goal', 'build'] }
+export const SKILL_L2 = { 审题: ['circle'], 概念不清: ['chain'], 计算失误: ['chain', 'say', 'fill'], 格式规范: ['say'], 漏题: ['say', 'blanks'], 策略缺失: ['goal'] }
+// 题型默认由哪些积木拼成；word / plan 的模板可以写 flow 改（只能从默认里删步骤，不能换顺序）
+export const FLOWS = { oral: ['fill'], first: ['first'], clock: ['clock'], estimate: ['range', 'fill'], steps: ['chain'], fix: ['spot', 'fill'], multi: ['blanks'], word: ['circle', 'build', 'chain', 'say'], plan: ['goal', 'build', 'chain', 'say'] }
+export const STEP_NAME = { fill: '填得数', first: '先算哪一步', clock: '拨时针', range: '估一估', chain: '一行一行算', spot: '找错行', blanks: '填空', circle: '圈关键词', goal: '先求什么', build: '列式', say: '写答句' }
 export const GOODS = [
   { k: 'cookie', n: '骨头饼干', d: '饱食 ＋10', p: 10, kind: 'food', full: 10 },
   { k: 'rice', n: '鸡肉蔬菜饭', d: '饱食 ＋35', p: 40, kind: 'food', full: 35 },
@@ -150,6 +161,44 @@ const fill = (s, v) => String(s ?? '').replace(/\{(\w+)\}/g, (m, k) => k in v ? 
 export const pretty = s => String(s).replace(/\*/g, '×').replace(/\//g, '÷').replace(/-/g, '−').replace(/\s*([+−×÷])\s*/g, ' $1 ').trim()
 const okAnswer = a => Number.isInteger(a) && a >= 0 && a < 100000
 
+// ---------- 算式：两端共用（页面生成递等式，后端判分） ----------
+// 算式写成记号数组：数是 number，符号是 '+' '−' '×' '÷' '(' ')'
+export const isOp = x => typeof x === 'string' && '+−×÷'.includes(x)
+const isNum = x => typeof x === 'number'
+/** "100 − 12 × 3" → [100, '−', 12, '×', 3] */
+export const toTokens = str => (String(str).replace(/\*/g, '×').replace(/\//g, '÷').replace(/-/g, '−').replace(/（/g, '(').replace(/）/g, ')').match(/\d+|[+−×÷()]/g) || []).map(x => /\d/.test(x) ? Number(x) : x)
+export const showExpr = t => (t || []).join(' ').replace(/\( /g, '(').replace(/ \)/g, ')')
+export function validExpr(t) {
+  let i = 0
+  const term = () => { if (isNum(t[i])) { i++; return true } if (t[i] === '(') { i++; if (!expr()) return false; if (t[i] !== ')') return false; i++; return true } return false }
+  const expr = () => { if (!term()) return false; while (isOp(t[i])) { i++; if (!term()) return false } return true }
+  return Array.isArray(t) && t.length > 0 && expr() && i === t.length
+}
+export const calcOp = (a, op, b) => op === '+' ? a + b : op === '−' ? a - b : op === '×' ? a * b : b && a % b === 0 ? a / b : NaN
+/** 去掉只包着一个数的括号 */
+export function stripParens(t) { t = [...t]; for (let i = 0; i + 2 < t.length; i++) if (t[i] === '(' && isNum(t[i + 1]) && t[i + 2] === ')') { t.splice(i, 3, t[i + 1]); i = -1 } return t }
+/** 该先算的运算符的下标：最里面的括号，再乘除，再加减，都从左往右 */
+export function nextOp(t) {
+  let lo = 0, hi = t.length - 1
+  const j = t.indexOf(')'); if (j >= 0) { hi = j - 1; lo = t.lastIndexOf('(', j) + 1 }
+  for (const set of ['×÷', '+−']) for (let k = lo; k <= hi; k++) if (isOp(t[k]) && set.includes(t[k])) return k
+  return -1
+}
+/** 能点的符号：两边都是数 */
+export const canTap = (t, k) => isOp(t[k]) && isNum(t[k - 1]) && isNum(t[k + 1])
+/** 算 t 里第 k 个符号，返回下一行 */
+export const reduceAt = (t, k, v = calcOp(t[k - 1], t[k], t[k + 1])) => stripParens([...t.slice(0, k - 1), v, ...t.slice(k + 2)])
+/** 按正确顺序算到底，返回递等式各行 [{ t, k, v }]；算不下去（除不尽、负数）返回 null */
+export function exprSteps(t) {
+  if (!validExpr(t)) return null
+  t = stripParens(t); const out = []
+  while (t.length > 1) { const k = nextOp(t); if (k < 0) return null; const v = calcOp(t[k - 1], t[k], t[k + 1]); if (!Number.isInteger(v) || v < 0) return null; out.push({ t, k, v }); t = reduceAt(t, k, v) }
+  return out
+}
+export function exprValue(t) { if (!validExpr(t)) return NaN; const st = exprSteps(t); return st ? (st.length ? st.at(-1).v : stripParens(t)[0]) : NaN }
+const sameNums = (a, b) => JSON.stringify(a.filter(isNum).sort((x, y) => x - y)) === JSON.stringify(b.filter(isNum).sort((x, y) => x - y))
+export { sameNums }
+
 /**
  * 把一个模板实例化成多道题。返回 { items, problems }，problems 是出不来题的原因（给 Claude 看着改模板）。
  * slots：[lo, hi] 两个整数是整数范围；其他数组是从里面挑一个；"=表达式" 是派生值（按书写顺序计算）。
@@ -170,7 +219,7 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
     const item = { format: t.format, level: t.level, hint: fill(t.hint, v), explain: fill(t.explain, v) }
     if (t.format === 'oral') {
       item.text = pretty(fill(t.text || t.expression, v)); item.answer = evalExpr(fill(t.expression, v))
-      item.traps = (t.traps || []).map(x => ({ value: evalExpr(fill(x.e, v)), error_type: x.error_type || t.error_type })).filter(x => okAnswer(x.value) && x.value !== item.answer)
+      item.traps = (t.traps || []).map(x => ({ value: evalExpr(fill(x.e, v)), error_type: x.error_type || t.error_type, say: fill(x.say, v) })).filter(x => okAnswer(x.value) && x.value !== item.answer)
     } else if (t.format === 'first') {
       item.tokens = t.tokens.map(x => pretty(fill(x, v))); item.first = t.first
       if (!/^[+−×÷]$/.test(item.tokens[t.first] || '')) { bad('first 指的不是运算符'); continue }
@@ -189,12 +238,12 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
       const a = item.answer, step = a >= 1000 ? 1000 : a >= 100 ? 100 : 10, lo = Math.floor(a / step) * step
       const start = Math.max(0, lo - step * Math.floor(r() * 3))
       item.ranges = [0, 1, 2].map(i => ({ t: `${start + i * step} ～ ${start + (i + 1) * step - 1}`, ...(start + i * step === lo ? { ok: 1 } : {}) }))
-      item.traps = (t.traps || []).map(x => ({ value: evalExpr(fill(x.e, v)), error_type: x.error_type || t.error_type })).filter(x => okAnswer(x.value) && x.value !== a)
+      item.traps = (t.traps || []).map(x => ({ value: evalExpr(fill(x.e, v)), error_type: x.error_type || t.error_type, say: fill(x.say, v) })).filter(x => okAnswer(x.value) && x.value !== a)
     } else if (t.format === 'steps') {
       // 递等式分步：一行填一个数，最后一行就是得数
       item.text = pretty(fill(t.expression, v))
       item.lines = t.lines.map(l => ({ pre: fill(l.pre, v), a: evalExpr(fill(l.e, v)), hint: fill(l.hint, v),
-        traps: (l.traps || []).map(x => ({ value: evalExpr(fill(x.e, v)), error_type: x.error_type || t.error_type })).filter(x => okAnswer(x.value)) }))
+        traps: (l.traps || []).map(x => ({ value: evalExpr(fill(x.e, v)), error_type: x.error_type || t.error_type, say: fill(x.say, v) })).filter(x => okAnswer(x.value)) }))
       if (item.lines.some(l => !okAnswer(l.a))) { bad('某一行不是万以内的非负整数'); continue }
       item.answer = item.lines.at(-1).a
       if (evalExpr(fill(t.expression, v)) !== item.answer) { bad('最后一行和算式结果对不上'); continue }
@@ -215,13 +264,24 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
         item.text = fill(t.text, v); item.goals = t.goals.map(g => ({ t: fill(g.t, v), ...(g.ok ? { ok: 1 } : {}) }))
         if (item.goals.filter(g => g.ok).length !== 1) { bad('goals 里必须正好一个 ok'); continue }
       } else item.segs = t.segs.map(s => ({ t: fill(s.t, v), ...(s.k ? { k: 1 } : {}), ...(s.n ? { n: 1 } : {}) }))
-      item.choices = t.choices.map(c => ({ t: pretty(fill(c.e, v)), v: evalExpr(fill(c.e, v)), ...(c.ok ? { ok: 1 } : {}), trap: c.trap || t.error_type }))
+      item.choices = t.choices.map(c => ({ t: pretty(fill(c.e, v)), v: evalExpr(fill(c.e, v)), ...(c.ok ? { ok: 1 } : {}), trap: c.trap || t.error_type, say: fill(c.say, v) }))
       const ok = item.choices.filter(c => c.ok)
       if (ok.length !== 1) { bad('choices 里必须正好一个 ok'); continue }
       if (new Set(item.choices.map(c => c.t)).size !== item.choices.length) { bad('选项重复'); continue }
       item.answer = ok[0].v
-      item.traps = item.choices.filter(c => !c.ok && okAnswer(c.v) && c.v !== item.answer).map(c => ({ value: c.v, error_type: c.trap }))
+      item.traps = [...item.choices.filter(c => !c.ok && okAnswer(c.v) && c.v !== item.answer).map(c => ({ value: c.v, error_type: c.trap, say: c.say })),
+        ...(t.traps || []).map(x => ({ value: evalExpr(fill(x.e, v)), error_type: x.error_type || t.error_type, say: fill(x.say, v) })).filter(x => okAnswer(x.value) && x.value !== item.answer)]
       item.choices = item.choices.map(({ t: text, ok: o, v: val }) => ({ t: text, v: val, ...(o ? { ok: 1 } : {}) }))
+      // 拼算式用的数字卡：正确算式里的每个数，标出它在题干哪一段；再找一张用不上的干扰卡（第 2 档用）
+      const okT = toTokens(ok[0].t)
+      if (!exprSteps(okT)) { bad('正确算式算不下去（除不尽或出现负数）'); continue }
+      const used = new Set(), segOf = n => { const i = (item.segs || []).findIndex((sg, j) => !used.has(j) && new RegExp(`(^|\\D)${n}(\\D|$)`).test(sg.t)); if (i >= 0) used.add(i); return i }
+      item.chips = okT.filter(x => typeof x === 'number').map(n => ({ v: n, seg: segOf(n) }))
+      const have = new Set(item.chips.map(c => c.v))
+      const noise = (item.segs || []).flatMap((sg, i) => sg.n ? (sg.t.match(/\d+/g) || []).map(n => ({ v: +n, seg: i })) : []).find(c => !have.has(c.v))
+      const other = item.choices.flatMap(c => toTokens(c.t)).find(x => typeof x === 'number' && !have.has(x))
+      item.decoy = noise || (other != null ? { v: other, seg: -1 } : null)
+      if (t.flow) { if (!Array.isArray(t.flow) || t.flow.some((b, i) => !FLOWS[t.format].includes(b) || (i && FLOWS[t.format].indexOf(b) < FLOWS[t.format].indexOf(t.flow[i - 1]))) || !t.flow.includes('say')) { bad('flow 只能从默认积木里删步骤，并且要有 say'); continue } item.flow = t.flow }
       Object.assign(item, { ask: fill(t.ask, v), unit: t.unit, units: t.units, tail: fill(t.tail, v), why: fill(t.why, v) })
       if (!t.units?.includes(t.unit)) { bad('units 里没有正确单位'); continue }
     }
@@ -248,17 +308,29 @@ export function buildPack(bank, week) {
   return { pack: { v: PACK_VERSION, week, created: new Date().toISOString(), tuning: { unit_hint: 1, blank_hint: 1, slow: 1, boss_day: 5, bedtime: '20:30', ...bank.tuning }, groups: bank.groups, items }, report }
 }
 
-/** 发给孩子端页面的题目：去掉答案、陷阱值、关键词标记和正确选项。 */
-export function publicItem(it) {
+/**
+ * 发给孩子端页面的题目：去掉答案、陷阱值、关键词标记和正确选项。题目按积木 flow 发，每块只带这一步要显示的东西。
+ * o.tier：拼算式的档位（0 选算式、1 拼算式、2 加一张干扰卡），由后端按孩子最近的状态定。
+ */
+export function publicItem(it, o = {}) {
   const p = { id: it.id, group: it.group, format: it.format, level: it.level, err: it.err, max: maxCoins(it) }
-  if (it.format === 'oral') p.text = it.text
-  if (it.format === 'first') p.tokens = it.tokens
-  if (it.format === 'clock') Object.assign(p, { text: it.text, minute: it.minute })
-  if (it.format === 'estimate') Object.assign(p, { text: it.text, ranges: it.ranges.map(x => x.t) })
-  if (it.format === 'steps') Object.assign(p, { text: it.text, lines: it.lines.map(l => l.pre) })
-  if (it.format === 'fix') Object.assign(p, { text: it.text, shown: it.shown })
-  if (it.format === 'multi') Object.assign(p, { text: it.text, blanks: it.blanks.map(b => b.t) })
-  if (it.format === 'plan') Object.assign(p, { text: it.text, goals: it.goals.map(g => g.t), choices: it.choices.map(c => c.t), ask: it.ask, units: it.units, tail: it.tail })
-  if (it.format === 'word') Object.assign(p, { segs: it.segs.map(s => ({ t: s.t })), choices: it.choices.map(c => c.t), ask: it.ask, units: it.units, tail: it.tail })
+  if (it.format === 'word') p.segs = it.segs.map(s => ({ t: s.t }))
+  if (['plan', 'clock', 'multi'].includes(it.format)) p.text = it.text
+  const tier = it.level === '同构' ? Math.min(1, o.tier ?? 1) : o.tier ?? 1
+  p.flow = (it.flow || FLOWS[it.format]).map(type => {
+    if (type === 'fill') return { type, text: it.format === 'fix' ? '' : it.text }
+    if (type === 'first') return { type, tokens: it.tokens }
+    if (type === 'clock') return { type, minute: it.minute }
+    if (type === 'range') return { type, text: it.text, opts: it.ranges.map(x => x.t) }
+    if (type === 'chain') return { type, ...(it.format === 'steps' ? { start: toTokens(it.text) } : {}) }
+    if (type === 'spot') return { type, text: it.text, shown: it.shown }
+    if (type === 'blanks') return { type, blanks: it.blanks.map(b => b.t) }
+    if (type === 'circle') return { type }
+    if (type === 'goal') return { type, opts: it.goals.map(g => g.t) }
+    if (type === 'build') return tier === 0 || !it.chips ? { type, tier: 0, choices: it.choices.map(c => c.t) }
+      : { type, tier, chips: [...it.chips, ...(tier === 2 && it.decoy ? [it.decoy] : [])].map((c, i) => [hashStr(it.id + i), c]).sort((a, b) => a[1].seg - b[1].seg || a[0] - b[0]).map(x => x[1]) }
+    if (type === 'say') return { type, ask: it.ask, units: it.units, tail: it.tail }
+    return { type }
+  })
   return p
 }

@@ -61,13 +61,15 @@ export function carry(week, bank) {
   return { bank: { ...bank, groups, templates: [...bank.templates, ...redo, ...keep] }, redo, keep }
 }
 
-/** 答题记录按「知识点 × 错因」汇总：每道题只看第一次作答；忘写单位单独计数。ladder 是孩子端的难度档位。 */
+/** 答题记录按「知识点 × 错因」汇总：每道题只看第一次交卷；忘写单位、被守护接住、用了本领单独计数。ladder 是孩子端的难度档位。 */
 export function summarize(log, ladder = {}) {
   const rows = {}
   const firstTry = log.filter(r => r.try === 1)
   for (const r of firstTry) {
-    const row = rows[`${r.kp}|${r.err}`] ||= { knowledge_point: r.kp, error_type: r.err, items: 0, first_ok: 0, by_error: {}, forgot_unit: 0, days: [] }
+    const row = rows[`${r.kp}|${r.err}`] ||= { knowledge_point: r.kp, error_type: r.err, items: 0, first_ok: 0, by_error: {}, forgot_unit: 0, caught: 0, help: 0, days: [] }
     row.items++; if (r.correct) row.first_ok++
+    if (r.caught) row.caught++            // 被 3 级守护接住：不算首答正确，单独记
+    if (r.help?.length) row.help++        // 用了本领（提醒、帮忙或守护）
     if (!row.days.includes(r.day)) row.days.push(r.day)
   }
   for (const r of log.filter(x => !x.correct)) {
@@ -134,6 +136,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     console.log(`${week}：来了 ${days} 天，做了 ${items} 题，第一次就对 ${items ? Math.round(ok / items * 100) : 0}%，忘写单位 ${data.screen.reduce((n, r) => n + r.forgot_unit, 0)} 次。已写入「答题」段。`)
     if (state) console.log(`小狗：${state.name || '还没起名'}（孩子：${state.kid || "还没写名字"}），已陪伴 ${state.days ?? 0} 天，金币 ${state.coins}，一共赚过 ${state.grow}，储蓄罐 ${state.jar || 0}，明信片 ${state.cards?.length || 0} 张`)
     if (state) console.log(`故事书 ${state.story || 0} 页${state.att?.week === week ? `，这周做完任务 ${state.att.days.length} 天` : ''}`)
-    for (const r of data.screen) console.log(`  ${r.knowledge_point} ${r.error_type}：${r.first_ok}/${r.items}${r.forgot_unit ? `，忘写单位 ${r.forgot_unit}` : ''}${r.level ? `，难度档 ${r.level}` : ''}${r.moved?.dir === 'down' ? '（刚降了一档，需要家长讲一讲）' : r.moved?.dir === 'up' ? '（刚升了一档）' : ''}`)
+    for (const r of data.screen) console.log(`  ${r.knowledge_point} ${r.error_type}：${r.first_ok}/${r.items}${r.forgot_unit ? `，忘写单位 ${r.forgot_unit}` : ''}${r.caught ? `，被接住 ${r.caught}` : ''}${r.help ? `，用了本领 ${r.help} 题` : ''}${r.level ? `，难度档 ${r.level}` : ''}${r.moved?.dir === 'down' ? '（刚降了一档，需要家长讲一讲）' : r.moved?.dir === 'up' ? '（刚升了一档）' : ''}`)
   } else throw new Error(`不认识的命令 ${cmd}`)
 } catch (e) { console.error(e.message); process.exit(1) }
