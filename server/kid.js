@@ -1,9 +1,11 @@
 // 家长端 ↔ 孩子端：题库模板入库、生成题库包、推送到孩子端、取回答题记录。
 //   npm run kid bank 2026-W40 <模板 json>   校验模板，逐题验算，自动带上往周的模板，写进 错题/周.md 的「题库」段
 //   npm run kid tune 2026-W40 键=值 …        改本周的调节项（见 rules.md 第 9 节），改完要再 push
-//   npm run kid pack 2026-W40 [输出文件]     只生成题库包，不推送；写成文件可以到孩子端管理员页面上传
+//   npm run kid export 2026-W40             导出标准题库文件 孩子端题库/pack-2026-W40.json，管理员在孩子端「导入题库」（每周归集的固定做法）
+//   npm run kid pack 2026-W40 [输出文件]     只生成题库包检查，不推送
 //   npm run kid push 2026-W40               生成题库包并推送到孩子端（Netlify）；按每天都来做不够 14 天的不推
-//   npm run kid pull 2026-W40               取回该周答题记录，按「知识点 × 错因」汇总写进周 md 的「答题」段；不写周就取上次推送的那一周
+//   npm run kid pull [周|文件]               读入答题记录，按「知识点 × 错因」汇总写进周 md 的「答题」段：写了文件读文件；没设孩子端地址就读
+//                                           孩子端题库/ 里最新的 log-周-账号.json（管理员在孩子端导出）；设了地址就在线取（不写周取上次推送那一周）
 //   npm run kid check                       看孩子端连不连得上（/weekly 自动推题库前先跑）
 //   npm run kid link <孩子端网址> <同步令牌>  保存地址和令牌（存在应用数据目录，不进项目文件夹）
 //   KID_URL=<dev 网址> npm run kid demo    把 rules.md 的示例模板拼成体验题库，推到 dev 分支部署试玩（不需要错题数据）
@@ -14,9 +16,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { readWeek, writeWeek, listWeeks, loadSettings, saveSettings, computeProgress, readKnowledge } from './store.js'
+import { readWeek, writeWeek, listWeeks, loadSettings, saveSettings, computeProgress, readKnowledge, DIRS } from './store.js'
 import { verifyItem } from './sheet.js'
-import { buildPack, packDays, LEVELS, PACK_DAYS } from '../shared/contract.js'
+import { buildPack, packDays, checkPack, LEVELS, PACK_DAYS, LOG_FORMAT } from '../shared/contract.js'
 
 /** 生成题库包；正确答案再用辅导单那套 verifyItem 验一遍，验不过的题丢掉。 */
 export function makePack(week) {
@@ -150,7 +152,24 @@ export function demoPack(week) {
 const isoWeekNow = () => { const d = new Date(), w = d.getUTCDay() || 7; d.setUTCDate(d.getUTCDate() + 4 - w); const y = d.getUTCFullYear(); return `${y}-W${String(Math.ceil(((d - Date.UTC(y, 0, 1)) / 86400000 + 1) / 7)).padStart(2, '0')}` }
 
 // ---------- 命令行 ----------
-const [cmd, weekArg, arg] = process.argv.slice(2), week = cmd === 'pull' && !weekArg ? loadSettings().kidLastPush : weekArg   // pull 不写周：取上次推送那一周
+const [cmd, week, arg] = process.argv.slice(2)
+const packFile = w => path.join(DIRS.kid, `pack-${w}.json`)
+/** 「孩子端题库」文件夹里最新的答题记录文件 log-周-账号.json（管理员在孩子端导出后放进来的）；KID_USER=用户名 指定账号 */
+function latestLog(w) {
+  if (!fs.existsSync(DIRS.kid)) return null
+  const files = fs.readdirSync(DIRS.kid).filter(f => /^log-\d{4}-W\d{2}-.+\.json$/.test(f) && (!w || f.startsWith(`log-${w}-`))).map(f => path.join(DIRS.kid, f))
+    .filter(f => { if (!process.env.KID_USER) return true; try { return JSON.parse(fs.readFileSync(f, 'utf8')).user === process.env.KID_USER } catch { return false } })
+  return files.sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0] || null
+}
+/** 答题记录（在线取回或文件）汇总进周 md 的「答题」段 */
+function savePull({ week, log, state }) {
+  const data = readWeek(week); data.screen = summarize(log || [], state?.ladder); writeWeek(data)
+  const items = data.screen.reduce((n, r) => n + r.items, 0), ok = data.screen.reduce((n, r) => n + r.first_ok, 0), days = new Set((log || []).map(r => r.day)).size
+  console.log(`${week}：来了 ${days} 天，做了 ${items} 题，第一次就对 ${items ? Math.round(ok / items * 100) : 0}%，忘写单位 ${data.screen.reduce((n, r) => n + r.forgot_unit, 0)} 次。已写入「答题」段。`)
+  if (state) console.log(`小狗：${state.name || '还没起名'}（孩子：${state.kid || '还没写名字'}），已陪伴 ${state.days ?? 0} 天，金币 ${state.coins}，一共赚过 ${state.grow}，储蓄罐 ${state.jar || 0}，明信片 ${state.cards?.length || 0} 张`)
+  if (state) console.log(`故事书 ${state.story || 0} 页${state.att?.week === week ? `，这周做完任务 ${state.att.days.length} 天` : ''}`)
+  for (const r of data.screen) console.log(`  ${r.knowledge_point} ${r.error_type}：${r.first_ok}/${r.items}${r.forgot_unit ? `，忘写单位 ${r.forgot_unit}` : ''}${r.caught ? `，被接住 ${r.caught}` : ''}${r.help ? `，用了本领 ${r.help} 题` : ''}${r.level ? `，难度档 ${r.level}` : ''}${r.moved?.dir === 'down' ? '（刚降了一档，需要家长讲一讲）' : r.moved?.dir === 'up' ? '（刚升了一档）' : ''}`)
+}
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) try {
   if (cmd === 'link') { saveSettings({ kidUrl: week, kidToken: arg }); console.log(`已保存孩子端地址 ${week}`) }
   else if (cmd === 'clock') {
@@ -164,8 +183,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const w = /^\d{4}-W\d{2}$/.test(week || '') ? week : isoWeekNow(), { pack, report } = demoPack(w)
     printReport(report, 0)
     printDays(pack)
-    if (arg) { fs.writeFileSync(arg, JSON.stringify(pack)); console.log(`体验题库写到 ${arg}，在 dev 站管理员页面上传（含答案，别放进 public/ 或提交）`); process.exit(0) }
-    if (!process.env.KID_URL) throw new Error('体验题库只推到 dev：KID_URL=https://dev--mathfriend.netlify.app npm run kid demo，或者 npm run kid demo <周> <文件> 写成文件去 dev 站管理员页面上传')
+    if (arg) { fs.writeFileSync(arg, JSON.stringify(pack)); console.log(`体验题库写到 ${arg}，在孩子端用 admin 登录，「导入题库」（含答案，别放进 public/ 或提交）`); process.exit(0) }
+    if (!process.env.KID_URL) throw new Error('体验题库只推到 dev：KID_URL=https://dev--mathfriend.netlify.app npm run kid demo，或者 npm run kid demo <周> <文件> 写成文件，在孩子端用 admin 登录「导入题库」')
     const r = await sync('PUT', '/pack', pack)
     console.log(`已把体验题库推到 ${process.env.KID_URL}：${r.week}，${r.items} 道题`)
   }
@@ -176,8 +195,24 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     await sync('GET', `/log?week=${isoWeekNow()}`)
     console.log(`孩子端连得上：${kidUrl}${!process.env.KID_URL && saved.kidLastPush ? `，上次推送的是 ${saved.kidLastPush} 的题库` : '，还没推送过题库'}`)
   }
-  else if (cmd === 'pull' && !week) console.log('还没推送过题库，没有答题记录可取。')
-  else if (!/^\d{4}-W\d{2}$/.test(week || '')) throw new Error('用法：npm run kid bank|tune|pack|push|pull <周> …，npm run kid pull（取上次推送那一周），npm run kid check，或 npm run kid link <网址> <令牌>')
+  else if (cmd === 'pull') {
+    // 答题记录从哪来：写了文件就读文件；没设孩子端地址就读「孩子端题库」文件夹里最新的答题记录文件；设了地址就在线取（不写周取上次推送那一周）
+    const saved = loadSettings(), online = process.env.KID_URL || saved.kidUrl, isWeek = /^\d{4}-W\d{2}$/.test(week || '')
+    const file = week && !isWeek ? week : arg || (!online ? latestLog(week) : null)
+    if (file) {
+      let src; try { src = JSON.parse(fs.readFileSync(file, 'utf8')) } catch { throw new Error(`读不了 ${file}，要用孩子端管理员页面「导出答题记录」得到的文件`) }
+      if (src?.format !== LOG_FORMAT || !/^\d{4}-W\d{2}$/.test(src.week || '') || !Array.isArray(src.log)) throw new Error(`${path.basename(file)} 不是答题记录文件（要用孩子端管理员页面「导出答题记录」得到的文件）`)
+      if (isWeek && src.week !== week) throw new Error(`${path.basename(file)} 是 ${src.week} 的答题记录，不是 ${week}`)
+      console.log(`读入 ${path.basename(file)}（账号「${src.user}」，${src.made?.slice(0, 10) || ''} 导出）`)
+      savePull(src)
+    } else if (online) {
+      const w = isWeek ? week : saved.kidLastPush
+      if (!w) console.log('还没推送过题库，没有答题记录可取。')
+      // 默认取第一个孩子账号的记录；KID_USER=用户名 取别的账号
+      else savePull({ ...(await sync('GET', `/log?week=${w}${process.env.KID_USER ? `&user=${encodeURIComponent(process.env.KID_USER)}` : ''}`)), week: w })
+    } else console.log(`没有答题记录文件：在孩子端用 admin 登录，「导出答题记录」，把文件放进 ${DIRS.kid}`)
+  }
+  else if (!/^\d{4}-W\d{2}$/.test(week || '')) throw new Error('用法：npm run kid bank|tune|export|pack|push <周> …，npm run kid pull [周|文件]，npm run kid check，或 npm run kid link <网址> <令牌>')
   else if (cmd === 'bank') {
     const bank = JSON.parse(fs.readFileSync(arg, 'utf8'))
     if (!Array.isArray(bank.groups) || !Array.isArray(bank.templates)) throw new Error('模板 json 要有 groups 和 templates 两个数组')
@@ -203,6 +238,15 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     console.log('调节项：' + JSON.stringify(data.bank.tuning || {}))
     console.log('每天题量：' + data.bank.groups.map(g => `${g.id} ${g.name} ${g.daily}`).join('，'))
     console.log(`改完要运行 npm run kid push ${week} 才会生效`)
+  } else if (cmd === 'export') {
+    // 标准交换文件：孩子端题库/pack-周.json，管理员在孩子端「导入题库」。不够 14 天、格式检查不过都不写
+    const { pack, report, dropped } = makePack(week)
+    printReport(report, dropped)
+    printUncovered(week, readWeek(week).bank)
+    if (printDays(pack) < PACK_DAYS && !process.env.KID_SHORT) throw new Error(`题库不够 ${PACK_DAYS} 天，没有导出。按上面的提示补模板再 bank 一次（实在要导出，命令前加 KID_SHORT=1）`)
+    const bad = checkPack(pack); if (bad.length) throw new Error('题库包检查没过：' + bad.join('；'))
+    fs.mkdirSync(DIRS.kid, { recursive: true }); fs.writeFileSync(packFile(week), JSON.stringify(pack))
+    console.log(`已导出 ${packFile(week)}（${pack.items.length} 道题，${Math.round(fs.statSync(packFile(week)).size / 1024)} KB）。在孩子端用 admin 登录，账号管理页「导入题库」选这个文件。含答案，别放进 public/ 或提交`)
   } else if (cmd === 'pack') {
     const { pack, report, dropped } = makePack(week)
     printReport(report, dropped)
@@ -216,14 +260,5 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const r = await sync('PUT', '/pack', pack)
     if (!process.env.KID_URL) saveSettings({ kidLastPush: week })     // 推到 dev（临时 KID_URL）不算
     console.log(`已推送 ${r.week}：${r.items} 道题`)
-  } else if (cmd === 'pull') {
-    // 默认取第一个孩子账号的记录；KID_USER=用户名 取别的账号
-    const { log, state } = await sync('GET', `/log?week=${week}${process.env.KID_USER ? `&user=${encodeURIComponent(process.env.KID_USER)}` : ''}`)
-    const data = readWeek(week); data.screen = summarize(log || [], state?.ladder); writeWeek(data)
-    const items = data.screen.reduce((n, r) => n + r.items, 0), ok = data.screen.reduce((n, r) => n + r.first_ok, 0), days = new Set((log || []).map(r => r.day)).size
-    console.log(`${week}：来了 ${days} 天，做了 ${items} 题，第一次就对 ${items ? Math.round(ok / items * 100) : 0}%，忘写单位 ${data.screen.reduce((n, r) => n + r.forgot_unit, 0)} 次。已写入「答题」段。`)
-    if (state) console.log(`小狗：${state.name || '还没起名'}（孩子：${state.kid || "还没写名字"}），已陪伴 ${state.days ?? 0} 天，金币 ${state.coins}，一共赚过 ${state.grow}，储蓄罐 ${state.jar || 0}，明信片 ${state.cards?.length || 0} 张`)
-    if (state) console.log(`故事书 ${state.story || 0} 页${state.att?.week === week ? `，这周做完任务 ${state.att.days.length} 天` : ''}`)
-    for (const r of data.screen) console.log(`  ${r.knowledge_point} ${r.error_type}：${r.first_ok}/${r.items}${r.forgot_unit ? `，忘写单位 ${r.forgot_unit}` : ''}${r.caught ? `，被接住 ${r.caught}` : ''}${r.help ? `，用了本领 ${r.help} 题` : ''}${r.level ? `，难度档 ${r.level}` : ''}${r.moved?.dir === 'down' ? '（刚降了一档，需要家长讲一讲）' : r.moved?.dir === 'up' ? '（刚升了一档）' : ''}`)
   } else throw new Error(`不认识的命令 ${cmd}`)
 } catch (e) { console.error(e.message); process.exit(1) }

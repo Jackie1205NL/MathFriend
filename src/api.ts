@@ -17,4 +17,5 @@ export const api = {
   keep: (file: string) => call<{ keep: string[] }>(`/api/keep/${encodeURIComponent(file)}`, { method: 'POST' }),
   image: (week: string, id: string) => `/attachments/images/${week}/${id}.png`,
   sheetUrl: (week: string) => `/attachments/sheets/${week}.pdf`,
+  kidPackUrl: (week: string) => `/api/kidpack/${week}`,
 }

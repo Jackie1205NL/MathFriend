@@ -3,6 +3,8 @@
 // 这个文件不能引用 server/ 或 kid/ 下的任何东西。
 
 export const PACK_VERSION = 1
+// 家长端和孩子端交换的两种文件（见 rules.md 第 10 节）：题库包由家长端导出、管理员在孩子端导入；答题记录由管理员导出、家长端读入
+export const PACK_FORMAT = 'shuban-kid-pack', LOG_FORMAT = 'shuban-kid-log'
 export const FORMATS = ['oral', 'first', 'clock', 'estimate', 'steps', 'fix', 'multi', 'word', 'plan', 'stat', 'data', 'column', 'multistep']   // 孩子端遇到不认识的题型会跳过
 export const FORMAT_NAME = { oral: '口算闪答', first: '先算哪一步', clock: '拨钟面', estimate: '先估后算', steps: '递等式分步', fix: '小老师改错', multi: '多空题交卷', word: '应用题三步', plan: '挑战题', stat: '统计表', data: '整理数据', column: '竖式', multistep: '分步应用题' }
 export const BASE = { oral: 1, first: 2, clock: 4, estimate: 4, steps: 6, fix: 6, multi: 6, word: 12, plan: 25, stat: 14, data: 6, column: 5, multistep: 25 }   // 题越长，每分钟赚得略多
@@ -442,6 +444,31 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
 }
 
 /** 这份题库按每天都来做，每组够做几天（不重复），返回 [{ id, name, days }]，关底题组每天只抽 1 题 */
+/** 检查题库包是不是标准格式、每道题孩子端能不能出。返回问题列表，空数组就是能导入 */
+export function checkPack(pack) {
+  if (!pack || typeof pack !== 'object') return ['不是题库包文件']
+  if (pack.format === LOG_FORMAT) return ['这是答题记录文件，要在家长端读入，不是导入孩子端']
+  const bad = []
+  if (pack.format !== PACK_FORMAT) bad.push(`format 应该是 ${PACK_FORMAT}`)
+  if (pack.v !== PACK_VERSION) bad.push(`v 应该是 ${PACK_VERSION}（这个文件是 ${pack.v ?? '没写'}）`)
+  if (!/^\d{4}-W\d{2}$/.test(pack.week || '')) bad.push('week 要写成 2026-W41 这样')
+  if (!Array.isArray(pack.groups) || !pack.groups.length) bad.push('没有 groups（分组）')
+  if (!Array.isArray(pack.items) || !pack.items.length) bad.push('没有 items（题目）')
+  if (bad.length) return bad
+  const gids = new Set(pack.groups.map(g => g?.id)), ids = new Set()
+  for (const g of pack.groups) if (!g?.id || !g.name) bad.push(`有分组缺 id 或 name`)
+  for (const it of pack.items) {
+    const who = `题目 ${it?.id ?? '（没有 id）'}`
+    if (!it?.id || ids.has(it.id)) { bad.push(`${who}：id 缺了或重复`); continue }
+    ids.add(it.id)
+    if (!FORMATS.includes(it.format)) bad.push(`${who}：不认识的题型 ${it.format}`)
+    else if (!gids.has(it.group)) bad.push(`${who}：分组 ${it.group} 不存在`)
+    else if (!LEVELS.includes(it.level) || !it.kp || !it.err || !(it.price > 0) || it.answer == null) bad.push(`${who}：缺难度、知识点、错因、金币或答案`)
+    else try { publicItem(it) } catch { bad.push(`${who}：内容不完整，孩子端出不了这道题`) }
+    if (bad.length >= 8) { bad.push('……'); break }
+  }
+  return bad
+}
 export function packDays(pack) {
   return pack.groups.map(g => ({ id: g.id, name: g.name, days: Math.floor(pack.items.filter(it => it.group === g.id).length / dailyOf(g)) }))
 }
@@ -459,7 +486,7 @@ export function buildPack(bank, week) {
     return items
   })
   report.days = packDays({ groups: bank.groups, items })
-  return { pack: { v: PACK_VERSION, week, created: new Date().toISOString(), tuning: { unit_hint: 1, blank_hint: 1, slow: 1, boss_day: 5, bedtime: '20:30', ...bank.tuning }, groups: bank.groups, items }, report }
+  return { pack: { format: PACK_FORMAT, v: PACK_VERSION, week, created: new Date().toISOString(), tuning: { unit_hint: 1, blank_hint: 1, slow: 1, boss_day: 5, bedtime: '20:30', ...bank.tuning }, groups: bank.groups, items }, report }
 }
 
 /**

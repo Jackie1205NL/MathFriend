@@ -37,5 +37,5 @@ export interface State {
   progress: { baseline: string | undefined; rows: ProgressRow[] }
   focus: (ProgressRow & { entries: string[] })[]
   originals: { file: string; size: number; ageDays: number; permanent: boolean; expiring: boolean; week: string | null }[]
-  inbox: string[]; sheet: boolean; settings: Settings
+  inbox: string[]; sheet: boolean; kidPack?: boolean; settings: Settings
 }

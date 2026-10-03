@@ -284,7 +284,7 @@ button.frow{box-shadow:0 4px 0 var(--line)}
 .conf i{position:absolute;top:-10px;width:10px;height:16px;animation:fall 3.2s linear infinite}
 .toast{position:fixed;left:50%;bottom:110px;transform:translateX(-50%);width:calc(100% - 56px);max-width:688px;background:var(--ink);color:#fff;border-radius:16px;padding:14px 18px;font-size:21px;z-index:10;text-align:center}
 .field{display:flex;gap:10px}
-.field input{flex:1;min-width:0;border:3px solid var(--line);border-radius:14px;padding:10px 14px;font-size:24px;background:var(--card)}
+.field input,.field select{flex:1;min-width:0;border:3px solid var(--line);border-radius:14px;padding:10px 14px;font-size:24px;background:var(--card)}
 .pin{display:flex;gap:14px;justify-content:center;margin-top:8px}
 .pin i{width:26px;height:26px;border-radius:50%;border:3px solid var(--leaf)}.pin i.f{background:var(--leaf)}
 /* 答题：积木、陪伴条、本领徽章、整题结算（第五期） */
@@ -385,7 +385,7 @@ h2 .hb{width:44px;height:44px;border-radius:50%;vertical-align:-10px;margin-righ
 .urow{display:grid;gap:10px}.urow small{display:block;color:var(--dim);font-size:16px}.urow.off{opacity:.6}
 .ubtns{display:flex;flex-wrap:wrap;gap:10px}
 .field{flex-wrap:wrap}
-.field input{min-height:56px;flex:1 1 160px}
+.field input,.field select{min-height:56px;flex:1 1 160px}
 .field .btn{width:auto;flex:none;min-height:56px;padding:0 24px;font-size:22px}
 .urow{min-width:0}
 /* 小狗动作 */

@@ -21,7 +21,7 @@ export function WeekPage({ state, onWeek }: Props) {
       <select className="week-select" value={state.week} onChange={e => onWeek(e.target.value)}>{[...weeks].reverse().map(w => <option key={w} value={w}>{w}{w === state.current ? '（本周）' : ''}{state.weeks.includes(w) ? '' : '（无材料）'}</option>)}</select>
       <button className="icon-button" disabled={at >= weeks.length - 1} onClick={() => onWeek(weeks[at + 1])} aria-label="下一周"><ChevronRight size={16} /></button>
       {progress.baseline === state.week && ' · 起点周'}</p></div>
-      <div className="header-actions">{state.sheet && <a className="button primary" href={api.sheetUrl(state.week)} target="_blank" rel="noreferrer"><FileDown size={18} />下载辅导单</a>}</div></header>
+      <div className="header-actions">{state.sheet && <a className="button primary" href={api.sheetUrl(state.week)} target="_blank" rel="noreferrer"><FileDown size={18} />下载辅导单</a>}{state.kidPack && <a className="button" href={api.kidPackUrl(state.week)} download title="在孩子端用管理员账号「导入题库」"><FileDown size={18} />下载孩子端题库</a>}</div></header>
     <section className="summary ruled">
       <div className="summary-title"><span>本周学习概览</span></div>
       <dl><div><dt>材料</dt><dd>{data.materials.length}<small>份</small></dd></div><div><dt>题目</dt><dd>{total}<small>道</small></dd></div><div><dt>错题</dt><dd>{wrong}<small>道</small></dd></div><div><dt>批改存疑</dt><dd className={doubt ? 'amber' : ''}>{doubt}<small>道</small></dd></div><div><dt>需关注</dt><dd className={attention ? 'amber' : ''}>{attention}<small>项</small></dd></div><div><dt>练习题</dt><dd>{practiceCount}<small>道</small></dd></div></dl>

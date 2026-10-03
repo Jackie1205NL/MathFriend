@@ -46,6 +46,7 @@ app.get('/api/state', (req, res) => {
     originals: store.listOriginals(),
     inbox: fs.readdirSync(store.DIRS.inbox).filter(f => !f.startsWith('.')),
     sheet: fs.existsSync(path.join(store.DIRS.sheets, `${week}.pdf`)),
+    kidPack: fs.existsSync(path.join(store.DIRS.kid, `pack-${week}.json`)),
     settings,
   })
 })
@@ -65,6 +66,12 @@ app.post('/api/sheet/:week', async (req, res) => {
 app.get('/api/sheet/:week.pdf', (req, res) => {
   const f = path.join(store.DIRS.sheets, `${req.params.week}.pdf`)
   fs.existsSync(f) ? res.sendFile(f) : res.status(404).end()
+})
+
+// ---------- 孩子端题库文件（npm run kid export 生成，管理员在孩子端导入；含答案，只走登录后的接口） ----------
+app.get('/api/kidpack/:week', (req, res) => {
+  const f = path.join(store.DIRS.kid, `pack-${req.params.week}.json`)
+  fs.existsSync(f) ? res.download(f, `pack-${req.params.week}.json`) : res.status(404).end()
 })
 
 // ---------- 设置与原件 ----------

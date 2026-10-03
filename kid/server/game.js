@@ -1,8 +1,8 @@
 // 孩子端后端：判分、金币、照顾、存档都在这里，页面拿不到答案。
 // 存储只要有 get(key) / set(key, value) 两个方法：线上是 Netlify Blobs（kid/functions/kid.mjs），本地开发是文件（kid/vite.config.js）。
-import { PACK_VERSION, FORMATS, MIN_SECONDS, SKILLS, SKILL_COST, GOODS, DECAY, NEED_FLOOR, PATS_PER_DAY, LEVELS, LEVEL_MIX, STORY_PAGES, BOSS_SIZE, BOSS_PASS, BOSS_COINS, EXTRA_STEP, STAGES,
+import { FORMATS, MIN_SECONDS, SKILLS, SKILL_COST, GOODS, DECAY, NEED_FLOOR, PATS_PER_DAY, LEVELS, LEVEL_MIX, STORY_PAGES, BOSS_SIZE, BOSS_PASS, BOSS_COINS, EXTRA_STEP, STAGES,
   SEASON, PLACES, POSTCARDS, POSTCARD_DAYS, JAR, TRIP_MOOD, EVENT_COINS, coinsFor, publicItem, stageOf, placeOpen, eventOf, cleanName, addDays,
-  SKILL_EVERY, SKILL_USES, SKILL_AT, SKILL_L2, FLOWS, STEP_NAME, flowOf, dailyOf, packDays, toTokens, showExpr, validExpr, exprValue, exprSteps, sameNums, stripParens, nextOp, canTap, calcOp, reduceAt } from '../../shared/contract.js'
+  SKILL_EVERY, SKILL_USES, SKILL_AT, SKILL_L2, FLOWS, STEP_NAME, flowOf, dailyOf, packDays, checkPack, LOG_FORMAT, toTokens, showExpr, validExpr, exprValue, exprSteps, sameNums, stripParens, nextOp, canTap, calcOp, reduceAt } from '../../shared/contract.js'
 
 const DAY = 86400000
 const today = (now = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(now)
@@ -108,7 +108,7 @@ function pickToday(pack, log, date, ladder) {
  * 账号：每个孩子账号有自己的小狗、存档、每天的题和答题流水，题库大家共用。
  * 第一个孩子账号 id 是 main，用不带前缀的老键（以前的存档不用搬）；其他账号的键前面加 u:<id>:。
  */
-const SHARED = k => k === 'pack' || k === 'dev-clock' || k === 'users' || k.startsWith('fail:')
+const SHARED = k => k === 'pack' || k === 'pack-weeks' || k === 'dev-clock' || k === 'users' || k.startsWith('fail:')
 const scoped = (base, id) => { const pre = id === 'main' ? '' : `u:${id}:`, key = k => SHARED(k) ? k : pre + k; return { get: k => base.get(key(k)), set: (k, v) => base.set(key(k), v) } }
 const pinOk = pin => /^\d{4}$/.test(String(pin ?? ''))
 const userName = v => [...String(v ?? '').replace(/[\u0000-\u001f<>&"'`\s]/g, '')].slice(0, 12).join('')
@@ -792,8 +792,11 @@ export function createApi(base, env) {
 
   /** 存题库包（家长端 push，或管理员页面上传）。家长用 tune 改了名字：写进第一个孩子账号的存档 */
   async function savePack(pack, S) {
-    if (pack?.v !== PACK_VERSION || !/^\d{4}-W\d{2}$/.test(pack.week || '') || !Array.isArray(pack.items) || !pack.items.length) return json({ error: '题库包格式不对' }, 400)
+    const bad = checkPack(pack)
+    if (bad.length) return json({ error: '题库包格式不对：' + bad.join('；'), problems: bad }, 400)
     await store.set('pack', pack)
+    const weeks = (await store.get('pack-weeks')) || []        // 导入过哪些周：管理员导出答题记录时选
+    if (!weeks.includes(pack.week)) await store.set('pack-weeks', [...weeks, pack.week].sort().slice(-12))
     const t = pack.tuning || {}, st = await S.get('state')
     if (st && (cleanName(t.kid_name) || cleanName(t.pet_name))) { if (cleanName(t.kid_name)) st.kid = cleanName(t.kid_name); if (cleanName(t.pet_name)) st.name = cleanName(t.pet_name); await S.set('state', st) }
     return json({ ok: true, week: pack.week, items: pack.items.length, days: Math.min(...packDays(pack).filter(g => pack.items.some(it => it.group === g.id)).map(g => g.days)) })
@@ -808,7 +811,14 @@ export function createApi(base, env) {
       const out = []
       for (const u of list) { const st = await scoped(store, u.id).get('state'); out.push({ ...pub(u), pet: st?.name || '', days: st?.days || 0 }) }
       const pack = await store.get('pack'), days = pack && packDays(pack).filter(g => pack.items.some(it => it.group === g.id))
-      return json({ users: out, pack: pack ? { week: pack.week, items: pack.items.length, days: Math.min(...days.map(g => g.days)), groups: days } : null })
+      return json({ users: out, weeks: (await store.get('pack-weeks')) || (pack ? [pack.week] : []), pack: pack ? { week: pack.week, created: pack.created, items: pack.items.length, days: Math.min(...days.map(g => g.days)), groups: days } : null })
+    }
+    // 导出答题记录（文件，家长端 npm run kid pull 读入）。答题记录按题库包的周存
+    if (p === '/admin/log' && req.method === 'GET') {
+      const url = new URL(req.url), u = list.find(x => x.id === url.searchParams.get('user')), week = url.searchParams.get('week')
+      if (!u || !/^\d{4}-W\d{2}$/.test(week || '')) return json({ error: '选一个账号和一周' }, 400)
+      const S = scoped(store, u.id)
+      return json({ format: LOG_FORMAT, week, user: u.name, made: new Date().toISOString(), log: (await S.get(`log:${week}`)) ?? [], state: await S.get('state') })
     }
     // 上传题库包：家长端 npm run kid pack <周> <文件> 生成的文件。命令行推不上去时（比如站点开了 Netlify 登录保护）用
     if (p === '/admin/pack' && req.method === 'POST') return savePack(body.pack, scoped(store, 'main'))
@@ -842,7 +852,7 @@ export function createApi(base, env) {
       if (who && !u) return json({ error: `没有叫「${who}」的账号` }, 404)
       const S = scoped(store, u?.id || 'main')
       if (p === '/pack' && req.method === 'PUT') return savePack(await req.json().catch(() => null), S)
-      if (p === '/log' && req.method === 'GET') return json({ week: url.searchParams.get('week'), user: u?.name || null, log: (await S.get(`log:${url.searchParams.get('week')}`)) ?? [], state: await S.get('state') })
+      if (p === '/log' && req.method === 'GET') return json({ format: LOG_FORMAT, week: url.searchParams.get('week'), user: u?.name || null, log: (await S.get(`log:${url.searchParams.get('week')}`)) ?? [], state: await S.get('state') })
       return json({ error: '不支持' }, 405)
     }
     // 拨时钟：本地开发随便拨；dev 分支部署（env.CLOCK）要带同步令牌；正式站没有这个接口

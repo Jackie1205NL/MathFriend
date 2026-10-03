@@ -120,7 +120,7 @@ function growCard() {
 }
 
 // ---------- 登录和账号管理 ----------
-let loginName = ls.get('kid-user', ''), adminMode = false, ADM = null, ADMP = null, admMsg = '', admEdit = null
+let loginName = ls.get('kid-user', ''), adminMode = false, ADM = null, ADMP = null, ADMW = [], admMsg = '', admEdit = null
 function vLogin() {
   const n = adminMode ? 8 : 4
   return `<div class="top"><h1>${adminMode ? '管理员登录' : '团团小屋'}</h1></div><div class="body login">
@@ -140,11 +140,13 @@ function vAdmin() {
     <div class="card"><b>新建孩子账号</b><p class="dim">每个账号有自己的小狗和存档，题目大家共用。用户名最多 12 个字，密码是 4 位数字。</p>
       <div class="field"><input id="adm-name" maxlength="12" placeholder="用户名" aria-label="用户名"><input id="adm-pin" inputmode="numeric" maxlength="4" placeholder="4 位密码" aria-label="密码"><button class="btn" data-a="admadd">新建</button></div></div>
     ${us.map(row).join('') || '<p class="dim">还没有账号。</p>'}
-    <div class="card"><b>题库</b><p class="dim">${ADMP ? `现在是 ${esc(ADMP.week)} 的题库，${ADMP.items} 道题，按每天都来做够 ${ADMP.days} 天${ADMP.days < 14 ? '（不够两周）' : ''}。` : '还没有题库，孩子进来会看到「还没有题」。'}平时用家长端 <code>npm run kid push</code> 推送；推不上去时，用 <code>npm run kid pack &lt;周&gt; &lt;文件&gt;</code> 生成文件，在这里上传。</p>
-      <div class="field"><input id="adm-pack" type="file" accept=".json,application/json" aria-label="题库包文件"><button class="btn" data-a="admpack">上传</button></div></div>
-    <p class="dim">管理员只管账号，看不到孩子的答题记录。停用的账号登录不了，存档还在，启用后接着玩。</p></div>`
+    <div class="card"><b>导入题库</b><p class="dim">${ADMP ? `现在是 ${esc(ADMP.week)} 的题库（${ADMP.created ? md(ADMP.created.slice(0, 10)) + ' ' : ''}生成），${ADMP.items} 道题，按每天都来做够 ${ADMP.days} 天${ADMP.days < 14 ? '（不够两周）' : ''}。` : '还没有题库，孩子进来会看到「还没有题」。'}每周家长端归集完，会在数据文件夹的「孩子端题库」里生成 <code>pack-周.json</code>，选它导入。导入新的就换掉旧的，孩子的存档不受影响。</p>
+      <div class="field"><input id="adm-pack" type="file" accept=".json,application/json" aria-label="题库文件"><button class="btn" data-a="admpack">导入</button></div></div>
+    <div class="card"><b>导出答题记录</b><p class="dim">每周归集前导出，放进家长端的「孩子端题库」文件夹，家长端会读入，用来决定哪些题要再练。</p>
+      <div class="field"><select id="adm-lu" aria-label="账号">${us.map(u => `<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select><select id="adm-lw" aria-label="哪一周的题库">${[...ADMW].reverse().map(w => `<option>${esc(w)}</option>`).join('')}</select><button class="btn" data-a="admlog" ${us.length && ADMW.length ? '' : 'disabled'}>导出</button></div></div>
+    <p class="dim">管理员只管账号、题库和答题记录文件，网页上不显示孩子的答题。停用的账号登录不了，存档还在，启用后接着玩。</p></div>`
 }
-async function loadAdmin() { const r = await api('/admin/users'); ADM = r.users; ADMP = r.pack; page = 'admin' }
+async function loadAdmin() { const r = await api('/admin/users'); ADM = r.users; ADMP = r.pack; ADMW = r.weeks || []; page = 'admin' }
 function vHome() {
   const s = S(), n = s.needs, st = stage(), bag = kind => GOODS.filter(g => g.kind === kind).reduce((a, g) => a + (s.bag[g.k] || 0), 0)
   const pats = s.pats.date === D() ? s.pats.n : 0, tricks = TRICKS.filter(t => s.skill[t.k] >= 1).length
@@ -527,7 +529,15 @@ const QA = {
   admpack() {
     const f = document.getElementById('adm-pack')?.files?.[0]
     if (!f) { admMsg = '先选一个题库包文件。'; return }
-    return run(async () => { try { const r = await api('/admin/pack', { pack: JSON.parse(await f.text()) }); admMsg = `题库换好了：${r.week}，${r.items} 道题，够 ${r.days} 天。`; await loadAdmin() } catch (e) { admMsg = e instanceof SyntaxError ? '这个文件不是题库包。' : e.message } })
+    return run(async () => { try { const r = await api('/admin/pack', { pack: JSON.parse(await f.text()) }); admMsg = `导入好了：${r.week} 的题库，${r.items} 道题，按每天都来做够 ${r.days} 天。`; await loadAdmin() } catch (e) { admMsg = e instanceof SyntaxError ? '这个文件不是题库文件（打不开）。' : e.message } })
+  },
+  admlog() {
+    const u = document.getElementById('adm-lu')?.value, w = document.getElementById('adm-lw')?.value, name = ADM.find(x => x.id === u)?.name || u
+    return run(async () => { try {
+      const d = await api(`/admin/log?user=${encodeURIComponent(u)}&week=${encodeURIComponent(w)}`)
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(d)], { type: 'application/json' })); a.download = `log-${w}-${u}.json`; document.body.append(a); a.click(); setTimeout(() => { a.remove(); URL.revokeObjectURL(a.href) }, 1000)
+      admMsg = `导出了「${name}」${w} 的答题记录（${d.log.length} 条，文件 log-${w}-${u}.json）。放进家长端的「孩子端题库」文件夹。`
+    } catch (e) { admMsg = e.message } })
   },
   admoff(id) { const u = ADM.find(x => x.id === id); return run(async () => { try { await api('/admin/users/' + id, { off: !u.off }); admMsg = `「${u.name}」${u.off ? '启用' : '停用'}了。`; await loadAdmin() } catch (e) { admMsg = e.message } }) },
   stepgo() {

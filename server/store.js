@@ -1,4 +1,4 @@
-// 文件即真相源：错题/周.md、知识点.md、原件/、辅导单/。程序缓存与设置放在应用数据目录。
+// 文件即真相源：错题/周.md、知识点.md、原件/、辅导单/、孩子端题库/。程序缓存与设置放在应用数据目录。
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
@@ -10,6 +10,7 @@ export const DIRS = {
   originals: path.join(ROOT, '原件'),
   mistakes: path.join(ROOT, '错题'),
   sheets: path.join(ROOT, '辅导单'),
+  kid: path.join(ROOT, '孩子端题库'),      // 和孩子端交换的文件：pack-周.json（导出）、log-周-账号.json（管理员导出后放进来）
 }
 export const KNOWLEDGE_FILE = path.join(ROOT, '知识点.md')
 // 缓存与设置按数据目录隔离，避免测试目录的去重哈希误删正式目录的文件
