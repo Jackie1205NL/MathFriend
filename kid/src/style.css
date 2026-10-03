@@ -353,6 +353,17 @@ h2 .hb{width:44px;height:44px;border-radius:50%;vertical-align:-10px;margin-righ
 .nums{display:flex;flex-wrap:wrap;gap:10px}
 .nums button{min-width:72px;min-height:56px;border-radius:14px;border:3px solid var(--line);background:var(--card);font-weight:700;font-size:24px;font-variant-numeric:tabular-nums}
 .nums button.on{background:var(--sun);border-color:var(--coin)}
+.col{display:grid;justify-content:center;gap:4px;font:700 34px var(--sans);font-variant-numeric:tabular-nums}
+.crow{display:grid;grid-auto-flow:column;grid-auto-columns:64px;gap:6px;justify-items:center;align-items:center;min-height:56px}
+.crow.carry{min-height:40px}
+.col .rule{height:4px;background:var(--ink);border-radius:2px;margin:2px 0}
+.cslot{width:58px;height:64px;border-radius:12px;border:3px solid var(--line);background:var(--card);font:inherit}
+.ccarry{width:40px;height:36px;border-radius:9px;border:2px dashed var(--line);background:var(--card);font:700 20px var(--sans);position:relative}
+.cslot.cur,.ccarry.cur{border:3px solid var(--leaf);box-shadow:0 0 0 4px var(--sun)}
+.cslot.bad{border-color:var(--berry);background:var(--bad)}
+.ccarry.paw::after{content:'';position:absolute;inset:-6px;border-radius:12px;border:3px solid var(--coin);animation:glow 1.2s infinite}
+@keyframes glow{50%{opacity:.25}}
+.chip.new{border-color:var(--sky);background:#e6f1fb}
 /* 小狗动作 */
 .breathe{animation:breathe 3.2s ease-in-out infinite;transform-origin:50% 90%}
 @keyframes breathe{50%{transform:scale(1.025,.975)}}

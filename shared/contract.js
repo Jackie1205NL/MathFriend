@@ -3,11 +3,11 @@
 // 这个文件不能引用 server/ 或 kid/ 下的任何东西。
 
 export const PACK_VERSION = 1
-export const FORMATS = ['oral', 'first', 'clock', 'estimate', 'steps', 'fix', 'multi', 'word', 'plan', 'stat', 'data']   // 孩子端遇到不认识的题型会跳过
-export const FORMAT_NAME = { oral: '口算闪答', first: '先算哪一步', clock: '拨钟面', estimate: '先估后算', steps: '递等式分步', fix: '小老师改错', multi: '多空题交卷', word: '应用题三步', plan: '挑战题', stat: '统计表', data: '整理数据' }
-export const BASE = { oral: 1, first: 2, clock: 4, estimate: 4, steps: 6, fix: 6, multi: 6, word: 12, plan: 25, stat: 14, data: 6 }   // 题越长，每分钟赚得略多
-export const MIN_SECONDS = { oral: 2, first: 3, clock: 4, estimate: 3, steps: 4, fix: 5, multi: 8, word: 8, plan: 10, stat: 20, data: 8 }   // 比这还快又答错，算「急着答错」
-export const HAS_PROCESS_BONUS = ['word', 'steps', 'estimate', 'multi', 'plan']   // 这些题型过程做全有 +2
+export const FORMATS = ['oral', 'first', 'clock', 'estimate', 'steps', 'fix', 'multi', 'word', 'plan', 'stat', 'data', 'column', 'multistep']   // 孩子端遇到不认识的题型会跳过
+export const FORMAT_NAME = { oral: '口算闪答', first: '先算哪一步', clock: '拨钟面', estimate: '先估后算', steps: '递等式分步', fix: '小老师改错', multi: '多空题交卷', word: '应用题三步', plan: '挑战题', stat: '统计表', data: '整理数据', column: '竖式', multistep: '分步应用题' }
+export const BASE = { oral: 1, first: 2, clock: 4, estimate: 4, steps: 6, fix: 6, multi: 6, word: 12, plan: 25, stat: 14, data: 6, column: 5, multistep: 25 }   // 题越长，每分钟赚得略多
+export const MIN_SECONDS = { oral: 2, first: 3, clock: 4, estimate: 3, steps: 4, fix: 5, multi: 8, word: 8, plan: 10, stat: 20, data: 8, column: 8, multistep: 15 }   // 比这还快又答错，算「急着答错」
+export const HAS_PROCESS_BONUS = ['word', 'steps', 'estimate', 'multi', 'plan', 'column', 'multistep']   // 这些题型过程做全有 +2
 export const LEVELS = ['同构', '略变', '综合']
 // 难度阶梯：档位 0 / 1 / 2 时，抽题在三种难度上的比例
 export const LEVEL_MIX = [[0.6, 0.3, 0.1], [0.4, 0.4, 0.2], [0.2, 0.5, 0.3]]
@@ -34,11 +34,11 @@ export const SKILL_EVERY = { 审题: 9, 概念不清: 9, 计算失误: 12, 格�
 // 本领在答题时：1 级提醒每天 3 次，2 级帮忙每天 1 次，3 级守护每周 1 次（每个本领单独算）。孩子点了才用。
 export const SKILL_USES = { 1: 3, 2: 1, 3: 1 }
 // 每种积木上哪些本领的徽章会亮；L2 是 2 级「帮忙」能用的积木（其他积木上 2 级用不上）
-export const SKILL_AT = { 审题: ['circle', 'build', 'goal', 'pickcat', 'tapnum'], 概念不清: ['build', 'chain'], 计算失误: ['chain', 'say', 'fill', 'range', 'blanks', 'table'], 格式规范: ['say', 'tapnum'], 漏题: ['say', 'blanks', 'spot', 'table', 'tapnum'], 策略缺失: ['goal', 'build'] }
-export const SKILL_L2 = { 审题: ['circle'], 概念不清: ['chain'], 计算失误: ['chain', 'say', 'fill', 'table'], 格式规范: ['say'], 漏题: ['say', 'blanks', 'table', 'tapnum'], 策略缺失: ['goal'] }
+export const SKILL_AT = { 审题: ['circle', 'build', 'goal', 'pickcat', 'tapnum'], 概念不清: ['build', 'chain'], 计算失误: ['chain', 'say', 'fill', 'range', 'blanks', 'table', 'column'], 格式规范: ['say', 'tapnum'], 漏题: ['say', 'blanks', 'spot', 'table', 'tapnum', 'column'], 策略缺失: ['goal', 'build'] }
+export const SKILL_L2 = { 审题: ['circle'], 概念不清: ['chain'], 计算失误: ['chain', 'say', 'fill', 'table', 'column'], 格式规范: ['say'], 漏题: ['say', 'blanks', 'table', 'tapnum', 'column'], 策略缺失: ['goal'] }
 // 题型默认由哪些积木拼成；word / plan 的模板可以写 flow 改（只能从默认里删步骤，不能换顺序）
-export const FLOWS = { oral: ['fill'], first: ['first'], clock: ['clock'], estimate: ['range', 'fill'], steps: ['chain'], fix: ['spot', 'fill'], multi: ['blanks'], word: ['circle', 'build', 'chain', 'say'], plan: ['goal', 'build', 'chain', 'say'], data: ['tapnum'] }   // stat 的积木按小问由模板定
-export const STEP_NAME = { fill: '填得数', first: '先算哪一步', clock: '拨时针', range: '估一估', chain: '一行一行算', spot: '找错行', blanks: '填空', circle: '圈关键词', goal: '先求什么', build: '列式', say: '写答句', table: '填统计表', pickcat: '选一类', tapnum: '找出来再数' }
+export const FLOWS = { oral: ['fill'], first: ['first'], clock: ['clock'], estimate: ['range', 'fill'], steps: ['chain'], fix: ['spot', 'fill'], multi: ['blanks'], word: ['circle', 'build', 'chain', 'say'], plan: ['goal', 'build', 'chain', 'say'], data: ['tapnum'], column: ['column'] }   // stat 的积木按小问由模板定
+export const STEP_NAME = { fill: '填得数', first: '先算哪一步', clock: '拨时针', range: '估一估', chain: '一行一行算', spot: '找错行', blanks: '填空', circle: '圈关键词', goal: '先求什么', build: '列式', say: '写答句', table: '填统计表', pickcat: '选一类', tapnum: '找出来再数', column: '列竖式' }
 export const GOODS = [
   { k: 'cookie', n: '骨头饼干', d: '饱食 ＋10', p: 10, kind: 'food', full: 10 },
   { k: 'rice', n: '鸡肉蔬菜饭', d: '饱食 ＋35', p: 40, kind: 'food', full: 35 },
@@ -195,6 +195,31 @@ export function exprSteps(t) {
   while (t.length > 1) { const k = nextOp(t); if (k < 0) return null; const v = calcOp(t[k - 1], t[k], t[k + 1]); if (!Number.isInteger(v) || v < 0) return null; out.push({ t, k, v }); t = reduceAt(t, k, v) }
   return out
 }
+/**
+ * 竖式：a op b（加、减，或乘一位数）。返回从个位往左的每一格：digit 是得数这一位（trap 是忘了进位 / 退位会写成的数），
+ * carry 是写在这一位上面的进位（乘法、加法）或退位（减法）小格，v 为 0 表示不用写。
+ */
+export function columnLayout(a, op, b) {
+  const da = String(a).split('').reverse().map(Number), db = String(b).split('').reverse().map(Number), cells = []
+  let c = 0
+  if (op === '×') {
+    if (b > 9) return null
+    da.forEach((d, i) => { const p = d * b + c, raw = (d * b) % 10; cells.push({ kind: 'digit', col: i, v: p % 10, trap: c && raw !== p % 10 ? raw : null, cin: c }); c = Math.floor(p / 10); if (i < da.length - 1) cells.push({ kind: 'carry', col: i + 1, v: c }) })
+    if (c) cells.push({ kind: 'digit', col: da.length, v: c, cin: 0 })
+  } else if (op === '+') {
+    const n = Math.max(da.length, db.length)
+    for (let i = 0; i < n; i++) { const raw = (da[i] || 0) + (db[i] || 0), p = raw + c; cells.push({ kind: 'digit', col: i, v: p % 10, trap: c && raw % 10 !== p % 10 ? raw % 10 : null, cin: c }); c = Math.floor(p / 10); if (i < n - 1) cells.push({ kind: 'carry', col: i + 1, v: c }) }
+    if (c) cells.push({ kind: 'digit', col: n, v: c, cin: 0 })
+  } else if (op === '−') {
+    if (a < b) return null
+    const out = []
+    for (let i = 0; i < da.length; i++) { let d = da[i] - (db[i] || 0) - c, nb = 0; if (d < 0) { d += 10; nb = 1 } out.push({ kind: 'digit', col: i, v: d, trap: c ? (d + 1) % 10 : null, cin: c }); c = nb; if (i < da.length - 1) out.push({ kind: 'carry', col: i + 1, v: c }) }
+    // 得数最高位是 0 的不写
+    let top = da.length - 1; while (top > 0 && out.find(x => x.kind === 'digit' && x.col === top).v === 0) top--
+    cells.push(...out.filter(x => x.kind === 'carry' || x.col <= top))
+  } else return null
+  return cells
+}
 export function exprValue(t) { if (!validExpr(t)) return NaN; const st = exprSteps(t); return st ? (st.length ? st.at(-1).v : stripParens(t)[0]) : NaN }
 const sameNums = (a, b) => JSON.stringify(a.filter(isNum).sort((x, y) => x - y)) === JSON.stringify(b.filter(isNum).sort((x, y) => x - y))
 export { sameNums }
@@ -286,6 +311,30 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
       Object.assign(item, { nums, over, kind: t.ask || 'over', answer: nums.filter(test).length, unit: t.unit || '个', units: t.units || [t.unit || '个', '分'],
         text: fill(t.text || '', { ...v, over }), ask: fill(t.pre || '答：', { ...v, over }) })
       if (!item.answer || item.answer === cnt) { bad('一个都不符合或全都符合'); continue }
+    } else if (t.format === 'column') {
+      // 竖式：模板只写算式，格子由程序排
+      const m = fill(t.expression, v).replace(/\*/g, '×').replace(/-/g, '−').match(/^\s*(\d+)\s*([+−×])\s*(\d+)\s*$/)
+      if (!m) { bad('expression 只能是 a+b、a−b、a×b（乘一位数）'); continue }
+      const [a, op, b2] = [Number(m[1]), m[2], Number(m[3])], cells = columnLayout(a, op, b2)
+      if (!cells) { bad('竖式排不出来（乘数要一位数，减法要够减）'); continue }
+      Object.assign(item, { a, op, b: b2, cells, text: `${a} ${op} ${b2}`, answer: calcOp(a, op, b2) })
+    } else if (t.format === 'multistep') {
+      // 分步应用题：每一步「这一步求什么 → 列式 → 得数和单位」，上一步的得数变成下一步的数字卡；有 goals 就先选第一步求什么
+      item.text = fill(t.text, v)
+      const vv = { ...v }, parts = []
+      for (const [k, st] of (t.steps || []).entries()) {
+        const e = fill(st.e, vv), val = evalExpr(e), tk = toTokens(e)
+        parts.push({ ask: fill(st.ask, vv), pre: fill(st.pre, vv), unit: st.unit, units: st.units || [st.unit], e: pretty(e), v: val, tk, prevAt: k ? tk.findIndex(x => x === parts[k - 1].v) : -1 })
+        vv[`s${k + 1}`] = val
+      }
+      if (parts.length < 2 || parts.some(p => !okAnswer(p.v) || !exprSteps(p.tk))) { bad('steps 至少两步，每一步都要算得出（整除、不出现负数）'); continue }
+      if (parts.slice(1).some(p => p.prevAt < 0)) { bad('后一步的 e 要用上前一步的得数（写成 {s1}、{s2}）'); continue }
+      if (t.goals) { item.goals = t.goals.map(g => ({ t: fill(g.t, v), ...(g.ok ? { ok: 1 } : {}) })); if (item.goals.filter(g => g.ok).length !== 1) { bad('goals 里必须正好一个 ok'); continue } }
+      item.parts = parts; item.answer = parts.at(-1).v; item.unit = parts.at(-1).unit
+      Object.assign(item, { ask: fill(t.ask, vv), units: t.units || parts.at(-1).units })
+      item.traps = (t.traps || []).map(x => ({ value: evalExpr(fill(x.e, vv)), error_type: x.error_type || t.error_type, say: fill(x.say, vv) })).filter(x => okAnswer(x.value))
+      item.flow = [...(item.goals ? ['goal'] : []), ...parts.flatMap(() => ['build', 'say'])]
+      item.stepOf = [...(item.goals ? [0] : []), ...parts.flatMap((_, k) => [k, k])]
     } else if (t.format === 'multi') {
       // 多空题：一屏几个空，□ 是要填的位置
       item.text = fill(t.text, v)
@@ -349,7 +398,7 @@ export function buildPack(bank, week) {
 export function publicItem(it, o = {}) {
   const p = { id: it.id, group: it.group, format: it.format, level: it.level, err: it.err, max: maxCoins(it) }
   if (it.format === 'word') p.segs = it.segs.map(s => ({ t: s.t }))
-  if (['plan', 'clock', 'multi'].includes(it.format)) p.text = it.text
+  if (['plan', 'clock', 'multi', 'multistep'].includes(it.format)) p.text = it.text
   const tier = it.level === '同构' ? Math.min(1, o.tier ?? 1) : o.tier ?? 1
   if (it.format === 'stat') p.title = it.title
   p.flow = (it.flow || FLOWS[it.format]).map((type, j) => {
@@ -359,6 +408,13 @@ export function publicItem(it, o = {}) {
       if (type === 'pickcat') return { type, ...part, t: q.t, opts: it.cats }
       if (type === 'build') return { type, ...part, t: q.t, tier: 1, stat: 1, chips: it.cats.map((l, cat) => ({ cat, l })) }
       if (type === 'say') return { type, ...part, t: q.t, ask: q.pre, units: q.units, tail: '' }
+    }
+    if (type === 'column') return { type, a: it.a, op: it.op, b: it.b, width: Math.max(...it.cells.filter(c => c.kind === 'digit').map(c => c.col), String(it.a).length - 1) + 1 + (it.op === '−' ? 0 : 1) }
+    if (it.format === 'multistep') {
+      const k = it.stepOf[j], P = it.parts[k], last = k === it.parts.length - 1
+      if (type === 'goal') return { type, opts: it.goals.map(g => g.t) }
+      if (type === 'build') return { type, ms: k, head: `第${'一二三四'[k]}步：求${P.ask}`, tier: 1, chips: P.tk.flatMap((x, i) => typeof x === 'number' ? [{ v: i === P.prevAt ? null : x, from: i === P.prevAt ? k - 1 : null, seg: -1 }] : []) }
+      if (type === 'say') return { type, ms: k, ask: last ? it.ask : P.pre, units: last ? it.units : P.units, tail: '', mid: !last }
     }
     if (type === 'tapnum') return { type, text: it.text || `下面这些数里，${{ over: '超过', under: '少于', atleast: '不少于' }[it.kind]} ${it.over} 的有几个？先点出来，再数一数。`, nums: it.nums, ask: it.ask, units: it.units }
     if (type === 'fill') return { type, text: it.format === 'fix' ? '' : it.text }
