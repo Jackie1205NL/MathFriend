@@ -1,7 +1,8 @@
 # Netlify 只部署孩子端（kid/），家长端只在本地运行。
 # uat 是正式分支，每次成功部署耗 15 credit；dev 是分支部署（不耗 credit），网址 https://dev--mathfriend.netlify.app。
 # 哪些分支会构建在 Netlify 界面的 Branch deploys 里设置，这里不再用 ignore 拦。
-# 环境变量：KID_PIN（孩子的口令）、SYNC_TOKEN（家长端 npm run kid push/pull 用的同步令牌）。
+# 环境变量：SYNC_TOKEN（家长端 npm run kid push/pull 用的同步令牌）、ADMIN_PIN（管理员 admin 的密码）；
+# KID_PIN、KID_USER（默认「宝贝」）只在第一次启用账号时建第一个孩子账号用。
 [build]
   command = "npm run kid:build"
   publish = "dist-kid"

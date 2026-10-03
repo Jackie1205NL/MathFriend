@@ -20,7 +20,7 @@ const cnDate = d => `${+d.slice(5, 7)} 月 ${+d.slice(8, 10)} 日 星期${'日�
 async function api(path, body) {
   const r = await fetch('/api/kid' + path, body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {})
   const d = await r.json().catch(() => ({ error: '网络不太好，再试一次。' }))
-  if (r.status === 401 && path !== '/login') { V = null; page = 'login' }
+  if (r.status === 401 && path !== '/login') { V = null; page = 'login'; if (path.startsWith('/admin')) ADM = null }
   if (!r.ok) throw new Error(d.error || '出错了，再试一次。')
   const v = d.view || (path === '/state' ? d : null)
   if (v?.now) clockSkew = v.now - Date.now()
@@ -118,12 +118,30 @@ function growCard() {
     <div class="conds"><span class="cond ${need ? 'ok' : ''}">陪满 ${nx.days} 天${need ? ' ✓' : ''}</span><span class="cond ${dok ? 'ok' : ''}">${md(nx.from)} 以后${dok ? ' ✓' : ''}</span><span class="cond">长成${nx.n}</span></div></div>`
 }
 
+// ---------- 登录和账号管理 ----------
+let loginName = ls.get('kid-user', ''), adminMode = false, ADM = null, admMsg = '', admEdit = null
 function vLogin() {
-  return `<div class="top"><h1>团团小屋</h1></div><div class="body login">
-    <div class="room"><div class="pet"><span class="wear breathe"><img src="/pet/s1.webp" alt=""></span></div></div>
-    <div class="card"><p>输入口令，进小屋找小狗玩。</p><div class="pin">${[0, 1, 2, 3].map(i => `<i class="${i < pin.length ? 'f' : ''}"></i>`).join('')}</div>${loginErr ? `<p class="dim" style="color:var(--berry);text-align:center">${loginErr}</p>` : ''}</div>
-    ${pad(null, '进去')}</div>`
+  const n = adminMode ? 8 : 4
+  return `<div class="top"><h1>${adminMode ? '管理员登录' : '团团小屋'}</h1></div><div class="body login">
+    ${adminMode ? '' : '<div class="room"><div class="pet"><span class="wear breathe"><img src="/pet/s1.webp" alt=""></span></div></div>'}
+    <div class="card"><p>${adminMode ? '输入管理员密码。' : '写上你的名字，再输入 4 位密码，进小屋找小狗玩。'}</p>
+      ${adminMode ? '' : `<input id="login-name" class="lname" maxlength="12" autocomplete="username" placeholder="你的名字" aria-label="用户名" value="${esc(loginName)}">`}
+      <div class="pin">${Array.from({ length: adminMode ? Math.max(4, pin.length) : n }, (_, i) => `<i class="${i < pin.length ? 'f' : ''}"></i>`).join('')}</div>${loginErr ? `<p class="dim" style="color:var(--berry);text-align:center">${esc(loginErr)}</p>` : ''}</div>
+    ${pad(null, '进去')}
+    <button class="link" data-a="adminmode">${adminMode ? '‹ 回到孩子登录' : '管理员登录'}</button></div>`
 }
+function vAdmin() {
+  const us = ADM || [], row = u => `<div class="card urow ${u.off ? 'off' : ''}"><div><b>${esc(u.name)}</b>${u.off ? ' <span class="tagx">停用</span>' : ''}<small>${u.pet ? `小狗「${esc(u.pet)}」· ` : ''}陪伴 ${u.days} 天 · ${u.seen ? `最近来过 ${md(u.seen)}` : '还没来过'}</small></div>
+    ${admEdit?.id === u.id ? `<div class="field"><input id="adm-v" ${admEdit.k === 'pin' ? 'inputmode="numeric" maxlength="4" placeholder="新的 4 位密码"' : 'maxlength="12" placeholder="新的用户名"'} aria-label="新值"><button class="btn" data-a="admsave">保存</button><button class="btn alt" data-a="admcancel">取消</button></div>`
+      : `<div class="ubtns"><button class="buy" data-a="admedit" data-v="${u.id}:pin">重置密码</button><button class="buy" data-a="admedit" data-v="${u.id}:name">改名</button><button class="buy" data-a="admoff" data-v="${u.id}">${u.off ? '启用' : '停用'}</button></div>`}</div>`
+  return `<div class="top"><h1>账号管理</h1><button class="pill scr" data-a="admout">退出</button></div><div class="body">
+    ${admMsg ? `<div class="bubble plain">${esc(admMsg)}</div>` : ''}
+    <div class="card"><b>新建孩子账号</b><p class="dim">每个账号有自己的小狗和存档，题目大家共用。用户名最多 12 个字，密码是 4 位数字。</p>
+      <div class="field"><input id="adm-name" maxlength="12" placeholder="用户名" aria-label="用户名"><input id="adm-pin" inputmode="numeric" maxlength="4" placeholder="4 位密码" aria-label="密码"><button class="btn" data-a="admadd">新建</button></div></div>
+    ${us.map(row).join('') || '<p class="dim">还没有账号。</p>'}
+    <p class="dim">管理员只管账号，看不到孩子的答题记录。停用的账号登录不了，存档还在，启用后接着玩。</p></div>`
+}
+async function loadAdmin() { ADM = (await api('/admin/users')).users; page = 'admin' }
 function vHome() {
   const s = S(), n = s.needs, st = stage(), bag = kind => GOODS.filter(g => g.kind === kind).reduce((a, g) => a + (s.bag[g.k] || 0), 0)
   const pats = s.pats.date === D() ? s.pats.n : 0, tricks = TRICKS.filter(t => s.skill[t.k] >= 1).length
@@ -135,7 +153,7 @@ function vHome() {
     : `<button class="btn" data-a="go" data-v="quests">今日任务 ${doneCount()} / ${allItems().length}<small>最多可赚 ${allItems().reduce((a, it) => a + it.max, 0)}${canLearn ? ` · 有 ${canLearn} 个本领可以学` : ''}</small></button>`
   const banner = s.graduated ? `<div class="card banner snow"><b>${breakTime ? '寒假中' : '毕业啦'}</b> ${name()}戴着学士帽住在小屋里${breakTime ? '，下学期开学那天会来一位新朋友' : ''}。</div>`
     : D() >= SEASON.finale ? `<button class="btn red" data-a="go" data-v="book">毕业周 · ${D() >= SEASON.ceremony ? '今天可以举行毕业典礼' : `周五 ${md(SEASON.ceremony)} 毕业典礼`}<small>去纪念册看看</small></button>` : ''
-  return `<div class="top"><h1>${s.name ? name() + '的小屋' : '团团小屋'}</h1>${coin(s.coins)}<span class="pill"><i class="ico star"></i>${stars()}</span></div>
+  return `<div class="top"><h1>${s.name ? name() + '的小屋' : '团团小屋'}</h1><button class="pill scr" data-a="logout" aria-label="换人">换人</button>${coin(s.coins)}<span class="pill"><i class="ico star"></i>${stars()}</span></div>
   <div class="body">
     ${banner}
     <div class="bubble">${esc(say) || (st ? `嗨，${kid()}！今天也一起加油吧。` : '它还在小窝里睡觉。做完第一道题，它就会醒来。')}</div>
@@ -474,7 +492,7 @@ const QA = {
   sclear() { const c = document.getElementById('scratch'); c?.getContext('2d').clearRect(0, 0, c.width, c.height) },
   read() { const it = curItem(), t = it.segs ? it.segs.map(x => x.t).join('') : it.text || ''; try { const u = new SpeechSynthesisUtterance(t.replace(/×/g, '乘').replace(/÷/g, '除以').replace(/−/g, '减')); u.lang = 'zh-CN'; u.rate = 0.9; speechSynthesis.cancel(); speechSynthesis.speak(u) } catch { /* 不支持朗读 */ } },
   key(k) {
-    if (page === 'login') { pin = k === '⌫' ? pin.slice(0, -1) : (pin + k).slice(0, 8); return }
+    if (page === 'login') { pin = k === '⌫' ? pin.slice(0, -1) : (pin + k).slice(0, adminMode ? 8 : 4); return }
     if (Q?.walk) { Q.walk.input = k === '⌫' ? Q.walk.input.slice(0, -1) : (Q.walk.input + k).slice(0, 5); Q.walk.bad = false; return }
     if (!Q || Q.cover || Q.fin || Q.catch) return
     const b = step(), edit = v => k === '⌫' ? v.slice(0, -1) : (v + k).slice(0, 5)
@@ -484,7 +502,26 @@ const QA = {
     if (b.type === 'table') { Q.cells[Q.pos] = (k === '⌫' ? Q.cells[Q.pos].slice(0, -1) : (Q.cells[Q.pos] + k).slice(0, 3)); return }
     if (['fill', 'chain', 'say', 'tapnum'].includes(b.type)) Q.input = edit(Q.input)
   },
-  submit() { if (page === 'login') return run(async () => { try { await api('/login', { pin }); loginErr = ''; V = await api('/state'); page = 'home'; chat() } catch (e) { loginErr = e.message } pin = '' }) },
+  submit() {
+    if (page !== 'login') return
+    const name = adminMode ? 'admin' : (document.getElementById('login-name')?.value || loginName).trim()
+    if (!name) { loginErr = '先写上你的名字。'; return }
+    return run(async () => {
+      try {
+        const r = await api('/login', { name, pin }); loginErr = ''
+        if (r.admin) { await loadAdmin(); admMsg = '' } else { loginName = r.name; ls.set('kid-user', r.name); V = await api('/state'); page = 'home'; chat() }
+      } catch (e) { loginErr = e.message }
+      pin = ''
+    })
+  },
+  adminmode() { adminMode = !adminMode; pin = ''; loginErr = '' },
+  logout() { return run(async () => { await api('/logout', {}).catch(() => {}); V = null; Q = null; page = 'login'; loginName = ''; ls.set('kid-user', ''); ls.set('kid-draft', null); pin = '' }) },
+  admout() { return run(async () => { await api('/admin/logout', {}).catch(() => {}); ADM = null; adminMode = false; page = 'login' }) },
+  admadd() { const name = document.getElementById('adm-name')?.value, p2 = document.getElementById('adm-pin')?.value; return run(async () => { try { const r = await api('/admin/users', { name, pin: p2 }); admMsg = `建好了：${r.user.name}`; await loadAdmin() } catch (e) { admMsg = e.message } }) },
+  admedit(v) { const [id, k] = v.split(':'); admEdit = { id, k } },
+  admcancel() { admEdit = null },
+  admsave() { const v = document.getElementById('adm-v')?.value, e = admEdit; return run(async () => { try { const r = await api('/admin/users/' + e.id, e.k === 'pin' ? { pin: v } : { name: v }); admMsg = e.k === 'pin' ? `「${r.user.name}」的密码改好了，告诉孩子新密码。` : `改名了：${r.user.name}`; admEdit = null; await loadAdmin() } catch (er) { admMsg = er.message } }) },
+  admoff(id) { const u = ADM.find(x => x.id === id); return run(async () => { try { await api('/admin/users/' + id, { off: !u.off }); admMsg = `「${u.name}」${u.off ? '启用' : '停用'}了。`; await loadAdmin() } catch (e) { admMsg = e.message } }) },
   stepgo() {
     if (!Q || Q.cover || Q.fin || Q.catch) return
     const b = step()
@@ -800,6 +837,7 @@ const NAV = [['home', '小屋'], ['map', '地图'], ['quests', '任务'], ['skil
 const NAV_OF = { result: 'home', story: 'home', diary: 'home', book: 'home', place: 'map' }
 let lastPage = ''
 function render() {
+  if (page === 'admin' && ADM) { app.innerHTML = vAdmin(); return }
   if (page === 'login' || !V) { app.innerHTML = vLogin(); return }
   const v = { home: vHome, quests: vQuests, q: vQ, result: vResult, skills: vSkills, shop: vShop, story: vStory, diary: vDiary, map: vMap, place: vPlace, book: vBook }[page]()
   app.innerHTML = v + (page === 'q' ? '' : `<div class="nav">${NAV.map(([k, n]) => `<button class="${page === k || NAV_OF[page] === k ? 'on' : ''}" data-a="go" data-v="${k}">${n}</button>`).join('')}</div>`)
@@ -854,6 +892,7 @@ const onAct = e => {
   if (!(r instanceof Promise)) render()
 }
 document.addEventListener('click', onAct)
+document.addEventListener('input', e => { if (e.target.id === 'login-name') loginName = e.target.value })
 document.addEventListener('keydown', e => {
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.seg[data-a],.room[data-a]')) { e.preventDefault(); onAct(e) }
   if (e.key === 'Enter' && e.target.id === 'nm-pet') A.petname()
@@ -862,6 +901,9 @@ document.addEventListener('keydown', e => {
 setInterval(() => { if (V && page === 'home' && !busy && !sheet && !pose && !meetStep() && !V.morning && S().name) { chat(); render() } }, 12000)
 
 ;(async () => {
-  try { V = await api('/state'); page = 'home'; if (S().name) chat() } catch (e) { if (page !== 'login') { app.innerHTML = `<p class="boot">${esc(e.message)}</p>`; return } }
+  try { V = await api('/state'); page = 'home'; if (S().name) chat() } catch (e) {
+    if (page !== 'login') { app.innerHTML = `<p class="boot">${esc(e.message)}</p>`; return }
+    try { await loadAdmin() } catch { page = 'login' }   // 管理员登录过，直接进账号管理
+  }
   render()
 })()

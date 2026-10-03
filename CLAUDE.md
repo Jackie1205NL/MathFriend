@@ -22,7 +22,7 @@
 
 ```bash
 npm start                      # 家长端：构建并启动 http://localhost:5174
-npm run kid:dev                # 孩子端本地开发 http://localhost:5175（口令 1234，同步令牌 dev，存档在系统临时目录）
+npm run kid:dev                # 孩子端本地开发 http://localhost:5175（孩子账号「宝贝」密码 1234，管理员 admin 密码 9999，同步令牌 dev，存档在系统临时目录）
 npm run kid:build              # 孩子端构建到 dist-kid（Netlify 用）
 npm run kid bank <周> <json>   # 模板入库并逐题验算
 npm run kid push|pull <周>     # 推送题库 / 取回答题记录

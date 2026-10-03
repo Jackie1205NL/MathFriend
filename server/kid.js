@@ -8,6 +8,7 @@
 //   KID_URL=<dev 网址> npm run kid demo    把 rules.md 的示例模板拼成体验题库，推到 dev 分支部署试玩（不需要错题数据）
 //   KID_URL=<dev 网址> npm run kid clock 2027-01-22   拨 dev 站的日期（看长大、毕业），不写日期拨回今天
 //   KID_URL=… / KID_TOKEN=…                任何命令前加上，临时换推送地址和令牌，不改保存的设置
+//   KID_USER=用户名 npm run kid pull <周>  取某个孩子账号的答题记录（不写就是第一个孩子账号）
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -180,7 +181,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const r = await sync('PUT', '/pack', pack)
     console.log(`已推送 ${r.week}：${r.items} 道题`)
   } else if (cmd === 'pull') {
-    const { log, state } = await sync('GET', `/log?week=${week}`)
+    // 默认取第一个孩子账号的记录；KID_USER=用户名 取别的账号
+    const { log, state } = await sync('GET', `/log?week=${week}${process.env.KID_USER ? `&user=${encodeURIComponent(process.env.KID_USER)}` : ''}`)
     const data = readWeek(week); data.screen = summarize(log || [], state?.ladder); writeWeek(data)
     const items = data.screen.reduce((n, r) => n + r.items, 0), ok = data.screen.reduce((n, r) => n + r.first_ok, 0), days = new Set((log || []).map(r => r.day)).size
     console.log(`${week}：来了 ${days} 天，做了 ${items} 题，第一次就对 ${items ? Math.round(ok / items * 100) : 0}%，忘写单位 ${data.screen.reduce((n, r) => n + r.forgot_unit, 0)} 次。已写入「答题」段。`)

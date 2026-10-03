@@ -104,18 +104,52 @@ function pickToday(pack, log, date, ladder) {
   return groups
 }
 
-export function createApi(store, env) {
+/**
+ * 账号：每个孩子账号有自己的小狗、存档、每天的题和答题流水，题库大家共用。
+ * 第一个孩子账号 id 是 main，用不带前缀的老键（以前的存档不用搬）；其他账号的键前面加 u:<id>:。
+ */
+const SHARED = k => k === 'pack' || k === 'dev-clock' || k === 'users' || k.startsWith('fail:')
+const scoped = (base, id) => { const pre = id === 'main' ? '' : `u:${id}:`, key = k => SHARED(k) ? k : pre + k; return { get: k => base.get(key(k)), set: (k, v) => base.set(key(k), v) } }
+const pinOk = pin => /^\d{4}$/.test(String(pin ?? ''))
+const userName = v => [...String(v ?? '').replace(/[\u0000-\u001f<>&"'`\s]/g, '')].slice(0, 12).join('')
+
+export function createApi(base, env) {
+  const store = base
   const load = async (k, d) => (await store.get(k)) ?? d
-  const session = async () => digest(`kid:${env.KID_PIN}`)
+  const pinHash = (salt, pin) => digest(`${salt}:${pin}`)
+  // 登录凭证：账号 id + 用这个账号的密码哈希和服务器密钥算的签名。改了密码、停用账号，旧凭证就失效
+  const sign = (id, h) => digest(`${id}:${h}:${env.SYNC_TOKEN}`).then(x => `${id}.${x.slice(0, 40)}`)
+  const cookie = (name, v, age = 86400 * 180) => `${name}=${v}; Path=/; HttpOnly; ${env.DEV ? '' : 'Secure; '}SameSite=Lax; Max-Age=${age}`
+  /** 账号表；第一次用时，用以前的口令 KID_PIN 建第一个孩子账号（以前的存档就是它的） */
+  async function users() {
+    let list = await store.get('users')
+    if (!list && env.KID_PIN && pinOk(env.KID_PIN)) {
+      const salt = crypto.randomUUID()
+      list = [{ id: 'main', name: userName(env.KID_USER) || '宝贝', salt, hash: await pinHash(salt, env.KID_PIN), created: new Date().toISOString() }]
+      await store.set('users', list)
+    }
+    return list || []
+  }
+  async function whoami(req) {
+    const c = cookies(req)
+    if (c.adm && env.ADMIN_PIN && c.adm === await sign('admin', await digest(`admin:${env.ADMIN_PIN}`))) return { admin: true }
+    const [id] = String(c.kid || '').split('.'), u = (await users()).find(x => x.id === id)
+    if (u && !u.off && c.kid === await sign(u.id, u.hash)) return { user: u }
+    // 以前的口令凭证：密码没被管理员改过时，继续认作第一个孩子账号
+    const main = (await users()).find(x => x.id === 'main')
+    if (main && !main.off && env.KID_PIN && c.kid === await digest(`kid:${env.KID_PIN}`) && main.hash === await pinHash(main.salt, env.KID_PIN)) return { user: main, legacy: true }
+    return {}
+  }
   // 本地开发和 dev 分支部署可以拨时间（POST /api/kid/dev/clock），正式站没有这个接口
   let offset = 0
   const nowMs = () => Date.now() + offset
 
-  async function context() {
+  async function context(S) {
+    const load = async (k, d) => (await S.get(k)) ?? d
     if (env.DEV || env.CLOCK) offset = await load('dev-clock', 0)
-    const pack = await store.get('pack')
+    const pack = await S.get('pack')
     const now = nowMs(), date = today(new Date(now))
-    const raw = await store.get('state')
+    const raw = await S.get('state')
     let state = { ...freshState(), ...raw }   // 旧存档缺的字段用默认值补上
     if (!raw) state.needs.at = now
     if (raw && raw.days == null) state = await migrate(state, load, date)
@@ -134,10 +168,10 @@ export function createApi(store, env) {
     decay(s, now)
     grow(s, date)
     const log = pack ? await load(`log:${pack.week}`, []) : []
-    let day = await store.get(`day:${date}`)
+    let day = await S.get(`day:${date}`)
     const ids = new Set(pack?.items.map(it => it.id))   // 家长重新推送后题号对不上，就重抽今天的题
-    if (pack && (!day || day.week !== pack.week || day.groups.some(g => g.items.some(id => !ids.has(id))))) { day = { date, week: pack.week, groups: pickToday(pack, log, date, state.ladder), items: {}, flash: 0, done: false }; await store.set(`day:${date}`, day) }
-    return { pack, state, date, log, day, now }
+    if (pack && (!day || day.week !== pack.week || day.groups.some(g => g.items.some(id => !ids.has(id))))) { day = { date, week: pack.week, groups: pickToday(pack, log, date, state.ladder), items: {}, flash: 0, done: false }; await S.set(`day:${date}`, day) }
+    return { S, pack, state, date, log, day, now }
   }
   /** 记得你：小狗说话时能用上的几件事 */
   function facts({ pack, state, date, log }) {
@@ -166,7 +200,7 @@ export function createApi(store, env) {
       boss: pack ? { day: Number(pack.tuning?.boss_day ?? 5), groups: pack.groups.filter(g => g.bucket === '本周重点' && !g.boss).map(g => g.name) } : null,
     }
   }
-  const save = async ctx => { await store.set('state', ctx.state); if (ctx.day) await store.set(`day:${ctx.date}`, ctx.day); if (ctx.pack) await store.set(`log:${ctx.pack.week}`, ctx.log) }
+  const save = async ctx => { await ctx.S.set('state', ctx.state); if (ctx.day) await ctx.S.set(`day:${ctx.date}`, ctx.day); if (ctx.pack) await ctx.S.set(`log:${ctx.pack.week}`, ctx.log) }
   /** 给一张明信片：优先给 k 这个地方，没有就给开放了的最新地方里还没集齐的。 */
   function giveCard(s, date, k) {
     const st = stageOf(s, date), open = PLACES.filter(p => POSTCARDS[p.k] && placeOpen(p, st, date)).reverse()
@@ -756,23 +790,55 @@ export function createApi(store, env) {
     return { msg: '' }
   }
 
+  // ---------- 账号管理（管理员） ----------
+  async function admin(req, p, body) {
+    let list = await users()
+    const pub = u => ({ id: u.id, name: u.name, off: !!u.off, created: u.created, seen: u.seen || null })
+    if (p === '/admin/users' && req.method === 'GET') {
+      // 顺便带上每个孩子的小狗名字和陪伴天数，方便认人（不带答题记录）
+      const out = []
+      for (const u of list) { const st = await scoped(store, u.id).get('state'); out.push({ ...pub(u), pet: st?.name || '', days: st?.days || 0 }) }
+      return json({ users: out })
+    }
+    if (req.method !== 'POST') return json({ error: '不支持' }, 405)
+    if (p === '/admin/users') {
+      const name = userName(body.name)
+      if (!name) return json({ error: '用户名不能是空的（最多 12 个字，不能有空格）' }, 400)
+      if (name.toLowerCase() === 'admin' || list.some(u => u.name.toLowerCase() === name.toLowerCase())) return json({ error: `已经有叫「${name}」的账号了` }, 400)
+      if (!pinOk(body.pin)) return json({ error: '密码要是 4 位数字' }, 400)
+      const salt = crypto.randomUUID(), u = { id: list.some(x => x.id === 'main') ? crypto.randomUUID().slice(0, 8) : 'main', name, salt, hash: await pinHash(salt, body.pin), created: new Date().toISOString() }
+      list = [...list, u]; await store.set('users', list)
+      return json({ ok: true, user: pub(u) })
+    }
+    const m = p.match(/^\/admin\/users\/([\w-]+)$/), u = m && list.find(x => x.id === m[1])
+    if (!u) return json({ error: '没有这个账号' }, 404)
+    if (body.pin != null) { if (!pinOk(body.pin)) return json({ error: '密码要是 4 位数字' }, 400); u.salt = crypto.randomUUID(); u.hash = await pinHash(u.salt, body.pin); await store.set(`fail:${u.name.toLowerCase()}`, { n: 0, until: 0 }) }
+    if (body.name != null) { const name = userName(body.name); if (!name || name.toLowerCase() === 'admin' || list.some(x => x !== u && x.name.toLowerCase() === name.toLowerCase())) return json({ error: '这个用户名不能用或已经有人用了' }, 400); u.name = name }
+    if (body.off != null) u.off = !!body.off
+    await store.set('users', list)
+    return json({ ok: true, user: pub(u) })
+  }
+
   // ---------- 路由 ----------
   return async function handle(req) {
     const url = new URL(req.url), p = url.pathname.replace(/^\/api\/kid/, '')
-    if (!env.KID_PIN || !env.SYNC_TOKEN) return json({ error: '孩子端还没有设置口令' }, 503)
-    // 家长端同步：用同步令牌，不用孩子的口令
+    if (!env.SYNC_TOKEN) return json({ error: '孩子端还没有设置同步令牌' }, 503)
+    // 家长端同步：用同步令牌，不用孩子的密码。题库大家共用；答题记录默认取第一个孩子账号的，?user=用户名 取别的账号
     if (p === '/pack' || p === '/log') {
       if (req.headers.get('x-sync-token') !== env.SYNC_TOKEN) return json({ error: '同步令牌不对' }, 401)
+      const list = await users(), who = url.searchParams.get('user'), u = who ? list.find(x => x.name === who) : list.find(x => x.id === 'main') || list[0]
+      if (who && !u) return json({ error: `没有叫「${who}」的账号` }, 404)
+      const S = scoped(store, u?.id || 'main')
       if (p === '/pack' && req.method === 'PUT') {
         const pack = await req.json()
         if (pack?.v !== PACK_VERSION || !/^\d{4}-W\d{2}$/.test(pack.week || '') || !Array.isArray(pack.items) || !pack.items.length) return json({ error: '题库包格式不对' }, 400)
         await store.set('pack', pack)
-        // 家长用 tune 改了名字：推送时写进存档
-        const t = pack.tuning || {}, st = await store.get('state')
-        if (st && (cleanName(t.kid_name) || cleanName(t.pet_name))) { if (cleanName(t.kid_name)) st.kid = cleanName(t.kid_name); if (cleanName(t.pet_name)) st.name = cleanName(t.pet_name); await store.set('state', st) }
+        // 家长用 tune 改了名字：推送时写进第一个孩子账号的存档
+        const t = pack.tuning || {}, st = await S.get('state')
+        if (st && (cleanName(t.kid_name) || cleanName(t.pet_name))) { if (cleanName(t.kid_name)) st.kid = cleanName(t.kid_name); if (cleanName(t.pet_name)) st.name = cleanName(t.pet_name); await S.set('state', st) }
         return json({ ok: true, week: pack.week, items: pack.items.length })
       }
-      if (p === '/log' && req.method === 'GET') return json({ week: url.searchParams.get('week'), log: await load(`log:${url.searchParams.get('week')}`, []), state: await store.get('state') })
+      if (p === '/log' && req.method === 'GET') return json({ week: url.searchParams.get('week'), user: u?.name || null, log: (await S.get(`log:${url.searchParams.get('week')}`)) ?? [], state: await S.get('state') })
       return json({ error: '不支持' }, 405)
     }
     // 拨时钟：本地开发随便拨；dev 分支部署（env.CLOCK）要带同步令牌；正式站没有这个接口
@@ -780,17 +846,34 @@ export function createApi(store, env) {
       const b = await req.json().catch(() => ({})), ms = b.date ? Date.parse(`${b.date}T${b.time || '16:00'}:00+08:00`) - Date.now() : 0
       await store.set('dev-clock', ms); return json({ ok: true, offset: ms })
     }
+    if (p === '/logout' && req.method === 'POST') return json({ ok: true }, 200, { 'set-cookie': cookie('kid', '', 0) })
     if (p === '/login' && req.method === 'POST') {
-      const fail = await load('fail', { n: 0, until: 0 })
+      const body = await req.json().catch(() => ({})), name = userName(body.name), admin = name.toLowerCase() === 'admin'
+      const fk = `fail:${name.toLowerCase() || '?'}`, fail = await load(fk, { n: 0, until: 0 })
       if (Date.now() < fail.until) return json({ error: '试了太多次，5 分钟后再来' }, 429)
-      const body = await req.json().catch(() => ({}))
-      if (String(body.pin) !== String(env.KID_PIN)) { const n = fail.n + 1; await store.set('fail', n >= 5 ? { n: 0, until: Date.now() + 300000 } : { n, until: 0 }); return json({ error: '口令不对' }, 401) }
-      await store.set('fail', { n: 0, until: 0 })
-      return json({ ok: true }, 200, { 'set-cookie': `kid=${await session()}; Path=/; HttpOnly; ${env.DEV ? '' : 'Secure; '}SameSite=Lax; Max-Age=${86400 * 180}` })
+      const u = admin ? null : (await users()).find(x => x.name.toLowerCase() === name.toLowerCase())
+      const good = admin ? env.ADMIN_PIN && String(body.pin) === String(env.ADMIN_PIN) : u && !u.off && pinOk(body.pin) && u.hash === await pinHash(u.salt, body.pin)
+      if (!good) {
+        const n = fail.n + 1; await store.set(fk, n >= 5 ? { n: 0, until: Date.now() + 300000 } : { n, until: 0 })
+        return json({ error: u?.off ? '这个账号停用了，找爸爸妈妈' : admin && !env.ADMIN_PIN ? '还没有设置管理员密码（ADMIN_PIN）' : '用户名或密码不对' }, 401)
+      }
+      await store.set(fk, { n: 0, until: 0 })
+      if (admin) return json({ ok: true, admin: true }, 200, { 'set-cookie': cookie('adm', await sign('admin', await digest(`admin:${env.ADMIN_PIN}`)), 86400 * 7) })
+      return json({ ok: true, name: u.name }, 200, { 'set-cookie': cookie('kid', await sign(u.id, u.hash)) })
     }
-    if (cookies(req).kid !== await session()) return json({ error: '请先输入口令' }, 401)
-    const ctx = await context()
-    if (p === '/state' && req.method === 'GET') { await save(ctx); return json(view(ctx)) }
+    const me = await whoami(req)
+    if (p.startsWith('/admin')) {
+      if (p === '/admin/logout') return json({ ok: true }, 200, { 'set-cookie': cookie('adm', '', 0) })
+      if (!me.admin) return json({ error: '请先用管理员账号登录' }, 401)
+      return admin(req, p, req.method === 'POST' ? await req.json().catch(() => ({})) : {})
+    }
+    if (!me.user) return json({ error: me.admin ? '管理员账号不能养小狗，换孩子的账号登录' : '请先登录' }, 401)
+    const S = scoped(store, me.user.id)
+    const ctx = await context(S)
+    if (p === '/state' && req.method === 'GET') {
+      if (me.user.seen !== ctx.date) { const list = await users(), u = list.find(x => x.id === me.user.id); if (u) { u.seen = ctx.date; await store.set('users', list) } }
+      await save(ctx); return json({ ...view(ctx), user: me.user.name })
+    }
     if (req.method !== 'POST') return json({ error: '不支持' }, 405)
     const body = await req.json().catch(() => ({}))
     if (p === '/answer') {

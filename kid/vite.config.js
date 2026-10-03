@@ -9,12 +9,12 @@ import { createApi } from './server/game.js'
 const root = path.dirname(fileURLToPath(import.meta.url))
 const DEV_DIR = path.join(os.tmpdir(), 'shuban-kid-dev')
 
-// 本地开发时用文件代替 Netlify Blobs；口令 1234，同步令牌 dev
+// 本地开发时用文件代替 Netlify Blobs；第一个孩子账号「宝贝」密码 1234，管理员 admin 密码 9999，同步令牌 dev
 function devApi() {
   fs.mkdirSync(DEV_DIR, { recursive: true })
   const file = k => path.join(DEV_DIR, encodeURIComponent(k) + '.json')
   const store = { get: async k => fs.existsSync(file(k)) ? JSON.parse(fs.readFileSync(file(k), 'utf8')) : null, set: async (k, v) => { fs.mkdirSync(DEV_DIR, { recursive: true }); fs.writeFileSync(file(k), JSON.stringify(v)) } }
-  const handle = createApi(store, { KID_PIN: process.env.KID_PIN || '1234', SYNC_TOKEN: process.env.SYNC_TOKEN || 'dev', DEV: true })
+  const handle = createApi(store, { KID_PIN: process.env.KID_PIN || '1234', KID_USER: process.env.KID_USER || '宝贝', ADMIN_PIN: process.env.ADMIN_PIN || '9999', SYNC_TOKEN: process.env.SYNC_TOKEN || 'dev', DEV: true })
   return {
     name: 'kid-dev-api',
     configureServer(server) {

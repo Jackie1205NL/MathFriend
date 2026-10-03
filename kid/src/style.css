@@ -379,6 +379,15 @@ h2 .hb{width:44px;height:44px;border-radius:50%;vertical-align:-10px;margin-righ
 .drow>span.u{border-bottom:3px solid var(--ink);padding-bottom:4px}
 .cslot.sm{width:52px;height:52px;font-size:28px}
 .ans.big2{font-size:30px;font-weight:700;justify-content:center;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.lname{width:100%;margin:10px 0 4px;font-size:26px;font-weight:700;padding:10px 14px;border-radius:14px;border:3px solid var(--line);background:var(--card);text-align:center}
+.lname:focus{outline:none;border-color:var(--leaf)}
+.link{display:block;margin:4px auto 0;color:var(--dim);font-size:17px;text-decoration:underline;min-height:44px}
+.urow{display:grid;gap:10px}.urow small{display:block;color:var(--dim);font-size:16px}.urow.off{opacity:.6}
+.ubtns{display:flex;flex-wrap:wrap;gap:10px}
+.field{flex-wrap:wrap}
+.field input{min-height:56px;flex:1 1 160px}
+.field .btn{width:auto;flex:none;min-height:56px;padding:0 24px;font-size:22px}
+.urow{min-width:0}
 /* 小狗动作 */
 .breathe{animation:breathe 3.2s ease-in-out infinite;transform-origin:50% 90%}
 @keyframes breathe{50%{transform:scale(1.025,.975)}}
