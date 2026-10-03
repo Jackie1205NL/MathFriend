@@ -35,15 +35,98 @@ export const GOODS = [
   { k: 'soap', n: '泡泡香皂', d: '洗一次澡，清洁 ＋50', p: 30, kind: 'soap', clean: 50 },
   { k: 'ball', n: '橡胶小球', d: '能玩 4 次，每次心情 ＋15', p: 50, kind: 'toy', uses: 4, mood: 15 },
   { k: 'disc', n: '飞盘', d: '能玩 5 次，每次心情 ＋20', p: 80, kind: 'toy', uses: 5, mood: 20 },
-  { k: 'scarf', n: '蓝围巾', d: '装扮，买了就戴上', p: 220, kind: 'keep' },
-  { k: 'curtain', n: '小窗帘', d: '小屋家具', p: 400, kind: 'keep' },
+  { k: 'scarf', n: '蓝围巾', d: '装扮，买了就戴上', p: 220, kind: 'keep', img: 1 },
+  { k: 'curtain', n: '小窗帘', d: '小屋家具', p: 400, kind: 'keep', img: 1 },
+  // 地点摆设：地方开放后才能买，买了摆在那里
+  { k: 'house', n: '木头狗屋', d: '摆在院子', p: 450, kind: 'keep', place: 'yard' },
+  { k: 'swing', n: '枫树秋千', d: '摆在院子', p: 350, kind: 'keep', place: 'yard' },
+  { k: 'flower', n: '小花坛', d: '摆在院子', p: 200, kind: 'keep', place: 'yard' },
+  { k: 'kite', n: '风筝', d: '摆在公园', p: 300, kind: 'keep', place: 'park' },
+  { k: 'mat', n: '野餐垫', d: '摆在公园', p: 250, kind: 'keep', place: 'park' },
+  { k: 'pond', n: '小水池', d: '摆在公园', p: 450, kind: 'keep', place: 'park' },
+  { k: 'snowman', n: '雪人', d: '摆在雪山', p: 250, kind: 'keep', place: 'snow' },
+  { k: 'sled', n: '小雪橇', d: '摆在雪山', p: 400, kind: 'keep', place: 'snow' },
+  { k: 'stove', n: '围炉', d: '摆在雪山', p: 350, kind: 'keep', place: 'snow' },
+  // 月度限定：只在当月卖
+  { k: 'bow', n: '枫叶领结', d: '装扮，戴在项圈上', p: 180, kind: 'keep', month: 10 },
+  { k: 'hat', n: '毛线帽', d: '装扮，冬天戴', p: 220, kind: 'keep', month: 11 },
+  { k: 'pillow', n: '饺子抱枕', d: '放在小屋里', p: 160, kind: 'keep', month: 12 },
+  { k: 'lantern', n: '小红灯笼', d: '挂在小屋里', p: 200, kind: 'keep', month: 1 },
 ]
-export const DECAY = { full: 40, mood: 35, clean: 25 }            // 每天下降多少
+export const DECAY = { full: 25, mood: 22, clean: 15 }            // 每天下降多少，照顾一天约 55 金币
 export const NEED_FLOOR = 20
 export const PATS_PER_DAY = 3
-export const STAGES = [{ n: '小窝', at: 0 }, { n: '幼犬', at: 0 }, { n: '少年', at: 2500 }, { n: '青年', at: 7000 }, { n: '成年', at: 13500 }]
-export const stageOf = s => !s.hatched ? 0 : s.grow < 2500 ? 1 : s.grow < 7000 ? 2 : s.grow < 13500 ? 3 : 4
-export const levelOf = grow => 1 + Math.floor(grow / 400)
+export const POSE_MS = 4500                                        // 动作图停留多久
+
+// ---------- 学期 ----------
+// 一个学期一份配置。下学期只换这里（id 不同就会让旧宠物毕业、住进老朋友墙）和素材。
+// 长大要同时满足：陪伴天数够了（做完当天任务算 1 天，周末也算），并且到了最早日期。
+export const SEASON = {
+  id: '2026-秋', pet: '柴犬',
+  start: '2026-10-05', finale: '2027-01-20', ceremony: '2027-01-22',
+  end: '2027-01-22',            // 这天以后陪伴天数不再增加
+  next: '2027-02-22',           // 下学期开学（家长确认后改）：换新宠物
+  stages: [
+    { n: '小窝' },
+    { n: '幼犬', days: 0, from: '2026-10-05', place: 'home' },
+    { n: '少年', days: 10, from: '2026-10-24', place: 'yard' },
+    { n: '青年', days: 26, from: '2026-11-21', place: 'park' },
+    { n: '成年', days: 42, from: '2026-12-26', place: 'snow' },
+  ],
+}
+export const STAGES = SEASON.stages
+/** 当前阶段：0 小窝，1～4 幼犬到成年。minStage 是旧存档迁移时保留的阶段，不退回。 */
+export function stageOf(s, date) {
+  if (!s.hatched) return 0
+  let st = 1
+  for (let i = 2; i < STAGES.length; i++) if ((s.days || 0) >= STAGES[i].days && date >= STAGES[i].from) st = i
+  return Math.max(st, Math.min(4, s.minStage || 0))
+}
+export const PLACES = [
+  { k: 'home', n: '小屋', st: 1, sub: '一开始就有' },
+  { k: 'yard', n: '院子', st: 2, trip: 0, sub: '秋天的落叶和木栅栏', finds: ['一片很红的枫叶', '一颗圆圆的橡子', '一根小树枝'] },
+  { k: 'park', n: '公园', st: 3, trip: 20, sub: '草坡、风筝和小池塘', finds: ['一根漂亮的羽毛', '一颗松果', '一片银杏叶'] },
+  { k: 'snow', n: '雪山', st: 4, trip: 30, sub: '冬天的雪地和松树', finds: ['一个圆滚滚的雪球', '一串小鸟脚印', '一颗冻住的松果'] },
+  { k: 'hall', n: '毕业礼堂', finale: true, sub: '1 月 20 日开放，周五 1/22 毕业典礼' },
+]
+export const placeOpen = (p, st, date) => p.finale ? date >= SEASON.finale : st >= p.st
+export const TRIP_MOOD = 20
+export const JAR = { goal: 1500, step: 100, sig: 10 }              // 储蓄罐「毕业旅行基金」，10 枚可兑换 1 个签名（只显示，不取出）
+// 明信片：每个地方 4 张，页面用代码画（地点插画 + 天气或时间 v）
+export const POSTCARDS = {
+  yard: [{ t: '院子里的第一片红叶', v: 'sun' }, { t: '和{name}一起扫落叶', v: 'leaves' }, { t: '傍晚的木栅栏', v: 'dusk' }, { t: '小鸟飞过枫树', v: 'birds' }],
+  park: [{ t: '公园的早晨', v: 'sun' }, { t: '雨后的彩虹', v: 'rainbow' }, { t: '一群小鸟', v: 'birds' }, { t: '草坡上看星星', v: 'night' }],
+  snow: [{ t: '第一场雪', v: 'snow' }, { t: '雪地里的太阳', v: 'sun' }, { t: '傍晚的雪山', v: 'dusk' }, { t: '冬夜的星空', v: 'night' }],
+}
+export const addDays = (d, k) => new Date(Date.parse(d + 'T00:00:00Z') + k * 86400000).toISOString().slice(0, 10)
+export const dayDiff = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400000)
+const hashDay = s => { let h = 7; for (const ch of s) h = (h * 31 + ch.codePointAt(0)) >>> 0; return h }
+/** 明信片日：按学期种子排好，从第 3 天起，每张之后隔 1 或 2 天出下一张。 */
+export const POSTCARD_DAYS = (() => { const out = []; for (let d = addDays(SEASON.start, 2); d <= SEASON.next; d = addDays(d, 2 + hashDay(SEASON.id + d) % 2)) out.push(d); return out })()
+// 把戏：学会一级本领多一个（复用动作图），台词里 {kid} 是孩子的名字
+export const TRICKS = [
+  { k: '计算失误', n: '握手', pose: 'shake', say: '握握手！{kid}，算完先用爪子比一比。' },
+  { k: '审题', n: '嗅嗅找东西', anim: 'sniff', say: '嗅嗅嗅……关键词就藏在这里！' },
+  { k: '格式规范', n: '摇尾巴转圈', pose: 'wag', anim: 'spin', say: '答句写完、单位带上，最后摇一下尾巴！' },
+  { k: '漏题', n: '绕小屋巡逻', anim: 'walk', say: '绕小屋跑一圈，看看有没有落下的。' },
+  { k: '概念不清', n: '叼积木排队', pose: 'catch', say: '先算括号里的，我把这块叼到最前面。' },
+  { k: '策略缺失', n: '带路', pose: 'catch', anim: 'hop', say: '跟我来，下一站在地图上亮着呢！' },
+]
+/** 每日小事件：按日期，每天最多一件。奖励 5 金币或一张照片（记进日记）。 */
+export function eventOf(date, extraBlocks) {
+  const m = +date.slice(5, 7), md = date.slice(5)
+  if (extraBlocks && hashDay('blk' + date) % 3 === 0) return { k: 'blocks', t: '积木撒了一地', b: '帮它排排队', done: '积木按从小到大排好了，{name}一块一块叼回盒子里。' }
+  if (m === 10) return { k: 'leaf', t: '窗外飘进来几片落叶', b: '扫一扫', done: '扫干净了！最红的那片，{name}夹进了日记里。' }
+  if (m === 11) return { k: 'bird', t: '一只小麻雀落在窗台上', b: '撒点面包屑', done: '小麻雀吃饱飞走了，{name}看了好久。' }
+  if (md >= '12-21' && md <= '12-22') return { k: 'dumpling', t: '冬至到了，一起包饺子', b: '包一个', done: '包了一个歪歪的饺子，{name}说最好看。' }
+  if (m === 12) return { k: 'snow', t: '下雪啦！', b: '堆个小雪球', done: '雪球圆滚滚的，{name}用鼻子顶来顶去。' }
+  if (m === 1 && md <= '01-03') return { k: 'calendar', t: '新年到了，挂上新日历', b: '挂起来', done: '新日历挂好了，{name}在 1 月 22 日上画了个圈。' }
+  if (m === 1 || m === 2) return { k: 'couplet', t: '快过年了，写一副春联', b: '帮忙按纸', done: '春联贴好啦，{name}的爪印也在上面。' }
+  return null
+}
+export const EVENT_COINS = 5
+/** 名字：去掉控制字符和尖括号，最多 6 个字。页面显示前还会转义。 */
+export const cleanName = v => [...String(v ?? '').replace(/[\u0000-\u001f<>&"'`]/g, '').trim()].slice(0, 6).join('')
 
 /** 一道题答对后给多少金币。q：首答 1，订正 0.5（选择类 0.3），看讲解后 0.3，没答对 0；pb：过程奖。 */
 export function coinsFor(price, q, pb = 0) {

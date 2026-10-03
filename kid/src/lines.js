@@ -1,4 +1,5 @@
-// 小狗的闲聊台词：没人点它时每 12 秒挑一句。{circled}、{best} 会换成今天的数字。
+// 小狗的闲聊台词：没人点它时每 12 秒挑一句。{circled}、{best} 会换成今天的数字；{kid} 是孩子的名字。
+// remember 是「记得你」：{fixed} 昨天订正对几题、{focus} 这周重点组名、{days} 陪伴天数。need 写了的，那个数是 0 时不说。
 export const LINES = {
   idle: [
     {t: "云朵像不像一个大馒头？我闻闻……", act: "sniff"},
@@ -59,6 +60,14 @@ export const LINES = {
     {t: "今天圈了{circled}次关键词，你一步一步来的", act: "giggle"},
     {t: "{best}题连着做对，你写得稳稳当当的", act: "wave"},
   ],
+  remember: [
+    {t: "{kid}，昨天你订正对了 {fixed} 道题，我都看见了。", act: "hop", need: "fixed"},
+    {t: "这周我们一起练「{focus}」，慢慢来就好。", act: "think", need: "focus"},
+    {t: "我们已经一起过了 {days} 天啦，{kid}！", act: "spin", need: "days"},
+    {t: "{kid}，读题的时候我帮你竖着耳朵听。", act: "look", kid: 1},
+    {t: "{kid}今天来看我啦，尾巴停不下来！", act: "giggle", kid: 1},
+    {t: "陪你 {days} 天了，我又认识了好多数字。", act: "think", need: "days"},
+  ],
   tap: [
     {t: "哎呀，好痒好痒！", act: "giggle"},
     {t: "你找我呀？嘿嘿，我在这儿！", act: "wave"},
@@ -67,7 +76,7 @@ export const LINES = {
     {t: "再戳一下，我就转个圈给你看", act: "spin"},
     {t: "嘿！你的手指头好暖和", act: "blink"},
     {t: "我刚打了个盹，被你叫醒啦", act: "yawn"},
-    {t: "你好呀，今天过得怎么样？", act: "wave"},
+    {t: "{kid}，你好呀，今天过得怎么样？", act: "wave"},
   ],
   tap_too_much: [
     {t: "哈哈哈停一停，我笑得要打嗝啦！", act: "giggle"},
