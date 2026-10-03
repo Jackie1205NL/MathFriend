@@ -50,6 +50,16 @@ export function WeekPage({ state, onWeek }: Props) {
       <div className="section-heading"><div><h2><Sprout size={18} /> 下周预习</h2><p>课本进度已经跑在课堂前面，先带孩子看这几个点</p></div></div>
       <div className="preview-list">{previewNodes.map(n => <article key={n!.id}><h3><span className="kp-id">{n!.id}</span>{n!.title}</h3><p>{n!.core}</p>{n!.guide && n!.guide !== '待补充' && <p className="observation"><strong>怎么讲：</strong>{n!.guide}</p>}</article>)}</div>
     </section>}
+    {data.bank && <section className="materials-panel">
+      <div className="section-heading"><div><h2>孩子端题库</h2><p>{data.bank.templates.length} 个模板 · 每天约 {data.bank.groups.reduce((n, g) => n + (g.daily || 0), 0)} 题 · 调节项用 npm run kid tune 改，改完要 push</p></div></div>
+      <div className="material-table"><div className="table-row table-head"><span>分组</span><span>来源</span><span>每天</span><span>模板</span></div>
+        {data.bank.groups.map(g => { const ts = data.bank!.templates.filter(t => t.group === g.id); return <div className="table-row" key={g.id}><span className="file-name">{g.name} · {[...new Set(ts.map(t => `${t.knowledge_point} ${t.error_type}`))].join('、')}</span><span>{g.bucket}{ts.some(t => t.from) ? ' · 往周带入' : ''}</span><span>{g.daily} 题</span><span>{ts.length} 个</span></div> })}
+        <div className="table-row"><span className="file-name">调节项：{Object.entries(data.bank.tuning || {}).map(([k, v]) => `${k}=${v}`).join('，') || '默认'}</span></div>
+      </div>
+      {!!data.screen?.length && <div className="material-table"><div className="table-row table-head"><span>屏幕练习（不计入错误率）</span><span>第一次就对</span><span>忘写单位</span><span>难度档</span></div>
+        {data.screen.map(r => <div className="table-row" key={`${r.knowledge_point}-${r.error_type}`}><span className="file-name">{knowledge.nodes.find(n => n.id === r.knowledge_point)?.title || r.knowledge_point} · {r.error_type}</span><span>{r.first_ok}/{r.items}（{Math.round(r.first_ok / r.items * 100)}%）</span><span>{r.forgot_unit || '—'}</span><span>{r.level || '—'}{r.moved?.dir === 'down' ? ' ↓ 需要讲一讲' : r.moved?.dir === 'up' ? ' ↑' : ''}</span></div>)}
+      </div>}
+    </section>}
     <section className="materials-panel">
       <div className="section-heading"><div><h2>材料</h2><p>原件保存 60 天后自动删除，截图和记录永久保留</p></div></div>
       <div className="material-table"><div className="table-row table-head"><span>文件</span><span>类型 · 来源</span><span>题目数</span><span>状态</span></div>

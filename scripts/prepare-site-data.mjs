@@ -13,9 +13,11 @@ const copy = (from, to) => {
 const weeks = store.listWeeks()
 const current = store.isoWeek()
 const knowledge = store.readKnowledge()
-const all = weeks.map(store.readWeek)
+// 只读站点不带孩子端题库模板（能推出答案）
+const strip = ({ bank: _bank, ...w }) => w
+const all = weeks.map(store.readWeek).map(strip)
 const week = weeks.at(-1) || current
-const data = store.readWeek(week)
+const data = strip(store.readWeek(week))
 const { password: _password, secret: _secret, ...settings } = store.loadSettings()
 const focus = plan(week).focus.map(({ entries, ...row }) => ({ ...row, entries: entries.map(entry => entry.id) }))
 

@@ -3,10 +3,16 @@
 // 这个文件不能引用 server/ 或 kid/ 下的任何东西。
 
 export const PACK_VERSION = 1
-export const FORMATS = ['oral', 'first', 'word']                  // 第一期的三种题型；孩子端遇到不认识的题型会跳过
-export const FORMAT_NAME = { oral: '口算闪答', first: '先算哪一步', word: '应用题三步' }
-export const BASE = { oral: 1, first: 2, word: 12 }               // 题越长，每分钟赚得略多
-export const MIN_SECONDS = { oral: 2, first: 3, word: 8 }         // 比这还快又答错，算「急着答错」
+export const FORMATS = ['oral', 'first', 'clock', 'estimate', 'steps', 'fix', 'multi', 'word']   // 孩子端遇到不认识的题型会跳过
+export const FORMAT_NAME = { oral: '口算闪答', first: '先算哪一步', clock: '拨钟面', estimate: '先估后算', steps: '递等式分步', fix: '小老师改错', multi: '多空题交卷', word: '应用题三步' }
+export const BASE = { oral: 1, first: 2, clock: 4, estimate: 4, steps: 6, fix: 6, multi: 6, word: 12 }   // 题越长，每分钟赚得略多
+export const MIN_SECONDS = { oral: 2, first: 3, clock: 4, estimate: 3, steps: 4, fix: 5, multi: 8, word: 8 }   // 比这还快又答错，算「急着答错」
+export const HAS_PROCESS_BONUS = ['word', 'steps', 'estimate', 'multi']   // 这些题型过程做全有 +2
+export const LEVELS = ['同构', '略变', '综合']
+// 难度阶梯：档位 0 / 1 / 2 时，抽题在三种难度上的比例
+export const LEVEL_MIX = [[0.6, 0.3, 0.1], [0.4, 0.4, 0.2], [0.2, 0.5, 0.3]]
+export const STORY_PAGES = 16
+export const BOSS_SIZE = 8, BOSS_PASS = 6, BOSS_COINS = 30   // 周五闯关：8 题，答对 6 题算通关
 export const DIFF = { 同构: 1, 略变: 1.3, 综合: 1.6 }
 export const SRC = { 本周重点: 1.5, 往周未过关: 1.2, 下周预习: 1, 已掌握保温: 0.8 }
 export const ERROR_TYPES = ['计算失误', '审题', '概念不清', '格式规范', '漏题', '策略缺失']
@@ -41,8 +47,8 @@ export function coinsFor(price, q, pb = 0) {
   const core = q ? Math.max(1, Math.round(price * q)) : 0
   return { core, c: core + (q ? pb : 0) }
 }
-export const priceOf = (format, level, bucket) => BASE[format] * (DIFF[level] || 1) * (SRC[bucket] || 1)
-export const maxCoins = it => Math.round(it.price) + (it.format === 'word' ? 2 : 0)
+export const priceOf = (format, level, bucket, boost) => BASE[format] * (DIFF[level] || 1) * (bucket === '本周重点' && boost ? boost : SRC[bucket] || 1)
+export const maxCoins = it => Math.round(it.price) + (HAS_PROCESS_BONUS.includes(it.format) ? 2 : 0)
 
 // ---------- 模板实例化 ----------
 const hashStr = s => { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.codePointAt(0), 16777619); return h >>> 0 }
@@ -62,11 +68,11 @@ const okAnswer = a => Number.isInteger(a) && a >= 0 && a < 100000
  * 把一个模板实例化成多道题。返回 { items, problems }，problems 是出不来题的原因（给 Claude 看着改模板）。
  * slots：[lo, hi] 两个整数是整数范围；其他数组是从里面挑一个；"=表达式" 是派生值（按书写顺序计算）。
  */
-export function instantiate(t, group, week, n = t.count || 25) {
+export function instantiate(t, group, week, boost, n = t.count || 25) {
   const r = rng(hashStr(`${week}|${t.id}`)), pick = a => a[Math.floor(r() * a.length)]
   const items = [], seen = new Set(), problems = {}
   const bad = why => { problems[why] = (problems[why] || 0) + 1 }
-  if (!FORMATS.includes(t.format)) return { items, problems: { [`题型 ${t.format} 第一期不支持`]: 1 } }
+  if (!FORMATS.includes(t.format)) return { items, problems: { [`题型 ${t.format} 还不支持`]: 1 } }
   for (let tries = 0; items.length < n && tries < n * 80; tries++) {
     const v = {}
     for (const [k, spec] of Object.entries(t.slots || {})) {
@@ -83,6 +89,40 @@ export function instantiate(t, group, week, n = t.count || 25) {
       item.tokens = t.tokens.map(x => pretty(fill(x, v))); item.first = t.first
       if (!/^[+−×÷]$/.test(item.tokens[t.first] || '')) { bad('first 指的不是运算符'); continue }
       item.answer = evalExpr(item.tokens.join(''))                     // 只用来确认整道题能整除、结果合理
+    } else if (t.format === 'clock') {
+      // 拨时针：答案是钟面上的位置 0～23（每半小时一格）。几时半最容易错成指在整点上
+      const h = Number(fill(t.hour, v)), half = Number(t.minute) === 30 ? 1 : 0
+      if (!Number.isInteger(h) || h < 0 || h > 24) { bad('hour 不是 0～24 的整数'); continue }
+      item.minute = half ? 30 : 0; item.answer = (h % 12) * 2 + half
+      item.text = fill(t.text, v) || `把时针拨到 ${h}:${half ? '30' : '00'} 的位置`
+      item.traps = half ? [{ value: (h % 12) * 2, error_type: t.error_type }] : []
+    } else if (t.format === 'estimate') {
+      // 先估后算：三个连在一起的范围由程序生成，正确范围的位置随机
+      item.text = pretty(fill(t.text || t.expression, v)); item.answer = evalExpr(fill(t.expression, v))
+      if (!okAnswer(item.answer)) { bad('答案不是万以内的非负整数'); continue }
+      const a = item.answer, step = a >= 1000 ? 1000 : a >= 100 ? 100 : 10, lo = Math.floor(a / step) * step
+      const start = Math.max(0, lo - step * Math.floor(r() * 3))
+      item.ranges = [0, 1, 2].map(i => ({ t: `${start + i * step} ～ ${start + (i + 1) * step - 1}`, ...(start + i * step === lo ? { ok: 1 } : {}) }))
+      item.traps = (t.traps || []).map(x => ({ value: evalExpr(fill(x.e, v)), error_type: x.error_type || t.error_type })).filter(x => okAnswer(x.value) && x.value !== a)
+    } else if (t.format === 'steps') {
+      // 递等式分步：一行填一个数，最后一行就是得数
+      item.text = pretty(fill(t.expression, v))
+      item.lines = t.lines.map(l => ({ pre: fill(l.pre, v), a: evalExpr(fill(l.e, v)), hint: fill(l.hint, v),
+        traps: (l.traps || []).map(x => ({ value: evalExpr(fill(x.e, v)), error_type: x.error_type || t.error_type })).filter(x => okAnswer(x.value)) }))
+      if (item.lines.some(l => !okAnswer(l.a))) { bad('某一行不是万以内的非负整数'); continue }
+      item.answer = item.lines.at(-1).a
+      if (evalExpr(fill(t.expression, v)) !== item.answer) { bad('最后一行和算式结果对不上'); continue }
+    } else if (t.format === 'fix') {
+      // 小老师改错：shown 是一份有错的递等式，bad 是第一处算错的那一行，孩子点出来再填正确得数
+      item.text = pretty(fill(t.expression, v)); item.answer = evalExpr(fill(t.expression, v))
+      item.shown = t.shown.map(x => fill(x, v)); item.bad = t.bad
+      if (!(Number.isInteger(t.bad) && t.bad >= 0 && t.bad < item.shown.length)) { bad('bad 不是 shown 里的行号'); continue }
+    } else if (t.format === 'multi') {
+      // 多空题：一屏几个空，□ 是要填的位置
+      item.text = fill(t.text, v)
+      item.blanks = t.blanks.map(b => ({ t: fill(b.t, v), a: evalExpr(fill(b.e, v)) }))
+      if (item.blanks.some(b => !okAnswer(b.a))) { bad('某个空的答案不是万以内的非负整数'); continue }
+      item.answer = item.blanks[0].a
     } else {
       item.segs = t.segs.map(s => ({ t: fill(s.t, v), ...(s.k ? { k: 1 } : {}), ...(s.n ? { n: 1 } : {}) }))
       item.choices = t.choices.map(c => ({ t: pretty(fill(c.e, v)), v: evalExpr(fill(c.e, v)), ...(c.ok ? { ok: 1 } : {}), trap: c.trap || t.error_type }))
@@ -96,11 +136,11 @@ export function instantiate(t, group, week, n = t.count || 25) {
       if (!t.units?.includes(t.unit)) { bad('units 里没有正确单位'); continue }
     }
     if (!okAnswer(item.answer)) { bad('答案不是万以内的非负整数'); continue }
-    const key = JSON.stringify([item.text, item.tokens, item.segs?.map(s => s.t)])
+    const key = JSON.stringify([item.text, item.tokens, item.segs?.map(s => s.t), item.lines?.map(l => l.pre + l.a), item.shown, item.blanks?.map(b => b.t)])
     if (seen.has(key)) { bad('重复'); continue }
     seen.add(key)
     items.push({ id: `${week.slice(5)}-${t.id}-${String(items.length + 1).padStart(3, '0')}`, tpl: t.id, group: group.id, bucket: group.bucket,
-      kp: t.knowledge_point, err: t.error_type, price: Math.round(priceOf(t.format, t.level, group.bucket) * 100) / 100, ...item })
+      kp: t.knowledge_point, err: t.error_type, price: Math.round(priceOf(t.format, t.level, group.bucket, boost) * 100) / 100, ...item })
   }
   return { items, problems }
 }
@@ -111,11 +151,11 @@ export function buildPack(bank, week) {
   const items = bank.templates.flatMap(t => {
     const g = bank.groups.find(x => x.id === t.group)
     if (!g) { report.push({ id: t.id, made: 0, problems: { [`没有分组 ${t.group}`]: 1 } }); return [] }
-    const { items, problems } = instantiate(t, g, week)
+    const { items, problems } = instantiate(t, g, week, Number(bank.tuning?.focus_boost) || 0)
     report.push({ id: t.id, made: items.length, problems })
     return items
   })
-  return { pack: { v: PACK_VERSION, week, created: new Date().toISOString(), tuning: { unit_hint: 1, ...bank.tuning }, groups: bank.groups, items }, report }
+  return { pack: { v: PACK_VERSION, week, created: new Date().toISOString(), tuning: { unit_hint: 1, blank_hint: 1, slow: 1, boss_day: 5, bedtime: '20:30', ...bank.tuning }, groups: bank.groups, items }, report }
 }
 
 /** 发给孩子端页面的题目：去掉答案、陷阱值、关键词标记和正确选项。 */
@@ -123,6 +163,11 @@ export function publicItem(it) {
   const p = { id: it.id, group: it.group, format: it.format, level: it.level, err: it.err, max: maxCoins(it) }
   if (it.format === 'oral') p.text = it.text
   if (it.format === 'first') p.tokens = it.tokens
+  if (it.format === 'clock') Object.assign(p, { text: it.text, minute: it.minute })
+  if (it.format === 'estimate') Object.assign(p, { text: it.text, ranges: it.ranges.map(x => x.t) })
+  if (it.format === 'steps') Object.assign(p, { text: it.text, lines: it.lines.map(l => l.pre) })
+  if (it.format === 'fix') Object.assign(p, { text: it.text, shown: it.shown })
+  if (it.format === 'multi') Object.assign(p, { text: it.text, blanks: it.blanks.map(b => b.t) })
   if (it.format === 'word') Object.assign(p, { segs: it.segs.map(s => ({ t: s.t })), choices: it.choices.map(c => c.t), ask: it.ask, units: it.units, tail: it.tail })
   return p
 }

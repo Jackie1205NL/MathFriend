@@ -16,8 +16,10 @@ export interface Mistake {
 export interface PracticeItem { kind: 'calc' | 'word'; level: string; text: string; expression: string; answer: number; unit?: string; hint?: string }
 export interface PracticeSet { topic: string; scope: '错题' | '预习'; items: PracticeItem[] }
 /** 孩子端屏幕答题，按「知识点 × 错因」汇总；不参与纸面错误率 */
-export interface ScreenRow { knowledge_point: string; error_type: string; items: number; first_ok: number; by_error: Record<string, number>; forgot_unit: number }
-export interface WeekData { week: string; materials: Material[]; attempts: Record<string, number>; entries: Mistake[]; preview: string[]; practice: PracticeSet[]; screen?: ScreenRow[] }
+export interface ScreenRow { knowledge_point: string; error_type: string; items: number; first_ok: number; by_error: Record<string, number>; forgot_unit: number; level?: string; moved?: { dir: 'up' | 'down'; at: string } }
+/** 孩子端题库（周 md 的「题库」段）：分组、模板和每周调节项 */
+export interface KidBank { groups: { id: string; name: string; bucket: string; daily: number; boss?: boolean }[]; templates: { id: string; group: string; format: string; knowledge_point: string; error_type: string; level: string; from?: string }[]; tuning?: Record<string, string | number> }
+export interface WeekData { week: string; materials: Material[]; attempts: Record<string, number>; entries: Mistake[]; preview: string[]; practice: PracticeSet[]; screen?: ScreenRow[]; bank?: KidBank | null }
 
 export interface KnowledgeNode { id: string; title: string; unit: string; unitTitle: string; manual: boolean; core: string; example: string; guide: string; pitfalls: string }
 export interface Knowledge { units: { id: string; title: string; type: string }[]; nodes: KnowledgeNode[] }

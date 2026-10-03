@@ -1,0 +1,774 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>数伴双端设计稿</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&family=ZCOOL+KuaiLe&display=swap">
+<style>
+/* 版式：一条纸面主栏，每节先一句结论，再给图或表；孩子端画稿用自己的一套明亮色，嵌在家长端的纸面里 */
+:root{
+  --bg:#f8f7f2;--paper:#fdfcf8;--ink:#20231f;--muted:#6b7069;--line:#deddd4;
+  --green:#285d3b;--green-soft:#e6ebe0;--amber:#b85f0e;--amber-soft:#fbefdd;--code:#f1f0e8;
+  --serif:'Noto Serif SC','Songti SC',serif;
+  --sans:'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;
+  --kid:'ZCOOL KuaiLe','Noto Sans SC','PingFang SC',sans-serif;
+  --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  /* 孩子端画稿：固定一套，不随主题变 */
+  --k-bg:#e9f6ec;--k-card:#ffffff;--k-ink:#1d3327;--k-dim:#5f7a69;--k-leaf:#2f8f5b;--k-coin:#f08a1c;
+  --k-sun:#ffd766;--k-belly:#fff3c9;--k-sky:#3b8fd6;--k-berry:#e0527a;--k-line:#cfe6d5;--k-wall:#fff7e0;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141915;--paper:#1b221c;--ink:#e6e9e1;--muted:#9aa197;--line:#2f3830;
+  --green:#8fc79f;--green-soft:#243228;--amber:#f0a04b;--amber-soft:#3a2c18;--code:#222a23;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141915;--paper:#1b221c;--ink:#e6e9e1;--muted:#9aa197;--line:#2f3830;
+  --green:#8fc79f;--green-soft:#243228;--amber:#f0a04b;--amber-soft:#3a2c18;--code:#222a23;color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:400 15px/1.8 var(--sans)}
+.page{max-width:1080px;margin:0 auto;padding-inline:20px;padding-block:44px 90px}
+h1,h2,h3{font-family:var(--serif);text-wrap:balance;margin:0}
+h1{font-size:clamp(28px,5vw,40px);line-height:1.25;letter-spacing:.03em}
+h2{font-size:24px;color:var(--green);letter-spacing:.04em}
+h3{font-size:16px}
+p{margin:0}
+.eyebrow{font-size:12px;letter-spacing:.14em;color:var(--muted)}
+.lede{max-width:40em;margin-top:14px;font-size:16px}
+.note{max-width:42em;color:var(--muted);font-size:13.5px;margin-top:12px}
+section{margin-top:68px;display:grid;gap:20px}
+section>header{display:grid;gap:8px}
+section>header p{max-width:42em}
+.toc{display:flex;flex-wrap:wrap;gap:6px 8px;margin-top:22px}
+.toc a{font-size:13px;color:var(--green);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:3px 10px;background:var(--paper)}
+.toc a:hover,.toc a:focus-visible{border-color:var(--green)}
+:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+.goals{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0;border-block:1px solid var(--line);margin-top:26px}
+.goals div{padding:14px 18px 14px 0}
+.goals dt{font-size:12px;color:var(--muted)}
+.goals dd{margin:2px 0 0;font:600 20px/1.4 var(--serif)}
+.goals dd small{font:400 12.5px var(--sans);color:var(--muted);display:block}
+
+/* 系统模式图 */
+.lanes{display:grid;grid-template-columns:minmax(0,1fr) 210px minmax(0,1fr);gap:14px;align-items:stretch}
+.lane{border:1px solid var(--line);border-radius:10px;background:var(--paper);padding:18px 20px}
+.lane.kid{background:var(--k-bg);border-color:var(--k-line);color:var(--k-ink)}
+.lane h3{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}
+.lane h3 small{font:400 12px var(--sans);color:var(--muted)}
+.lane.kid h3 small{color:var(--k-dim)}
+.lane ol{margin:12px 0 0;padding-left:1.4em;display:grid;gap:7px;font-size:14px}
+.lane li b{font-weight:700}
+.tag-new{font:700 11px var(--sans);color:var(--amber);background:var(--amber-soft);border-radius:4px;padding:1px 6px;margin-left:4px;white-space:nowrap}
+.contract{display:grid;gap:14px;align-content:center}
+.slip{border:1.5px dashed var(--green);border-radius:8px;padding:12px 14px;background:var(--paper);font-size:13px}
+.slip b{display:block;font:700 15px var(--serif);color:var(--green)}
+.slip code{font:12px var(--mono);color:var(--muted);word-break:break-all}
+.slip .dir{font-size:12px;color:var(--amber);font-weight:700}
+.after{border-left:3px solid var(--green);padding:2px 0 2px 14px;max-width:46em;font-size:14px}
+
+/* 每周节奏 */
+.week{display:grid;grid-template-columns:1.15fr 1.15fr 2.3fr 1fr;gap:10px}
+.week article{border:1px solid var(--line);border-radius:10px;background:var(--paper);padding:14px 16px;font-size:13.5px;min-width:0}
+.week article.k{background:var(--k-bg);border-color:var(--k-line);color:var(--k-ink)}
+.week time{font:700 13px var(--serif);color:var(--green);display:block}
+.week article.k time{color:var(--k-leaf)}
+.week h3{margin:2px 0 6px}
+.week small{display:block;margin-top:8px;color:var(--muted);font-size:12px}
+.week article.k small{color:var(--k-dim)}
+
+/* 题库 */
+.mix{display:flex;height:34px;border-radius:8px;overflow:hidden;border:1px solid var(--line)}
+.mix i{display:block}
+.m1{background:var(--green)}.m2{background:var(--amber)}.m3{background:#6c9bd0}.m4{background:#b9bfb2}
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 18px;font-size:13.5px;margin:0;padding:0;list-style:none}
+.legend li{display:grid;grid-template-columns:14px 1fr;gap:8px;align-items:start}
+.legend i{width:12px;height:12px;border-radius:3px;margin-top:7px}
+.legend b{display:block}
+.tpl{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:16px;align-items:start}
+.card{border:1px solid var(--line);border-radius:10px;background:var(--paper);padding:16px 18px;min-width:0}
+.card h3{margin-bottom:8px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13.5px;margin:0}
+.kv dt{color:var(--muted);white-space:nowrap}.kv dd{margin:0;min-width:0}
+.variants{display:grid;gap:8px;margin:0;padding:0;list-style:none;font-size:13.5px}
+.variants li{border:1px solid var(--line);border-radius:8px;padding:9px 12px;background:var(--paper)}
+.variants em{font-style:normal;color:var(--green);font-weight:700;white-space:nowrap}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--paper)}
+table{border-collapse:collapse;width:100%;font-size:13.5px;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:9px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:500;color:var(--muted);font-size:12px;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td.n,th.n{text-align:right;white-space:nowrap}
+td b{white-space:nowrap}
+.rules{margin:0;padding-left:1.2em;display:grid;gap:6px;max-width:46em;font-size:14px}
+
+/* 金币 */
+.formula{font:600 clamp(15px,2.6vw,19px)/1.7 var(--serif);border:1px solid var(--line);border-radius:10px;background:var(--paper);padding:14px 18px}
+.formula span{color:var(--amber)}
+.factors{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.factors .card{padding:13px 16px}
+.factors h3{font-size:14px;color:var(--green)}
+.factors ul{margin:0;padding:0;list-style:none;font-size:13.5px}
+.factors li{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dotted var(--line);padding:3px 0}
+.factors li:last-child{border:0}
+.factors li b{font-variant-numeric:tabular-nums}
+.calc{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px 14px;align-items:end}
+.calc label{display:grid;gap:4px;font-size:12px;color:var(--muted)}
+.calc select{font:inherit;font-size:14px;height:38px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);padding:0 8px;width:100%}
+.calc .chk{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--ink);height:38px}
+.calc output{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;border-top:1px solid var(--line);padding-top:12px;font-size:13.5px;color:var(--muted)}
+.calc output b{font:700 26px var(--serif);color:var(--amber)}
+
+/* 宠物 */
+.stages{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.stage{background:var(--k-bg);border:1px solid var(--k-line);border-radius:12px;padding:12px 12px 14px;text-align:center;color:var(--k-ink);font-size:12.5px}
+.stage svg{width:96px;height:96px;display:block;margin:0 auto}
+.stage b{font:400 17px var(--kid);display:block}
+.stage span{color:var(--k-dim);display:block}
+.pb{fill:#f4b860}.pbel{fill:var(--k-belly)}.pd{fill:#d9893a}.pk{fill:#c79a5e}.pl{fill:var(--k-leaf)}.pe{fill:var(--k-ink)}.pc{fill:var(--k-berry);opacity:.45}.pf{fill:var(--k-berry)}.pw{fill:#fff}.ps{fill:var(--k-sky)}.pt{fill:#ffc531;stroke:var(--k-ink);stroke-width:1}.pz{fill:none;stroke:var(--k-ink);stroke-width:2;stroke-linecap:round}
+
+/* 界面稿 */
+.phones{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:34px 22px}
+figure{margin:0;display:grid;gap:12px;justify-items:center;align-content:start}
+figcaption{font-size:13px;color:var(--muted);max-width:292px}
+figcaption b{color:var(--ink);font-family:var(--serif);display:block;font-size:14.5px}
+.phone{width:100%;max-width:292px;min-height:572px;border:7px solid var(--k-ink);border-radius:30px;background:var(--k-bg);color:var(--k-ink);overflow:hidden;font:500 12.5px/1.5 var(--sans);display:flex;flex-direction:column}
+.k-top{display:flex;align-items:center;gap:6px;padding:12px 14px 8px}
+.k-top h4{font:400 17px var(--kid);margin:0 auto 0 0}
+.pill{display:inline-flex;align-items:center;gap:4px;background:var(--k-card);border-radius:999px;padding:2px 9px 2px 5px;font-weight:700;font-variant-numeric:tabular-nums}
+.ico{width:14px;height:14px;display:inline-block;flex:none}
+.ico.coin{border-radius:50%;background:var(--k-coin);box-shadow:inset 0 0 0 2.5px #ffffff73}
+.ico.star{background:var(--k-sky);clip-path:polygon(50% 0,62% 35%,98% 35%,69% 57%,80% 92%,50% 71%,20% 92%,31% 57%,2% 35%,38% 35%)}
+.k-body{padding:4px 14px 14px;display:grid;gap:10px;align-content:start;flex:1}
+.k-card{background:var(--k-card);border-radius:14px;padding:10px 12px}
+.k-btn{display:block;text-align:center;background:var(--k-leaf);color:#fff;border-radius:14px;padding:10px;font:400 16px var(--kid);box-shadow:0 3px 0 #206a42}
+.k-btn small{display:block;font:500 11px var(--sans);opacity:.9}
+.k-dim{color:var(--k-dim);font-size:11.5px}
+.room{background:linear-gradient(var(--k-wall) 0 68%,#d9c08f 68% 100%);border-radius:16px;position:relative;padding:10px 10px 4px;text-align:center}
+.room svg{width:128px;height:128px}
+.bubble{background:var(--k-card);border-radius:12px;padding:7px 10px;font-size:12px;text-align:left;position:relative}
+.bubble::after{content:"";position:absolute;left:50%;bottom:-6px;width:12px;height:12px;background:var(--k-card);transform:translateX(-50%) rotate(45deg)}
+.bars{display:grid;grid-template-columns:auto 1fr auto;gap:5px 8px;align-items:center}
+.bar{height:8px;border-radius:8px;background:var(--k-line);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:8px;background:var(--k-leaf)}
+.bar.b i{background:var(--k-berry)}.bar.s i{background:var(--k-sky)}
+.acts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.acts span{background:var(--k-card);border-radius:12px;padding:8px 4px;text-align:center;font:400 14px var(--kid)}
+.acts small{display:block;font:500 10.5px var(--sans);color:var(--k-dim)}
+.quest{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center}
+.quest b{font:400 15px var(--kid)}
+.quest .pill{background:var(--k-bg)}
+.hot{font-size:10.5px;font-weight:700;color:#fff;background:var(--k-berry);border-radius:5px;padding:0 5px;margin-left:4px}
+.old{font-size:10.5px;font-weight:700;color:var(--k-ink);background:var(--k-sun);border-radius:5px;padding:0 5px;margin-left:4px}
+.lock{opacity:.6;border:1.5px dashed var(--k-dim);background:transparent}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;font-size:11px;text-align:center}
+.steps span{border-radius:8px;padding:3px 2px;background:var(--k-line);color:var(--k-dim)}
+.steps .done{background:var(--k-leaf);color:#fff}.steps .now{background:var(--k-sun);color:var(--k-ink);font-weight:700}
+.q{font-size:14px;line-height:1.9}
+.q mark{background:transparent;color:inherit;border:2px solid var(--k-berry);border-radius:999px;padding:0 5px}
+.opts{display:grid;gap:6px}
+.opts span{border:1.5px solid var(--k-line);border-radius:10px;padding:5px 10px;font:700 13px var(--sans);background:var(--k-card)}
+.opts .on{border-color:var(--k-leaf);background:#dff3e5}
+.ans{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ans .box{min-width:54px;text-align:center;border:2px solid var(--k-leaf);border-radius:10px;background:var(--k-card);font:700 18px var(--sans);padding:1px 8px}
+.ans .u{border:1.5px solid var(--k-line);border-radius:999px;padding:1px 9px;background:var(--k-card)}
+.ans .u.on{border-color:var(--k-leaf);background:#dff3e5;font-weight:700}
+.pad{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
+.pad span{background:var(--k-card);border-radius:8px;text-align:center;padding:5px 0;font:700 14px var(--sans)}
+.pad .go{background:var(--k-leaf);color:#fff;grid-column:span 2}
+.rows{display:grid;grid-template-columns:1fr auto;gap:5px 10px;font-variant-numeric:tabular-nums}
+.rows b{text-align:right}
+.big{font:400 30px/1.2 var(--kid);color:var(--k-coin);display:flex;align-items:center;gap:8px;justify-content:center}
+.big .ico{width:24px;height:24px}
+.skills{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.skill{background:var(--k-card);border-radius:12px;padding:8px 4px;text-align:center}
+.skill b{display:block;font:400 14px var(--kid)}
+.skill small{display:block;color:var(--k-dim);font-size:10.5px}
+.skill.sel{box-shadow:0 0 0 2px var(--k-leaf)}
+.dots{display:flex;gap:3px;justify-content:center;margin-top:4px}
+.dots i{width:8px;height:8px;border-radius:50%;background:var(--k-line)}.dots i.f{background:var(--k-sky)}
+.shop{display:grid;grid-template-columns:1fr auto;gap:6px 8px;align-items:center}
+.shop small{display:block;color:var(--k-dim);font-size:11px;font-weight:400}
+.wish{background:var(--k-sun);border-radius:14px;padding:10px 12px}
+.stamps{display:flex;gap:5px;margin-top:5px}
+.stamps i{width:20px;height:20px;border-radius:50%;border:2px dashed var(--k-ink);opacity:.45}
+.stamps i.f{border-style:solid;background:var(--k-leaf);border-color:var(--k-leaf);opacity:1}
+
+/* 家长端新增面板 */
+.ppanel{border:1px solid var(--line);border-radius:11px;background:var(--paper);overflow:hidden}
+.ppanel>header{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;padding:16px 20px 12px;border-bottom:1px solid var(--line)}
+.ppanel>header span{font-size:12px;color:var(--muted)}
+.pgrid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:0}
+.pgrid>div{padding:16px 20px;min-width:0}
+.pgrid>div+div{border-left:1px solid var(--line)}
+.knobs{display:grid;grid-template-columns:1fr auto;gap:8px 12px;font-size:13.5px;margin:10px 0 0}
+.knobs dt{color:var(--muted)}.knobs dd{margin:0;font-weight:700;text-align:right}
+.state{font-size:11px;border-radius:4px;padding:2px 7px;background:var(--green-soft);color:var(--green);white-space:nowrap}
+.state.w{background:var(--amber-soft);color:var(--amber)}
+
+/* 契约 */
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:16px}
+.two>div{min-width:0}
+pre{margin:0;overflow-x:auto;background:var(--code);border-radius:8px;padding:12px 14px;font:12.5px/1.65 var(--mono);color:var(--ink)}
+code{font-family:var(--mono);font-size:.92em}
+.phase{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.phase .card h3{color:var(--green)}
+.phase ul,.decide{margin:8px 0 0;padding-left:1.2em;font-size:13.5px;display:grid;gap:5px}
+.decide{font-size:14px;max-width:48em;gap:10px}
+.decide b{font-family:var(--serif)}
+
+.prompts{display:grid;gap:12px;margin-top:12px}
+.prompt{border:1px solid var(--line);border-radius:9px;overflow:hidden;min-width:0}
+.ph{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 12px;background:var(--green-soft);font-size:13.5px}
+.copy{font:inherit;font-size:12.5px;border:1px solid var(--green);color:var(--green);background:var(--paper);border-radius:6px;padding:2px 10px;cursor:pointer;flex:none}
+.prompt pre{border-radius:0;white-space:pre-wrap;word-break:break-word;font:13px/1.75 var(--sans)}
+.sg{border-radius:8px;padding:0 3px;border:2px solid transparent;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.sg.k{border-color:var(--k-leaf);background:#dff3e5}.sg.m{border:2px dashed var(--k-coin);background:#fff1dc}.sg.n{border-color:#b9bfb2;background:#f1f1ec;text-decoration:line-through}.sg.c{border-color:var(--k-berry);background:#fff5f8}
+.lg{display:flex;gap:10px;font-size:11px;color:var(--k-dim)}.lg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:3px;vertical-align:-1px}.lg i.k{background:#dff3e5;border:2px solid var(--k-leaf)}.lg i.m{background:#fff1dc;border:2px dashed var(--k-coin)}.lg i.n{background:#f1f1ec;border:2px solid #b9bfb2}
+.buddy{display:flex;align-items:center;gap:4px;background:var(--k-card);border-radius:999px;padding:2px 8px 2px 2px;flex:none}
+.ava{width:30px;height:30px;border-radius:50%;background:var(--k-wall);overflow:hidden;display:grid;place-items:center}.ava svg{width:34px;height:34px}
+.ring{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--k-sky) calc(var(--p)*1%),var(--k-line) 0)}.ring b{width:17px;height:17px;border-radius:50%;background:var(--k-card);display:grid;place-items:center;font-size:9px}
+.buddy small{font-size:10px;line-height:1.15;color:var(--k-dim)}.buddy small b{display:block;color:var(--k-ink);font-size:11px}
+.expr{font:700 15px/1.8 var(--sans);text-align:center}
+.ans2{font-size:13px;line-height:2}
+.uslot{display:inline-block;width:36px;height:22px;border:2px dashed var(--k-coin);border-radius:7px;vertical-align:middle}
+.pad4{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}.pad4 span{background:var(--k-card);border-radius:8px;text-align:center;padding:4px 0;font:700 13px var(--sans);min-height:26px}.pad4 .go{background:var(--k-leaf);color:#fff}.pad4 .u{background:#fff8e6}
+.acts4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.acts4 span{background:var(--k-card);border-radius:12px;padding:6px 2px;text-align:center;font:400 13px var(--kid)}.acts4 small{display:block;font:500 10px var(--sans);color:var(--k-dim)}
+.bar.c i{background:#69b7d8}.bar.low i{background:var(--k-coin)}
+.room .mtag{position:absolute;left:8px;bottom:6px;font-size:10.5px;background:var(--k-card);border-radius:999px;padding:0 7px}
+.q.sm{font-size:12.5px;line-height:1.9}
+.k-top h4{white-space:nowrap}
+
+@media(max-width:820px){
+  .lanes{grid-template-columns:1fr}.contract{grid-template-columns:1fr 1fr}
+  .week{grid-template-columns:1fr}.tpl{grid-template-columns:1fr}
+  .pgrid{grid-template-columns:1fr}.pgrid>div+div{border-left:0;border-top:1px solid var(--line)}
+}
+@media(max-width:460px){.contract{grid-template-columns:1fr}}
+</style>
+
+<!-- 宠物占位图：一只小狗（少年阶段），等 ChatGPT 生成的图替换 -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="pet2" viewBox="0 0 120 120"><g transform="translate(60 116) scale(0.84) translate(-60 -116)">
+    <ellipse class="pb" cx="86" cy="94" rx="10" ry="5" transform="rotate(-35 86 94)"/>
+    <ellipse class="pb" cx="60" cy="94" rx="24" ry="18"/><ellipse class="pbel" cx="60" cy="98" rx="13" ry="11"/>
+    
+    <ellipse class="pb" cx="47" cy="111" rx="8" ry="5"/><ellipse class="pb" cx="73" cy="111" rx="8" ry="5"/>
+    <ellipse class="pd" cx="36" cy="50" rx="9" ry="17" transform="rotate(20 36 50)"/><path class="pd" d="M84 46L80 18L62 36Z"/><circle class="pb" cx="60" cy="54" r="27"/><ellipse class="pbel" cx="60" cy="64" rx="17" ry="12"/>
+    <circle class="pe" cx="50" cy="52" r="4"/><circle class="pe" cx="70" cy="52" r="4"/><circle class="pw" cx="51.5" cy="50.5" r="1.3"/><circle class="pw" cx="71.5" cy="50.5" r="1.3"/>
+    <ellipse class="pe" cx="60" cy="61" rx="4.5" ry="3.2"/><path class="pz" d="M55 66q5 4 10 0"/>
+    <circle class="pc" cx="42" cy="62" r="5"/><circle class="pc" cx="78" cy="62" r="5"/>
+    <rect class="ps" x="42" y="77" width="36" height="6" rx="3"/><circle class="pt" cx="56.25" cy="86" r="3.3"/><circle class="pt" cx="63.75" cy="86" r="3.3"/></g></symbol>
+</svg>
+
+<div class="page">
+  <p style="grid-column:1/-1;border:1px solid #d9a441;border-radius:8px;padding:8px 12px;font-size:13px">这是 2026-10-03 的设计快照。「分支与数据契约」一节已改为单分支两个目录，实现以 kid/开发记录.md 为准。</p>
+  <p class="eyebrow">数伴 · 设计稿 v0.1 · 2026-10-02</p>
+  <h1>一个错题闭环，两个端</h1>
+  <p class="lede">家长端继续在本地归集错题、出辅导单。孩子端是一只靠做题养大的宠物。两端只通过两份文件来往：每周一份题库包发给孩子端，每周一份答题记录回到家长端。</p>
+  <dl class="goals">
+    <div><dt>家长每周</dt><dd>还是两条命令<small>/weekly 和 /weekly sheet，题库随辅导单一起发出</small></dd></div>
+    <div><dt>孩子每天</dt><dd>约 20 题<small>15 分钟左右，到点宠物就休息</small></dd></div>
+    <div><dt>每周题库</dt><dd>约 300 道变式<small>12 个新模板各生成 25 道，逐题验算</small></dd></div>
+    <div><dt>家长端新增文件</dt><dd>0 个<small>都加在现有 store / sheet / rules 里</small></dd></div>
+  </dl>
+  <nav class="toc" aria-label="目录">
+    <a href="#model">系统模式</a><a href="#week">每周节奏</a><a href="#pool">题库迭代</a><a href="#coins">金币与技能点</a><a href="#pet">宠物</a><a href="#screens">孩子端界面稿</a><a href="#parent">家长端新增</a><a href="#contract">分支与契约</a><a href="#plan">分期与待定</a>
+  </nav>
+
+  <section id="model">
+    <header><h2>系统模式</h2><p>错题从纸面进来，变成题库发给宠物；宠物那边的答题结果再回来，决定下周题库怎么调。家长端仍然是唯一的真相源，孩子端不保存任何扫描件和个人信息。</p></header>
+    <div class="lanes">
+      <div class="lane">
+        <h3>家长端 <small>main 分支 · 本地 Mac · 和现在一致</small></h3>
+        <ol>
+          <li>扫描件放进 <code>inbox/</code></li>
+          <li><code>/weekly</code> 归集错题，写入 <code>错题/周.md</code></li>
+          <li><code>/weekly sheet</code> 出纸质辅导单 PDF，周末用</li>
+          <li>同一条命令里，Claude 顺手写<b>题库模板</b>，程序批量生成、逐题验算、推给孩子端<span class="tag-new">新增</span></li>
+          <li>同一条命令里取回上周答题记录，进度页多一列「屏幕练习」<span class="tag-new">新增</span></li>
+        </ol>
+      </div>
+      <div class="contract">
+        <div class="slip"><span class="dir">家长端 → 孩子端 · 每周五</span><b>题库包</b><code>npm run sheet push</code><br>题目、答案、陷阱值、金币标价。直接进孩子端数据库，不落盘</div>
+        <div class="slip"><span class="dir">孩子端 → 家长端 · 每周五</span><b>答题记录</b><code>npm run sheet pull</code><br>首答对错、用时、掉进哪个陷阱。汇总后写进周 md 的「答题」段</div>
+      </div>
+      <div class="lane kid">
+        <h3>孩子端 <small>kid 分支 · 平板或手机</small></h3>
+        <ol>
+          <li>打开小屋，领<b>今日任务</b>（约 20 题）</li>
+          <li>答题：圈关键词，选算式，填得数和单位</li>
+          <li>得<b>金币</b>（做了多少、多用心）和<b>技能点</b>（真的掌握了）</li>
+          <li>金币用来喂养和陪伴，技能点教宠物新本领</li>
+          <li>做错的题换个样子，过几天再出现</li>
+        </ol>
+      </div>
+    </div>
+    <p class="after">答题记录回到家长端后只做两件事：在进度页单独显示屏幕练习的正确率；决定下周题库的配比和难度。它不改纸面作业的错误率，也不参与「已改善」的判定，纸面成绩仍然说了算。</p>
+  </section>
+
+  <section id="week">
+    <header><h2>每周节奏</h2><p>周末的纸质辅导单保留，负责讲解和需要动笔的题。周一到周五交给宠物，负责高频的变式练习。</p></header>
+    <div class="week">
+      <article><time>周五晚 · 家长 20 分钟</time><h3>归集与发布</h3>扫描本周材料，运行 <code>/weekly</code> 和 <code>/weekly sheet</code>。后者先取回上周答题记录，再出辅导单和新题库。<small>操作和现在一样</small></article>
+      <article><time>周六、周日 · 家长和孩子</time><h3>纸质辅导单</h3>照辅导单讲重点问题，孩子做练习卷。竖式、线段图、完整答句都在纸上练。<small>和现在完全一样</small></article>
+      <article class="k"><time>周一到周五 · 孩子每天 15 分钟</time><h3>养宠物</h3>领今日任务，答完约 20 题，拿金币去喂食、陪玩。答错的题当场订正，再以新的数字和故事回到后几天的任务里。周五是闯关日：8 道综合题，通关后解锁一页成长故事。<small>新一周的题库从周一开始生效，上一周没过关的题型会带过来</small></article>
+      <article><time>下周五</time><h3>回流</h3>答题记录回到家长端，和新一批纸面错题一起决定下一份题库。<small>闭环</small></article>
+    </div>
+  </section>
+
+  <section id="pool">
+    <header><h2>题库每周怎么变</h2><p>题库按四个来源配比。每周的错题变了，四块里装的知识点、题型和难度就跟着变。</p></header>
+    <div class="mix" role="img" aria-label="题库配比：本周重点 50%，往周未过关 25%，下周预习 15%，已掌握保温 10%"><i class="m1" style="width:50%"></i><i class="m2" style="width:25%"></i><i class="m3" style="width:15%"></i><i class="m4" style="width:10%"></i></div>
+    <ul class="legend">
+      <li><i class="m1"></i><span><b>本周重点 50%</b>纸面错得最多的前 3 个「知识点 × 错因」，试卷的错题权重最高</span></li>
+      <li><i class="m2"></i><span><b>往周未过关 25%</b>旧模板换一批数字重新生成，Claude 不用重写</span></li>
+      <li><i class="m3"></i><span><b>下周预习 15%</b>只出最简单的一档，先建立信心</span></li>
+      <li><i class="m4"></i><span><b>已掌握保温 10%</b>口算和已过关的题型，隔 1、2、4 周各回来一次，金币打八折</span></li>
+    </ul>
+
+    <div class="tpl">
+      <div class="card">
+        <h3>一个模板，Claude 在 /weekly sheet 里写一次</h3>
+        <dl class="kv">
+          <dt>对应</dt><dd>01X.1 经过时间 × 审题 · 应用题三步</dd>
+          <dt>题干</dt><dd>{起点} 时第一次{事件}，以后每隔 {a} 小时{事件}一次。第 {n} 次是几时？</dd>
+          <dt>取值</dt><dd>起点 6 到 9，a 2 到 4，n 3 到 5，结果不超过 24</dd>
+          <dt>算式</dt><dd><code>起点+a×(n-1)</code>，程序用现有的 verifyItem 验算</dd>
+          <dt>关键词</dt><dd>「每隔 a 小时」「第 n 次」。题干每一段都能圈，再配一两句用不上的话做噪音，比如「体温计是新买的」</dd>
+          <dt>陷阱值</dt><dd><code>起点+a×n</code>，标记为「审题」。孩子两周都这样错；屏幕上答成这个数，就自动记到这个错因</dd>
+          <dt>故事</dt><dd>测体温、发班车、浇花、喂小鱼，每种写两三种说法</dd>
+        </dl>
+      </div>
+      <ul class="variants" aria-label="程序生成的变式">
+        <li>早上 8 时第一次测体温，以后每隔 3 小时测一次。第 4 次是几时？ <em>17 时</em></li>
+        <li>公交车 6 时发第一班，以后每隔 2 小时发一班。第 5 班是几时？ <em>14 时</em></li>
+        <li>团团 7 时第一次喝水，以后每隔 4 小时喝一次。第 3 次是几时？ <em>15 时</em></li>
+        <li>……每个模板生成 25 道，验算不过的丢弃。不需要任何 API key，孩子做题时也不联网调模型。</li>
+      </ul>
+    </div>
+
+    <div class="scroll">
+      <table>
+        <thead><tr><th>题型</th><th>孩子怎么答</th><th>主要练的错因</th><th class="n">每题用时</th><th class="n">基础金币</th></tr></thead>
+        <tbody>
+          <tr><td><b>口算闪答</b></td><td>数字键盘填得数</td><td>计算失误</td><td class="n">约 10 秒</td><td class="n">1</td></tr>
+          <tr><td><b>先算哪一步</b></td><td>点出先算的部分，或选出正确的综合算式</td><td>概念不清</td><td class="n">约 20 秒</td><td class="n">2</td></tr>
+          <tr><td><b>拨钟面与时间线</b></td><td>拖时针到位，在时间线上数间隔</td><td>概念不清（24 时记时法）</td><td class="n">约 30 秒</td><td class="n">4</td></tr>
+          <tr><td><b>先估后算</b></td><td>先选得数大概在哪个范围，再填准确值</td><td>计算失误</td><td class="n">约 30 秒</td><td class="n">4</td></tr>
+          <tr><td><b>递等式分步</b></td><td>一行一行填，上一行对了才出下一行</td><td>概念不清、计算失误</td><td class="n">约 45 秒</td><td class="n">6</td></tr>
+          <tr><td><b>小老师改错</b></td><td>看一份「团团的作业」，点出错的那一步再改对</td><td>计算失误（检查习惯）</td><td class="n">约 40 秒</td><td class="n">6</td></tr>
+          <tr><td><b>多空题交卷</b></td><td>一屏三四个空，有空没填时交卷按钮会提醒</td><td>漏题、格式规范</td><td class="n">约 45 秒</td><td class="n">6</td></tr>
+          <tr><td><b>应用题三步</b></td><td>自己圈关键词再对答案，选算式，算出得数并补全答句的单位</td><td>审题、格式规范</td><td class="n">约 75 秒</td><td class="n">12</td></tr>
+          <tr><td><b>挑战题</b></td><td>先求什么、怎么列式、算、答，一步一步来</td><td>策略缺失</td><td class="n">2 到 3 分钟</td><td class="n">25</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">基础金币按「题越长，每分钟赚得略多」来定：口算每分钟约 6 金币，应用题约 10。反复刷口算不划算。</p>
+    <ul class="rules">
+      <li><b>升档</b>：同一题型最近 10 题首答正确率到 85%，而且跨了两天，从「同构」升到「略变」，再到「综合」。</li>
+      <li><b>降档</b>：最近 8 题低于 60%，或者连错 3 题，退回上一档并改用分步题型，同时在辅导单上提示「需要家长讲一讲」。</li>
+      <li><b>过关</b>：「综合」档连续两周到 85%，而且纸面作业连续两周没再错，才转入保温。屏幕上练会了不算数，纸面不再犯才算。</li>
+      <li><b>纸面优先</b>：这周纸面又错了，立刻回到本周重点；错因是概念不清的，从「同构」重新开始。</li>
+      <li><b>每日抽题</b>：先 2 道口算热身，重点和旧题交错，最后一道是当天最难的关底题。同一模板一天最多 2 道，答错的题换一道变式，隔 3 题再出一次，并排进第二天的前 3 题。</li>
+      <li><b>没有新材料的周</b>：配比改成旧题 50%、预习 20%、保温 30%，孩子端照常有题。</li>
+      <li><b>留在纸上</b>：竖式书写、递等式的书写格式、画线段图、手写完整答句、从题干抄数字、量一量和作图。屏幕练不了这些，周末练习卷可以压到 15 到 20 题，专门练它们。</li>
+    </ul>
+  </section>
+
+  <section id="coins">
+    <header><h2>金币与技能点</h2><p>金币奖励动手和用心，技能点只奖励真的掌握。孩子现在的主要问题是抢快和不读题，所以规则里没有任何一条奖励速度。</p></header>
+    <p class="formula">金币 ＝ <span>题型基础分</span> × <span>难度</span> × <span>来源</span> × <span>作答质量</span> ＋ <span>过程奖</span></p>
+    <div class="factors">
+      <div class="card"><h3>难度（题目多绕）</h3><ul><li>同构<b>× 1.0</b></li><li>略变<b>× 1.3</b></li><li>综合<b>× 1.6</b></li></ul></div>
+      <div class="card"><h3>来源（多值得练）</h3><ul><li>本周重点<b>× 1.5</b></li><li>往周未过关<b>× 1.2</b></li><li>下周预习<b>× 1.0</b></li><li>已掌握保温<b>× 0.8</b></li></ul></div>
+      <div class="card"><h3>作答质量</h3><ul><li>第一次就答对<b>× 1.0</b></li><li>看提示后订正对<b>× 0.5</b></li><li>看完讲解，做对同类题<b>× 0.3</b></li><li>选择题第二次才选对<b>× 0.3</b></li></ul></div>
+      <div class="card"><h3>过程奖（用心）</h3><ul><li>关键词圈得刚刚好<b>＋2</b></li><li>圈全但多圈了噪音<b>＋1</b></li><li>递等式每步写全<b>＋2</b></li><li>连续 5 题首答正确<b>＋5</b></li></ul></div>
+    </div>
+
+    <div class="card calc">
+      <label for="c-type">题型<select id="c-type"><option value="1">口算闪答</option><option value="2">先算哪一步</option><option value="4">拨钟面与时间线</option><option value="4">先估后算</option><option value="6">递等式分步</option><option value="6">小老师改错</option><option value="6">多空题交卷</option><option value="12" selected>应用题三步</option><option value="25">挑战题</option></select></label>
+      <label for="c-diff">难度<select id="c-diff"><option value="1">同构</option><option value="1.3" selected>略变</option><option value="1.6">综合</option></select></label>
+      <label for="c-src">来源<select id="c-src"><option value="1.5" selected>本周重点</option><option value="1.2">往周未过关</option><option value="1">下周预习</option><option value="0.8">已掌握保温</option></select></label>
+      <label for="c-q">作答质量<select id="c-q"><option value="1" selected>第一次就答对</option><option value="0.5">看提示后订正对</option><option value="0.3">看完讲解，做对同类题</option><option value="0">没答对</option></select></label>
+      <label class="chk" for="c-p"><input type="checkbox" id="c-p" checked> 过程做全（＋2）</label>
+      <output id="c-out" for="c-type c-diff c-src c-q c-p"><b>25 金币</b><span>12 × 1.3 × 1.5 × 1 ＝ 23.4，取整 23，过程奖 ＋2</span></output>
+    </div>
+
+    <div class="scroll">
+      <table>
+        <thead><tr><th>例题（取自 W39 的真实错题类型）</th><th>题型 · 难度 · 来源</th><th>作答</th><th class="n">金币</th></tr></thead>
+        <tbody>
+          <tr><td>35×6</td><td>口算 · 同构 · 保温</td><td>首答正确</td><td class="n">1</td></tr>
+          <tr><td>800−316×2，先算哪一步？</td><td>先算哪一步 · 略变 · 重点</td><td>首答正确</td><td class="n">4</td></tr>
+          <tr><td>63÷(145−142)</td><td>递等式 · 略变 · 重点</td><td>首答正确，每步写全</td><td class="n">14</td></tr>
+          <tr><td>每隔 3 小时测一次体温，第 4 次是几时？</td><td>应用题 · 略变 · 重点</td><td>首答正确，圈全关键词</td><td class="n">25</td></tr>
+          <tr><td>同上</td><td>同上</td><td>第一次填 20，看提示后订正为 17</td><td class="n">14</td></tr>
+          <tr><td>小棒拼正方形，拼 12 个要几根？</td><td>挑战题 · 综合 · 重点</td><td>首答正确</td><td class="n">60</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul class="rules">
+      <li><b>一天的量</b>：今日任务 20 题，全对最多 240 多金币，正常能赚 180 到 200。做完后可以加练，最多再 10 题，金币减半；口算一天只有前 15 道给金币。再往后团团就睡了。</li>
+      <li><b>不奖励快，也不奖励磨蹭</b>：没有倒计时。金币只看做了哪些步骤、对没对，和用时无关。应用题要先圈关键词、对过答案，才能选算式。</li>
+      <li><b>忘写单位</b>：答句里单位单独一格，键盘上有单位键。得数对但没填单位就交卷，记一次「格式规范 · 忘写单位」，补上后按订正计金币。提示分两档：开始时留虚线空格；最近两周忘写少于一成后去掉空格，只问「答句是不是少了点什么」。家长端单独统计这个次数。</li>
+      <li><b>闪电错</b>：每种题型有一个最短思考时间（口算 2 秒，应用题 20 秒）。比它还快又答错，记一次闪电错：连击清零，接下来 3 题进入「慢慢来」，团团先盖住答题区，到时间才揭开。答得快但答对了，不受影响。</li>
+      <li><b>答错不扣钱</b>：第一次错，按错因给一步提示，订正对了拿一半。第二次错，分步讲解后做一道同类题。这道题换数字换故事，过两天再出现。</li>
+      <li><b>技能点</b>：同一错因的题，在「略变」以上难度首答正确而且过程做全，每满 5 道得 1 点。一整天没有闪电错，再得 1 点「巡逻」。口算刷不出技能点。</li>
+      <li><b>不做的事</b>：扣金币、掉级、宠物生病、抽卡盲盒、连续打卡排行、限时抢答、金币换现金。</li>
+    </ul>
+  </section>
+
+  <section id="pet">
+    <header><h2>宠物：一只小狗</h2><p>以小狗为基础，孩子从三个品种里挑一只、自己起名。正式形象交给 ChatGPT 生图，提示词在本节最后；稿子和原型里的小狗是占位。照顾要花金币，免费的只有每天 3 次摸摸，补不满需求。它不会生病、不会死，需求低了也不扣东西，只是拿不到「状态好」的成长加成。</p></header>
+
+    <div class="two">
+      <div class="card">
+        <h3>三个品种，让孩子挑一只</h3>
+        <dl class="kv">
+          <dt>柴犬</dt><dd>橘黄色毛，白色脸颊和肚皮，尾巴卷成一个圈，表情最多。</dd>
+          <dt>柯基</dt><dd>橘白相间，短腿大耳朵，圆屁股，跑起来一扭一扭。</dd>
+          <dt>金毛</dt><dd>金黄色长毛，耳朵一直软软垂着，长大后毛越来越蓬。</dd>
+        </dl>
+        <p class="note">稿子里的名字「团团」是占位，第一次打开时由孩子自己起名。</p>
+      </div>
+      <div class="card">
+        <h3>五个阶段，每一步都看得出来</h3>
+        <dl class="kv">
+          <dt>① 小窝</dt><dd>第 1 天。在铺着小毯子的篮子里睡成一团，只露出耳朵。做完第一份任务它就醒来。</dd>
+          <dt>② 幼犬</dt><dd>耳朵软软垂着，短腿坐着，项圈挂 1 颗星。</dd>
+          <dt>③ 少年</dt><dd>约第 3 周。站起来了，一只耳朵竖起，项圈 2 颗星。</dd>
+          <dt>④ 青年</dt><dd>约第 8 周。身体变长，尾巴翘起来，背一个小探险背包，项圈 3 颗星。</dd>
+          <dt>⑤ 成年</dt><dd>约第 15 周。最大最神气，披一件短披风，项圈 5 颗金星。</dd>
+        </dl>
+        <p class="note">项圈上的星星数就是阶段标志，孩子数一数就知道长到哪一步。金毛的耳朵不会竖，改成毛变长变蓬。</p>
+      </div>
+    </div>
+
+    <div class="two">
+      <div class="card">
+        <h3>成长与状态</h3>
+        <dl class="kv">
+          <dt>成长值</dt><dd>做题赚到的金币全部计入成长值，花掉不掉级。一学期约 25 级。</dd>
+          <dt>状态好</dt><dd>饱食、心情、清洁三项都在 60 以上时，做题得到的成长值 ×1.2。这是照顾小狗的真正回报。</dd>
+          <dt>需求低了</dt><dd>最低停在 20。小狗会说「肚子咕咕叫」，趴着不太动，没有加成；不生病，不掉级，不清零。</dd>
+          <dt>几天没来</dt><dd>它出门散步去了，回来叼回一张明信片，不断签。</dd>
+          <dt>作息</dt><dd>一次最多 25 分钟。晚上 8 点半后小狗回窝睡觉，只道晚安。</dd>
+        </dl>
+      </div>
+      <div class="card">
+        <h3>本领：每个都对应一个错因</h3>
+        <dl class="kv">
+          <dt>灵鼻子</dt><dd>审题。你圈对关键词，它凑过去嗅一嗅，跟着指出来。</dd>
+          <dt>排排队</dt><dd>概念不清。它会把先算的那块积木叼起来。</dd>
+          <dt>稳稳爪</dt><dd>计算失误。算完先用爪子比一比，估估有几位数。</dd>
+          <dt>收尾巴</dt><dd>格式规范。答句和单位一个不落，最后摇一下尾巴。</dd>
+          <dt>巡逻</dt><dd>漏题。交卷前绕着作业跑一圈。一整天没有急着答错的题，得 1 点。</dd>
+          <dt>探路</dt><dd>策略缺失。画图、列表、找规律。</dd>
+        </dl>
+        <p class="note">每个本领三级，分别要 3、6、10 个对应的技能点。本领只增加小狗的动作和互动，不会让题变简单。</p>
+      </div>
+    </div>
+
+    <div class="scroll">
+      <table>
+        <thead><tr><th>需求</th><th class="n">每天下降</th><th>怎么补</th><th class="n">补满一天约花</th></tr></thead>
+        <tbody>
+          <tr><td><b>饱食</b></td><td class="n">40</td><td>骨头饼干 10 金币 ＋10；鸡肉蔬菜饭 40 金币 ＋35；豪华便当 80 金币 ＋70 并加心情</td><td class="n">40</td></tr>
+          <tr><td><b>心情</b></td><td class="n">35</td><td>玩具有使用次数：橡胶小球 50 金币玩 4 次，每次 ＋15；飞盘 80 金币玩 5 次，每次 ＋20。摸摸免费，每天 3 次，每次 ＋3</td><td class="n">30</td></tr>
+          <tr><td><b>清洁</b></td><td class="n">25</td><td>泡泡香皂 30 金币，洗一次 ＋50</td><td class="n">15</td></tr>
+          <tr><td><b>合计</b></td><td></td><td>一天约收入 190，照顾约花 85，剩下的攒着买装扮和家具</td><td class="n">85</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="two">
+      <div class="card">
+        <h3>互动方式</h3>
+        <dl class="kv">
+          <dt>喂食、洗澡、陪玩</dt><dd>用背包里的东西，买来才有。玩具会用完。扔飞盘时小狗会跳起来接。</dd>
+          <dt>摸摸</dt><dd>免费，每天 3 次，第 4 次它会说「陪我玩球吧」。</dd>
+          <dt>戳一戳</dt><dd>点小狗有随机反应：摇尾巴、打滚、歪头；3 秒内戳 5 下，它会追着自己的尾巴转晕。</dd>
+          <dt>自己说话</dt><dd>在小屋里不动它，每 12 秒左右冒一句话并配一个小动作（眨眼、张望、打哈欠、嗅一嗅、歪头想事情）。</dd>
+          <dt>学本领</dt><dd>本领学会后，答题时它会跟着做对应的动作，比如灵鼻子去嗅关键词。</dd>
+          <dt>以后加</dt><dd>带回明信片的散步、换装扮、给小窝摆家具。</dd>
+        </dl>
+      </div>
+      <div class="card">
+        <h3>它会说什么</h3>
+        <dl class="kv">
+          <dt>需求低时</dt><dd>优先说需求，用请求的口气：「肚子咕咕叫，能给我一块骨头饼干吗？」</dd>
+          <dt>本周知识点</dt><dd>「晚上 9 时半就是 21:30，我该钻被窝啦」「一排种 5 棵树，中间只有 4 个空隙呢」</dd>
+          <dt>做完题后</dt><dd>只夸过程：「你圈了 6 次关键词，读题好仔细！」</dd>
+          <dt>随便聊</dt><dd>「如果袜子会说话，它会不会喊脚好臭？」</dd>
+          <dt>不说的话</dt><dd>不催做题，不说「你不理我我好难过」，不夸聪明。</dd>
+        </dl>
+        <p class="note">台词库约 50 句，按需求、时间段、今天做过的题挑选。每周可以由 Claude 按本周知识点补几句。</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>生图提示词（在 ChatGPT 里用）</h3>
+      <ol class="rules" style="margin-top:6px">
+        <li>在<b>同一个对话</b>里按顺序发，后面的提示词会参照前面生成的图。先发第 0 条让孩子挑品种，再发对应的第 1 条。</li>
+        <li>不满意就接着说「保持小狗不变，只把……改成……」。背景没去掉时说「把背景去掉，导出透明 PNG」。</li>
+        <li>下载后按 <code>pet-1-nest.png</code>、<code>pet-2-puppy.png</code>、<code>pet-3-junior.png</code>、<code>pet-4-teen.png</code>、<code>pet-5-adult.png</code> 命名，原型里「换成我的图」一次选这 5 张就能直接看效果。表情表、动作表、物品表这类拼图交给我切成单张。</li>
+      </ol>
+      <div class="prompts">
+        <div class="prompt"><div class="ph"><b>0 · 三只小狗（只发一次）</b><button class="copy" data-copy="p0">复制</button></div><pre id="p0">我在做一个给 8 到 9 岁孩子用的数学练习养宠物 App，宠物是一只小狗，请帮我设计形象。之后所有图都用同一种画风：可爱的 2D 卡通贴纸风，圆润的造型，头大身子小，干净的深棕色描边（粗细一致），柔和的平涂上色，只加一点点高光，大而亮的眼睛，表情生动；配色以暖橘、奶油白为主，项圈是天蓝色；透明背景，不要地面阴影，不要任何文字和水印。
+
+先画一张三选一的图：三只刚出生不久的小奶狗并排坐着，每只都戴一个天蓝色小项圈。左边是柴犬（橘黄色，白脸颊，尾巴卷成圈），中间是柯基（橘白相间，短腿，大耳朵），右边是金毛（金黄色软毛，耳朵垂着）。横版 16:9，白色背景。</pre></div>
+        <div class="prompt"><div class="ph"><b>1A · 选了柴犬</b><button class="copy" data-copy="p1a">复制</button></div><pre id="p1a">孩子选了柴犬，名字叫团团。角色设定：橘黄色的毛，白色的脸颊、眉点和肚皮，三角形的耳朵，尾巴卷成一个圈，脸颊有淡粉色腮红，脖子上戴天蓝色项圈，项圈下面挂金色小星星。成长的标志是项圈上的星星数量和配饰。
+
+画一张成长设定图：从左到右一排 5 个形态，依次是 ① 小窝（在铺着奶油色小毯子的藤编篮子里蜷成一团睡觉，只露出耳朵和尾巴尖）② 幼犬（很小，耳朵还软软地耷拉着，短腿坐着，项圈 1 颗星）③ 少年（站起来，好奇地歪头，一只耳朵竖起来了，项圈 2 颗星）④ 青年（身体变长，两只耳朵都竖起，尾巴高高卷起，背一个红色小探险背包，项圈 3 颗星）⑤ 成年（最大最神气，抬头挺胸，披一件红色短披风，项圈 5 颗发光的金星）。五个形态是同一只狗，脸、毛色、花纹保持一致，体型一步步变大，每一步的变化一眼能看出来。横版 16:9，白色背景，不要字。</pre></div>
+        <div class="prompt"><div class="ph"><b>1B · 选了柯基</b><button class="copy" data-copy="p1b">复制</button></div><pre id="p1b">孩子选了柯基，名字叫团团。角色设定：橘色和白色相间的毛，白色的口鼻和胸口，大大的耳朵，短短的腿，圆圆的屁股，脸颊有淡粉色腮红，脖子上戴天蓝色项圈，项圈下面挂金色小星星。成长的标志是项圈上的星星数量和配饰。
+
+画一张成长设定图：从左到右一排 5 个形态，依次是 ① 小窝（在铺着奶油色小毯子的藤编篮子里蜷成一团睡觉，只露出两只大耳朵）② 幼犬（很小，大耳朵还软软地耷拉着，坐着，项圈 1 颗星）③ 少年（站起来，一只耳朵竖起来了，屁股翘着，项圈 2 颗星）④ 青年（身体变长，两只大耳朵都竖起，背一个红色小探险背包，项圈 3 颗星）⑤ 成年（最大最神气，抬头挺胸，披一件红色短披风，项圈 5 颗发光的金星）。五个形态是同一只狗，脸、毛色、花纹保持一致，体型一步步变大，每一步的变化一眼能看出来。横版 16:9，白色背景，不要字。</pre></div>
+        <div class="prompt"><div class="ph"><b>1C · 选了金毛</b><button class="copy" data-copy="p1c">复制</button></div><pre id="p1c">孩子选了金毛，名字叫团团。角色设定：金黄色的软毛，耳朵一直软软地垂着，黑色圆鼻头，脸颊有淡粉色腮红，脖子上戴天蓝色项圈，项圈下面挂金色小星星。成长的标志是项圈上的星星数量、毛的长度和配饰。
+
+画一张成长设定图：从左到右一排 5 个形态，依次是 ① 小窝（在铺着奶油色小毯子的藤编篮子里蜷成一团睡觉，只露出耳朵）② 幼犬（很小，毛短短的像绒球，坐着，项圈 1 颗星）③ 少年（站起来，毛长了一点，好奇地歪头，项圈 2 颗星）④ 青年（身体变长，耳朵和尾巴的毛变得蓬蓬的，背一个红色小探险背包，项圈 3 颗星）⑤ 成年（最大最神气，毛长而蓬松，抬头挺胸，披一件红色短披风，项圈 5 颗发光的金星）。五个形态是同一只狗，脸、毛色保持一致，体型一步步变大，每一步的变化一眼能看出来。横版 16:9，白色背景，不要字。</pre></div>
+        <div class="prompt"><div class="ph"><b>2 · 单张形态（把 N 依次换成 1 到 5）</b><button class="copy" data-copy="p2">复制</button></div><pre id="p2">参照刚才的成长设定图，单独画第 N 个形态。小狗的脸、毛色、花纹、项圈星星数和设定图完全一致。身体微微侧向一边，表情开心，全身入画。小狗居中，占画面高度的八成左右。正方形 1024×1024，透明背景，不要字。</pre></div>
+        <div class="prompt"><div class="ph"><b>3 · 表情表（先做第 2、3 形态）</b><button class="copy" data-copy="p3">复制</button></div><pre id="p3">参照第 N 个形态，画一张 3 列 2 行的表情表，六格大小完全一样、间隔均匀，每格一个半身像：开心吐舌头、饿了（叼着空碗）、困了（打哈欠）、在想事情（歪头）、得意（抬着下巴）、害羞（用爪子捂脸）。小狗和设定图一致。正方形，透明背景，不要字和格子线。</pre></div>
+        <div class="prompt"><div class="ph"><b>4 · 动作表</b><button class="copy" data-copy="p4">复制</button></div><pre id="p4">参照第 N 个形态，画一张 3 列 2 行的动作表，六格大小完全一样：埋头大口吃饭、在泡泡里洗澡、跳起来接飞盘、在小窝里蜷着睡觉、伸出前爪握手、开心地摇尾巴。小狗和设定图一致。正方形，透明背景，不要字和格子线。</pre></div>
+        <div class="prompt"><div class="ph"><b>5 · 物品图标</b><button class="copy" data-copy="p5">复制</button></div><pre id="p5">用同样的画风，画一张 4 列 2 行的物品图标表，八格大小完全一样，每个物品居中：骨头形状的小饼干、装在狗碗里的鸡肉蔬菜饭、豪华便当盒、泡泡香皂、橡胶小球、飞盘、蓝色围巾、粉色小窗帘。正方形，透明背景，不要字和格子线。</pre></div>
+        <div class="prompt"><div class="ph"><b>6 · 小屋背景</b><button class="copy" data-copy="p6">复制</button></div><pre id="p6">用同样的画风，画小狗住的小屋室内背景：暖黄色的墙，木地板，一扇圆窗户能看到蓝天，角落有一个铺着小毯子的藤编狗窝和一个玩具筐，墙上挂一个写着空白名牌的小木牌。画面中间偏下留出一块空地给小狗站。不要画小狗，不要字。竖版 9:16。</pre></div>
+        <div class="prompt"><div class="ph"><b>7 · 本领徽章</b><button class="copy" data-copy="p7">复制</button></div><pre id="p7">用同样的画风，画一张 3 列 2 行的圆形徽章表，六个徽章大小完全一样、配色统一：灵鼻子（一个小狗鼻子凑近放大镜）、排排队（三块积木排成一排，第一块被叼起来）、稳稳爪（一只小狗爪按着算盘珠）、收尾巴（卷起来的狗尾巴带一个小对勾）、巡逻（一面小旗子和一串爪印）、探路（指南针和一条弯弯的小路）。正方形，透明背景，不要字。</pre></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="screens">
+    <header><h2>孩子端界面稿</h2><p>按手机竖屏画，平板上同一套布局放大。画面里的数字是示例，题目取自 W39 的真实错题类型。</p></header>
+    <div class="phones">
+      <figure>
+        <div class="phone">
+          <div class="k-top"><h4>团团的小屋</h4><span class="pill"><i class="ico coin"></i>386</span><span class="pill"><i class="ico star"></i>3</span></div>
+          <div class="k-body">
+            <div class="bubble">肚子咕咕叫，能给我一块骨头饼干吗？</div>
+            <div class="room"><svg><use href="#pet2"/></svg><span class="mtag">状态一般</span></div>
+            <div class="k-card bars"><span>饱食</span><span class="bar low"><i style="width:34%"></i></span><span>34</span><span>心情</span><span class="bar b"><i style="width:72%"></i></span><span>72</span><span>清洁</span><span class="bar c"><i style="width:65%"></i></span><span>65</span></div>
+            <div class="acts4"><span>喂食<small>1 份</small></span><span>洗澡<small>0 块香皂</small></span><span>陪玩<small>3 次</small></span><span>摸摸<small>今天 2 次</small></span></div>
+            <span class="k-btn">今日任务 0 / 20<small>约 15 分钟 · 最多可赚 244</small></span>
+          </div>
+        </div>
+        <figcaption><b>小屋</b>需求低于 40 时，宠物先说需求，用请求的口气。三项都到 60 以上才是「状态好」，成长值多两成。喂食、洗澡、陪玩都要用背包里买来的东西；不点它时，它每隔十几秒自己冒一句话。</figcaption>
+      </figure>
+      <figure>
+        <div class="phone">
+          <div class="k-top"><h4>周二的任务</h4><span class="pill"><i class="ico coin"></i>386</span></div>
+          <div class="k-body">
+            <div class="k-card quest"><b>口算热身</b><span class="pill"><i class="ico coin"></i>每题 1</span><span class="k-dim">加减法和乘法口算 · 5 题</span></div>
+            <div class="k-card quest"><b>时间小侦探<span class="hot">本周重点</span></b><span class="pill"><i class="ico coin"></i>最高 25</span><span class="k-dim">24 时记时法 · 应用题和钟面 · 6 题</span></div>
+            <div class="k-card quest"><b>先算哪一步<span class="hot">本周重点</span></b><span class="pill"><i class="ico coin"></i>最高 14</span><span class="k-dim">带括号的混合运算 · 6 题</span></div>
+            <div class="k-card quest"><b>第几次？<span class="old">以前的</span></b><span class="pill"><i class="ico coin"></i>最高 21</span><span class="k-dim">间隔问题 · 换了新故事 · 2 题</span></div>
+            <div class="k-card quest lock"><b>关底题</b><span class="pill"><i class="ico coin"></i>最高 31</span><span class="k-dim">做完上面四组后解锁 · 1 题</span></div>
+          </div>
+        </div>
+        <figcaption><b>今日任务</b>每组任务写明练什么、几题、最高能得多少。本周重点和上周遗留有标记，孩子能看出哪些题更值钱。</figcaption>
+      </figure>
+
+            <figure>
+        <div class="phone">
+          <div class="k-top"><h4>时间小侦探 1/6</h4><span class="buddy"><span class="ava"><svg><use href="#pet2"/></svg></span><span class="ring" style="--p:80"><b>4/5</b></span><small><b>灵鼻子</b>技能点</small></span></div>
+          <div class="k-body">
+            <div class="steps"><span class="done">圈关键词</span><span class="now">选算式</span><span>算和答</span></div>
+            <div class="k-card q">小红感冒了，<span class="sg c">早上 8 时</span>第一次测体温，<span class="sg n">体温计是新买的。</span>以后<span class="sg k">每隔 3 小时</span>测一次，<span class="sg m">第 4 次</span>测体温是几时？</div>
+            <div class="lg"><span><i class="k"></i>圈对了</span><span><i class="m"></i>漏了</span><span><i class="n"></i>用不上</span></div>
+            <div class="bubble">漏了 1 个关键词，还多圈了 1 处用不上的。「每隔 3 小时」和「第 4 次」决定要加几次 3：第 4 次只隔了 3 次。</div>
+            <span class="k-btn">知道了，下一步</span>
+          </div>
+        </div>
+        <figcaption><b>圈关键词，再对答案</b>题干每一段都能圈，还故意放了用不上的话。孩子自己圈完再对：绿色圈对了，橙色虚线漏了，灰色划掉的用不上。圈得刚好过程奖 ＋2，多圈 ＋1，漏圈 0。右上角是宠物头像和这一类题的技能点进度。</figcaption>
+      </figure>
+      <figure>
+        <div class="phone">
+          <div class="k-top"><h4>时间小侦探 1/6</h4><span class="buddy"><span class="ava"><svg><use href="#pet2"/></svg></span><span class="ring" style="--p:80"><b>4/5</b></span><small><b>灵鼻子</b>技能点</small></span></div>
+          <div class="k-body">
+            <div class="steps"><span class="done">圈关键词</span><span class="done">选算式</span><span class="now">算和答</span></div>
+            <div class="k-card q sm">……以后<span class="sg k">每隔 3 小时</span>测一次，<span class="sg k">第 4 次</span>测体温是几时？</div>
+            <div class="k-card"><div class="expr">8 + 3 × (4 − 1) ＝ <span class="box">17</span></div><div class="ans2">答：第 4 次测体温是 <b>17</b> <span class="uslot"></span></div></div>
+            <div class="bubble">得数算对了！答句里还有一个空格没填。</div>
+            <div class="pad4"><span>1</span><span>2</span><span>3</span><span>⌫</span><span>4</span><span>5</span><span>6</span><span>0</span><span>7</span><span>8</span><span>9</span><span class="go">交卷</span><span class="u">时</span><span class="u">小时</span><span class="u">次</span><span></span></div>
+          </div>
+        </div>
+        <figcaption><b>算和答</b>选好的算式留在上面，只要算出得数，答句自动带上这个数。单位是答句里单独的一格，键盘上有单位键。没填单位就交卷，记一次「忘写单位」。刚开始留虚线空格提醒，忘得少了就去掉空格，只问「答句是不是少了点什么」。</figcaption>
+      </figure>
+      <figure>
+        <div class="phone">
+          <div class="k-top"><h4>团团的本领</h4><span class="pill"><i class="ico star"></i>3</span></div>
+          <div class="k-body">
+            <div class="skills">
+              <div class="skill sel"><b>灵鼻子</b><small>审题</small><div class="dots"><i class="f"></i><i></i><i></i></div></div>
+              <div class="skill"><b>排排队</b><small>运算顺序</small><div class="dots"><i class="f"></i><i></i><i></i></div></div>
+              <div class="skill"><b>稳稳爪</b><small>计算</small><div class="dots"><i class="f"></i><i class="f"></i><i></i></div></div>
+              <div class="skill"><b>收尾巴</b><small>答句单位</small><div class="dots"><i></i><i></i><i></i></div></div>
+              <div class="skill"><b>巡逻</b><small>检查</small><div class="dots"><i></i><i></i><i></i></div></div>
+              <div class="skill"><b>探路</b><small>找规律</small><div class="dots"><i></i><i></i><i></i></div></div>
+            </div>
+            <div class="k-card"><b>灵鼻子 · 第 1 级</b><p>你圈对关键词时，团团会凑过去嗅一嗅，跟着指出来。</p><p class="k-dim">升到第 2 级要 6 个审题技能点，现在有 3 个。升级后团团学会「趴下来用放大镜看」的动作。</p></div>
+            <span class="k-btn" style="opacity:.5">还差 3 个技能点</span>
+          </div>
+        </div>
+        <figcaption><b>本领</b>六个本领对应家长端的六种错因。孩子在这里看到的，就是家长在进度页看到的同一件事。</figcaption>
+      </figure>
+
+            <figure>
+        <div class="phone">
+          <div class="k-top"><h4>小卖部</h4><span class="pill"><i class="ico coin"></i>584</span></div>
+          <div class="k-body">
+            <div class="k-card shop"><b>骨头饼干<small>饱食 ＋10</small></b><span class="pill"><i class="ico coin"></i>10</span><b>鸡肉蔬菜饭<small>饱食 ＋35</small></b><span class="pill"><i class="ico coin"></i>40</span><b>豪华便当<small>饱食 ＋70，心情 ＋10</small></b><span class="pill"><i class="ico coin"></i>80</span></div>
+            <div class="k-card shop"><b>泡泡香皂<small>洗一次澡，清洁 ＋50</small></b><span class="pill"><i class="ico coin"></i>30</span><b>飞盘<small>能玩 5 次，每次心情 ＋20</small></b><span class="pill"><i class="ico coin"></i>80</span><b>蓝围巾<small>装扮</small></b><span class="pill"><i class="ico coin"></i>220</span></div>
+            <div class="wish"><b>心愿单 · 周末去科技馆</b><p>这周来满 4 天就能兑换。爸爸妈妈设的。</p><div class="stamps"><i class="f"></i><i class="f"></i><i class="f"></i><i></i><i></i></div></div>
+          </div>
+        </div>
+        <figcaption><b>小卖部</b>没有免费的吃的。吃的和香皂用一次少一份，玩具有使用次数。照顾一天约 85 金币，约收入的一半，剩下的攒着买装扮。心愿单按出勤兑换，和金币无关。</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="parent">
+    <header><h2>家长端新增</h2><p>界面沿用现在的纸面风格。本周页多一块「孩子端题库」，进度页多一列屏幕正确率。下面是这一块的样子，数字为示例。</p></header>
+    <div class="ppanel">
+      <header><h3>孩子端题库 · 2026-W40</h3><span>12 个模板 · 296 道 · 已验算 · 周一生效</span></header>
+      <div class="pgrid">
+        <div>
+          <div class="scroll" style="border:0;border-radius:0">
+            <table>
+              <thead><tr><th>题型组</th><th>来自</th><th class="n">题数</th><th>当前难度</th><th class="n">上周屏幕首答</th></tr></thead>
+              <tbody>
+                <tr><td>24 时记时法 · 概念不清</td><td>本周重点</td><td class="n">50</td><td>同构</td><td class="n">新</td></tr>
+                <tr><td>经过时间 · 审题</td><td>本周重点</td><td class="n">50</td><td>同构</td><td class="n">新</td></tr>
+                <tr><td>含括号混合运算 · 格式规范</td><td>本周重点</td><td class="n">48</td><td>略变</td><td class="n">新</td></tr>
+                <tr><td>间隔与「第几次」· 审题</td><td>往周未过关</td><td class="n">49</td><td>略变</td><td class="n">62% <span class="state w">再练</span></td></tr>
+                <tr><td>两步应用题 · 审题</td><td>往周未过关</td><td class="n">25</td><td>综合</td><td class="n">78%</td></tr>
+                <tr><td>乘法口算 · 计算失误</td><td>保温</td><td class="n">49</td><td>略变</td><td class="n">91% <span class="state">过关</span></td></tr>
+                <tr><td>两三位数乘一位数</td><td>下周预习</td><td class="n">25</td><td>同构</td><td class="n">新</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <h3>每周可以调的</h3>
+          <dl class="knobs">
+            <dt>每日题量</dt><dd>20 题</dd>
+            <dt>每日时长上限</dt><dd>20 分钟</dd>
+            <dt>本周重点（可手改）</dt><dd>前 3 项 · × 1.5</dd>
+            <dt>难度配比</dt><dd>同构 4 · 略变 4 · 综合 2</dd>
+            <dt>「慢慢来」严格度</dt><dd>标准</dd>
+            <dt>心愿单</dt><dd>周末去科技馆</dd>
+          </dl>
+          <p class="note">上周屏幕练习：5 天里来了 4 天，首答正确率 71%，审题类从 62% 升到 78%。这一行也会印在辅导单的概览里。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="contract">
+    <header><h2>分支与数据契约</h2><p>按你的想法用两个长期分支。前提是把两端的接触面压到最小：孩子端不读错题 md，不碰扫描件，只收题库包、只交答题记录。这样两个分支各改各的，不会互相拖累。</p></header>
+    <div class="scroll">
+      <table>
+        <thead><tr><th></th><th>main · 家长端</th><th>kid · 孩子端</th></tr></thead>
+        <tbody>
+          <tr><td><b>运行位置</b></td><td>本地 Mac，端口 5174，和现在一致</td><td>托管站点，平板和手机随时能开，Mac 关机也能玩</td></tr>
+          <tr><td><b>数据</b></td><td>错题 md、知识点、辅导单，文件即真相。题库模板和答题汇总各占周 md 里的一段，不新增数据文件</td><td>站点数据库四张表：题目、作答流水、金币流水、宠物</td></tr>
+          <tr><td><b>代码</b></td><td>现有代码，改 4 处，不加文件</td><td>新的前端，加一个带判分和存档接口的 worker</td></tr>
+          <tr><td><b>工作目录</b></td><td>当前文件夹</td><td>用 git worktree 放在旁边的文件夹，不用来回切分支</td></tr>
+          <tr><td><b>出题与验算</b></td><td>全部在 Mac 上：模板实例化、verifyItem 验算、金币标价</td><td>不出题。worker 只比对数字，不执行算式</td></tr>
+          <tr><td><b>判分与金币</b></td><td>不参与</td><td>在服务器端。取题接口不返回答案和陷阱值，金币只追加流水，余额取合计，浏览器改不了</td></tr>
+          <tr><td><b>口令</b></td><td>家庭密码</td><td>孩子自己的口令，另有一个同步令牌只给 Mac 用</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="two">
+      <div><h3 style="margin-bottom:8px">题库包（家长端 → 孩子端）</h3><pre>{ "week": "2026-W40",
+  "tuning": { "daily": 20, "minutes": 20, "bonus": 10 },
+  "groups": [{ "id": "g03", "name": "时间小侦探",
+    "knowledge_point": "01X.1",
+    "error_type": "审题",
+    "bucket": "重点", "level": "略变" }],
+  "items": [{ "id": "W40-t07-013", "group": "g03",
+    "format": "word3",
+    "text": "早上 8 时第一次测体温……",
+    "keywords": ["每隔 3 小时", "第 4 次"],
+    "choices": ["8+3×4", "8+3×(4-1)", "(8+3)×4"],
+    "answer": 17, "unit": "时",
+    "units": ["时", "小时", "次"],
+    "traps": [{ "value": 20, "error_type": "审题" }],
+    "hint": "第 4 次只经过 3 个间隔。",
+    "coins": 23, "min_ms": 20000 }] }</pre></div>
+      <div><h3 style="margin-bottom:8px">答题记录（孩子端 → 家长端）</h3><pre>// 数据库里每次作答一行
+{ "item": "W40-t07-013", "at": "2026-09-29T19:12",
+  "try": 1, "correct": false, "given": 20,
+  "trap_error_type": "审题",   // 答成了陷阱值
+  "step_failed": "选算式",
+  "keywords_missed": [], "hint_used": false,
+  "ms": 74000, "coins": 0 }
+
+// 取回时按知识点汇总，写进周 md 的「答题」段
+{ "knowledge_point": "01X.1",
+  "attempts": 38, "wrong": 11,
+  "by_error": { "审题": 8, "计算失误": 3 },
+  "level": "略变", "days": 4,
+  "samples": [{ "text": "……第 4 次是几时？",
+    "given": 20, "answer": 17 }] }</pre></div>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>家长端要改的地方（都在现有文件里）</th><th>做什么</th></tr></thead>
+        <tbody>
+          <tr><td><code>.claude/skills/weekly/rules.md</code>、<code>SKILL.md</code></td><td>rules 加一节模板写法；<code>/weekly sheet</code> 的步骤里加上写模板、推送、取回</td></tr>
+          <tr><td><code>server/sheet.js</code></td><td>复用 <code>plan()</code> 选重点、<code>verifyItem()</code> 验算每道变式；新增模板实例化和 <code>push</code>、<code>pull</code> 两个子命令</td></tr>
+          <tr><td><code>server/store.js</code></td><td><code>readWeek</code> / <code>writeWeek</code> 加「题库」「答题」两段，写法和现有的「练习」「复盘」相同；<code>computeProgress()</code> 每个周数据点多带一个 <code>screen</code>，不并入错误率；同步令牌放进现有的 settings</td></tr>
+          <tr><td><code>src/pages/WeekPage.tsx</code>、<code>ProgressPage.tsx</code></td><td>本周页加题库面板，进度页加一列</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h3>开工前要先验证的三件事</h3>
+      <ul class="rules" style="margin-top:8px">
+        <li><b>托管平台能不能用数据库。</b>现在 <code>.openai/hosting.json</code> 里 <code>d1</code> 是空的，没有实测过。不行的话，<code>site-worker.js</code> 本来就是 Workers 写法，可以原样搬到 Cloudflare Workers 加 D1。</li>
+        <li><b>同一个仓库能不能按分支发两个站点。</b>kid 分支需要自己的一份托管配置。</li>
+        <li><b>题库包不能走静态文件。</b>题库包含答案，必须进数据库，不放进 public/。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="plan">
+    <header><h2>分期与待定</h2><p>先让闭环转起来，再加养成的深度。</p></header>
+    <div class="phase">
+      <div class="card"><h3>第一期：闭环</h3><ul><li>验证数据库和双站点部署</li><li>题库模板、批量生成、推送</li><li>孩子端：小屋、今日任务、三种题型（口算、先算哪一步、应用题三步）</li><li>金币、喂食、陪玩</li><li>答题记录取回，进度页显示屏幕正确率</li></ul></div>
+      <div class="card"><h3>第二期：会调节</h3><ul><li>其余题型：钟面、先估后算、递等式分步、小老师改错、多空题</li><li>难度自动升降，往周题型间隔复现</li><li>技能点和六个本领，闪电错和「慢慢来」</li><li>家长的每周调节项，周五闯关</li></ul></div>
+      <div class="card"><h3>第三期：养成</h3><ul><li>装扮和小屋家具</li><li>挑战题、心愿单</li><li>辅导单概览里加一行屏幕练习</li><li>离线也能做题，学期成长相册</li></ul></div>
+    </div>
+    <h3>需要你定的六件事</h3>
+    <ol class="decide">
+      <li><b>两个分支，还是一个分支两个入口。</b>稿子按你说的两个分支画。架构复核时也有另一种意见：留在 main，加一个 <code>/kid</code> 入口，一次构建一起部署，少管一个工作目录。它的代价是孩子端每次改动都会连带重发家长站点，两端也共用一个站点。我的建议是两个分支，因为孩子端站点里完全没有错题和截图。</li>
+      <li><b>孩子在哪用。</b>建议托管，Mac 不开机也能玩。如果只在家里用，也可以让本地服务直接提供孩子端，存档就是 Mac 上的文件，更简单，但 Mac 必须开着。</li>
+      <li><b>PRD 要改口径。</b>PRD 3.3 写明不做「孩子在屏幕上答题」和公网部署，第 7 节写明不引入数据库。这次三条都要改，确认后升到 v2.0，并写清数据库只存游戏状态和作答流水，纸面成绩仍是进度判定的唯一依据。</li>
+      <li><b>宠物形象和名字。</b>用「宠物」一节的提示词在 ChatGPT 里生成，先让孩子从三只小狗里挑一只，再生成整套。生成好的图放进项目的 <code>design/pet/</code>，拼图由我切成单张。</li>
+      <li><b>要不要现实奖励。</b>建议要，但只按「这周来了几天」兑换，一周一次，选体验类的，不和金币或正确率挂钩。</li>
+      <li><b>每天的上限。</b>建议 20 题加最多 10 题加练，一次 25 分钟封顶，晚上 8 点半后不开放。</li>
+    </ol>
+  </section>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id)
+  const ids = ['c-type', 'c-diff', 'c-src', 'c-q', 'c-p']
+  const coins = (base, diff, src, q, proc) => { const core = Math.round(base * diff * src * q); return { core, total: core + (proc && q > 0 ? 2 : 0) } }
+  const fmt = n => String(Math.round(n * 100) / 100)
+  const render = () => {
+    const [base, diff, src, q] = ids.slice(0, 4).map(id => Number($(id).value))
+    const proc = $('c-p').checked
+    const { core, total } = coins(base, diff, src, q, proc)
+    const raw = base * diff * src * q
+    $('c-out').innerHTML = `<b>${total} 金币</b><span>${base} × ${diff} × ${src} × ${q} ＝ ${fmt(raw)}${fmt(raw) === String(core) ? '' : `，取整 ${core}`}${proc && q > 0 ? '，过程奖 ＋2' : ''}</span>`
+  }
+  ids.forEach(id => $(id).addEventListener('change', render))
+  document.addEventListener('click', e => {
+    const b = e.target.closest('.copy'); if (!b) return
+    const pre = $(b.dataset.copy), done = t => { b.textContent = t; setTimeout(() => { b.textContent = '复制' }, 1600) }
+    const fallback = () => { const r = document.createRange(); r.selectNodeContents(pre); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); done('已选中，按复制键') }
+    try { navigator.clipboard.writeText(pre.textContent).then(() => done('已复制'), fallback) } catch { fallback() }
+  })
+  render()
+})()
+</script>

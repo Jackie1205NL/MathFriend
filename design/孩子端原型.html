@@ -1,0 +1,554 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>团团小屋原型</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&family=ZCOOL+KuaiLe&display=swap">
+<style>
+/* 版式：左边一台可以真的点的手机（孩子看到的），右边一栏「幕后」（家长关心的：这题怎么标价、记了什么、照顾要花多少） */
+:root{
+  --bg:#f8f7f2;--paper:#fdfcf8;--ink:#20231f;--muted:#6b7069;--line:#deddd4;--green:#285d3b;--amber:#b85f0e;--code:#f1f0e8;
+  --serif:'Noto Serif SC','Songti SC',serif;--sans:'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;
+  --kid:'ZCOOL KuaiLe','Noto Sans SC','PingFang SC',sans-serif;--mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --k-bg:#e9f6ec;--k-card:#ffffff;--k-ink:#1d3327;--k-dim:#5f7a69;--k-leaf:#2f8f5b;--k-leaf-d:#206a42;--k-coin:#f08a1c;
+  --k-sun:#ffd766;--k-belly:#fff3c9;--k-sky:#3b8fd6;--k-berry:#e0527a;--k-line:#cfe6d5;--k-wall:#fff7e0;--k-ok:#dff3e5;--k-bad:#fde4ea;--k-miss:#fff1dc;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141915;--paper:#1b221c;--ink:#e6e9e1;--muted:#9aa197;--line:#2f3830;--green:#8fc79f;--amber:#f0a04b;--code:#222a23;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#141915;--paper:#1b221c;--ink:#e6e9e1;--muted:#9aa197;--line:#2f3830;--green:#8fc79f;--amber:#f0a04b;--code:#222a23;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:400 14px/1.7 var(--sans)}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
+button:disabled{cursor:default}
+:focus-visible{outline:2px solid var(--k-sky);outline-offset:2px}
+.page{max-width:1060px;margin:0 auto;padding-inline:16px;padding-block:28px 60px;display:grid;grid-template-columns:390px minmax(0,1fr);gap:28px;align-items:start}
+.intro{grid-column:1/-1}
+.intro h1{font:700 26px/1.3 var(--serif);margin:0;letter-spacing:.03em}
+.intro p{margin:6px 0 0;color:var(--muted);max-width:46em}
+
+/* 手机 */
+.phone{border:8px solid var(--k-ink);border-radius:34px;background:var(--k-bg);color:var(--k-ink);overflow:hidden;font:500 14px/1.5 var(--sans);display:flex;flex-direction:column;height:min(780px,calc(100vh - 24px));min-height:560px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px)}
+.k-top{display:flex;align-items:center;gap:6px;padding:14px 16px 8px;min-height:54px}
+.k-top h2{font:400 19px var(--kid);margin:0 auto 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.back{font-size:22px;line-height:1;padding:2px 6px 4px 0}
+.pill{display:inline-flex;align-items:center;gap:4px;background:var(--k-card);border-radius:999px;padding:3px 10px 3px 6px;font-weight:700;font-variant-numeric:tabular-nums;font-size:13px;white-space:nowrap}
+.ico{width:15px;height:15px;display:inline-block;flex:none}
+.ico.coin{border-radius:50%;background:var(--k-coin);box-shadow:inset 0 0 0 2.5px #ffffff73}
+.ico.star{background:var(--k-sky);clip-path:polygon(50% 0,62% 35%,98% 35%,69% 57%,80% 92%,50% 71%,20% 92%,31% 57%,2% 35%,38% 35%)}
+.k-body{padding:4px 16px 16px;display:grid;gap:11px;align-content:start;flex:1;overflow-y:auto;position:relative}
+.k-card{background:var(--k-card);border-radius:16px;padding:11px 13px}
+.k-btn{display:block;width:100%;text-align:center;background:var(--k-leaf);color:#fff;border-radius:16px;padding:11px;font:400 18px var(--kid);box-shadow:0 4px 0 var(--k-leaf-d)}
+.k-btn:active{transform:translateY(2px);box-shadow:0 2px 0 var(--k-leaf-d)}
+.k-btn:disabled{opacity:.45;box-shadow:none}
+.k-btn small{display:block;font:500 12px var(--sans);opacity:.92}
+.k-btn.ghost{background:var(--k-card);color:var(--k-ink);box-shadow:0 3px 0 var(--k-line);font-size:15px;padding:8px}
+.dim{color:var(--k-dim);font-size:12.5px;margin:0}
+.room{background:linear-gradient(var(--k-wall) 0 70%,#d9c08f 70% 100%);border-radius:18px;position:relative;padding:8px 10px 2px;text-align:center;overflow:hidden;cursor:pointer}
+.room svg,.room img{width:150px;height:150px;object-fit:contain;display:block;margin:0 auto}
+.curtain::before,.curtain::after{content:"";position:absolute;top:0;width:34px;height:74px;background:var(--k-berry);opacity:.85}
+.curtain::before{left:0;border-radius:0 0 28px 0}.curtain::after{right:0;border-radius:0 0 0 28px}
+.mood-tag{position:absolute;left:10px;bottom:8px;font-size:11.5px;background:var(--k-card);border-radius:999px;padding:1px 8px}
+.bubble{background:var(--k-card);border-radius:14px;padding:8px 12px;font-size:13.5px;position:relative;min-height:38px}
+.bubble::after{content:"";position:absolute;left:50%;bottom:-6px;width:12px;height:12px;background:var(--k-card);transform:translateX(-50%) rotate(45deg)}
+.bubble.plain::after{display:none}
+.bubble.warn{background:var(--k-bad)}
+.bars{display:grid;grid-template-columns:auto 1fr auto;gap:6px 9px;align-items:center;font-size:13px}
+.bar{height:9px;border-radius:9px;background:var(--k-line);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:9px;background:var(--k-leaf);transition:width .4s}
+.bar.b i{background:var(--k-berry)}.bar.s i{background:var(--k-sky)}.bar.c i{background:#69b7d8}
+.bar.low i{background:var(--k-coin)}
+.acts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.acts button{background:var(--k-card);border-radius:14px;padding:8px 2px;text-align:center;font:400 15px var(--kid);box-shadow:0 3px 0 var(--k-line)}
+.acts small{display:block;font:500 11px var(--sans);color:var(--k-dim)}
+.nav{display:grid;grid-template-columns:repeat(4,1fr);background:var(--k-card);border-top:1px solid var(--k-line)}
+.nav button{padding:10px 0 12px;font:400 15px var(--kid);color:var(--k-dim)}
+.nav button.on{color:var(--k-leaf);box-shadow:inset 0 3px 0 var(--k-leaf)}
+.quest{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center;width:100%;text-align:left;box-shadow:0 3px 0 var(--k-line)}
+.quest b{font:400 17px var(--kid)}
+.quest .pill{background:var(--k-bg)}
+.quest.done{opacity:.6;box-shadow:none}
+.quest.lock{opacity:.6;border:1.5px dashed var(--k-dim);background:transparent;box-shadow:none}
+.tag{font:700 11px var(--sans);border-radius:5px;padding:1px 5px;margin-left:5px;vertical-align:2px}
+.tag.hot{color:#fff;background:var(--k-berry)}.tag.old{color:var(--k-ink);background:var(--k-sun)}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;font-size:12px;text-align:center}
+.steps span{border-radius:9px;padding:4px 2px;background:var(--k-line);color:var(--k-dim)}
+.steps .done{background:var(--k-leaf);color:#fff}.steps .now{background:var(--k-sun);color:var(--k-ink);font-weight:700}
+.q{font-size:16px;line-height:2.15}
+.q.big{font:700 26px/1.6 var(--sans);text-align:center;letter-spacing:.04em}
+.seg{border:2px dashed var(--k-line);border-radius:10px;padding:1px 3px;cursor:pointer;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.seg.on{border:2px solid var(--k-berry);background:#fff5f8}
+.seg.key{border:2px solid var(--k-leaf);background:var(--k-ok)}
+.seg.miss{border:2px dashed var(--k-coin);background:var(--k-miss)}
+.seg.noise{border:2px solid #b9bfb2;background:#f1f1ec;text-decoration:line-through;text-decoration-color:#9aa197}
+.seg.fixed{cursor:default}
+.legend{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;color:var(--k-dim)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:4px;vertical-align:-2px;margin-right:3px}
+.tok{display:inline-block;min-width:34px;padding:2px 6px;border-radius:10px}
+button.tok{background:var(--k-bg);box-shadow:0 3px 0 var(--k-line);margin:0 2px}
+.opts{display:grid;gap:8px}
+.opts button{border:2px solid var(--k-line);border-radius:12px;padding:8px 12px;font:700 15px var(--sans);background:var(--k-card);text-align:left}
+.expr{font:700 18px/1.8 var(--sans);text-align:center}
+.ans{font-size:15.5px;line-height:2.2}
+.box{min-width:56px;min-height:34px;text-align:center;border:2px solid var(--k-leaf);border-radius:11px;background:var(--k-card);font:700 20px/30px var(--sans);padding:0 10px;display:inline-block;vertical-align:middle}
+.uslot{display:inline-block;min-width:44px;min-height:30px;border:2px dashed var(--k-coin);border-radius:9px;vertical-align:middle}
+.uchip{display:inline-block;border:2px solid var(--k-leaf);background:var(--k-ok);border-radius:9px;padding:0 9px;font-weight:700;vertical-align:middle}
+.pad{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.pad button{background:var(--k-card);border-radius:11px;padding:8px 0;font:700 18px var(--sans);box-shadow:0 3px 0 var(--k-line)}
+.pad button.u{font:700 15px var(--sans);background:#fff8e6;box-shadow:0 3px 0 #f1dfb4}
+.pad button.go{background:var(--k-leaf);color:#fff;box-shadow:0 3px 0 var(--k-leaf-d);font:400 17px var(--kid)}
+.line{font:700 19px/2 var(--sans)}
+.clock{display:block;margin:0 auto;width:210px;height:210px}
+.clock .face{fill:var(--k-card);stroke:var(--k-ink);stroke-width:3}
+.clock text{font:700 13px var(--sans);fill:var(--k-ink);text-anchor:middle;dominant-baseline:central}
+.clock .dot{fill:var(--k-line);cursor:pointer}.clock .dot.on{fill:var(--k-berry)}
+.clock .hh{stroke:var(--k-berry);stroke-width:6;stroke-linecap:round}.clock .mh{stroke:var(--k-ink);stroke-width:3.5;stroke-linecap:round}
+.cover{position:absolute;inset:0;background:var(--k-bg);display:grid;place-content:center;gap:10px;text-align:center;z-index:3;padding:20px}
+.cover svg,.cover img{width:120px;height:120px;margin:0 auto;object-fit:contain}
+.fb{border-radius:16px;padding:12px 14px;background:var(--k-ok);position:relative}
+.fb.zero{background:var(--k-bad)}
+.fb b.c{font:400 26px var(--kid);color:var(--k-coin);display:flex;align-items:center;gap:6px}
+.fb .ico{width:20px;height:20px}
+.rows{display:grid;grid-template-columns:1fr auto;gap:5px 10px;font-variant-numeric:tabular-nums}
+.rows b{text-align:right}
+.sum{font:400 36px/1.2 var(--kid);color:var(--k-coin);display:flex;align-items:center;gap:8px;justify-content:center}
+.sum .ico{width:26px;height:26px}
+/* 答题时的宠物头像和技能环 */
+.buddy{display:flex;align-items:center;gap:6px;background:var(--k-card);border-radius:999px;padding:2px 10px 2px 2px}
+.ava{width:36px;height:36px;border-radius:50%;background:var(--k-wall);overflow:hidden;display:grid;place-items:center}
+.ava svg,.ava img{width:40px;height:40px;object-fit:contain}
+.ring{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--k-sky) calc(var(--p)*1%),var(--k-line) 0)}
+.ring b{width:20px;height:20px;border-radius:50%;background:var(--k-card);display:grid;place-items:center;font-size:10.5px}
+.buddy small{font-size:11px;line-height:1.2;color:var(--k-dim)}
+.buddy small b{display:block;color:var(--k-ink);font-size:12px}
+.cere{position:absolute;inset:0;z-index:4;display:grid;place-content:center;text-align:center;pointer-events:none;background:#e9f6ecee;animation:cere 2.2s ease forwards}
+.cere .ava{width:96px;height:96px;margin:0 auto;box-shadow:0 0 0 6px var(--k-sun),0 0 30px 10px #ffd76699}
+.cere .ava svg,.cere .ava img{width:104px;height:104px}
+.cere b{font:400 24px var(--kid);margin-top:12px;display:block}
+.cere .stars{position:relative;height:0}
+.cere .stars i{position:absolute;left:50%;top:-60px;width:16px;height:16px;background:var(--k-sun);clip-path:polygon(50% 0,62% 35%,98% 35%,69% 57%,80% 92%,50% 71%,20% 92%,31% 57%,2% 35%,38% 35%);animation:burst 1s ease-out forwards}
+@keyframes cere{0%{opacity:0}10%,75%{opacity:1}100%{opacity:0;visibility:hidden}}
+@keyframes burst{from{transform:translate(-50%,0) scale(.3)}to{transform:translate(calc(-50% + var(--x)),var(--y)) scale(1)}}
+.fly{position:absolute;right:16px;top:6px;font:400 20px var(--kid);color:var(--k-coin);animation:fly 1.2s ease forwards}
+@keyframes fly{from{transform:translateY(0);opacity:1}to{transform:translateY(-36px);opacity:0}}
+.skills{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.skill{background:var(--k-card);border-radius:14px;padding:9px 4px;text-align:center;box-shadow:0 3px 0 var(--k-line)}
+.skill b{display:block;font:400 16px var(--kid)}
+.skill small{display:block;color:var(--k-dim);font-size:11.5px}
+.skill.sel{box-shadow:0 0 0 2.5px var(--k-leaf)}
+.dots{display:flex;gap:3px;justify-content:center;margin-top:4px}
+.dots i{width:9px;height:9px;border-radius:50%;background:var(--k-line)}.dots i.f{background:var(--k-sky)}
+.shop{display:grid;grid-template-columns:1fr auto;gap:9px 8px;align-items:center}
+.shop small{display:block;color:var(--k-dim);font-size:12px;font-weight:400}
+.shop h3{grid-column:1/-1;margin:0;font:400 15px var(--kid);color:var(--k-dim)}
+.buy{background:var(--k-bg);border-radius:999px;padding:4px 12px 4px 7px;font-weight:700;display:inline-flex;gap:5px;align-items:center;box-shadow:0 2px 0 var(--k-line)}
+.wish{background:var(--k-sun);border-radius:16px;padding:11px 13px}
+.stamps{display:flex;gap:6px;margin-top:6px}
+.stamps i{width:22px;height:22px;border-radius:50%;border:2px dashed var(--k-ink);opacity:.45}
+.stamps i.f{border-style:solid;background:var(--k-leaf);border-color:var(--k-leaf);opacity:1}
+.pb{fill:#f4b860}.pbel{fill:var(--k-belly)}.pd{fill:#d9893a}.pk{fill:#c79a5e}.pl{fill:var(--k-leaf)}.pe{fill:var(--k-ink)}.pc{fill:var(--k-berry);opacity:.45}.pf{fill:var(--k-berry)}.pw{fill:#fff}.ps{fill:var(--k-sky)}.pt{fill:#ffc531;stroke:var(--k-ink);stroke-width:1}.pz{fill:none;stroke:var(--k-ink);stroke-width:2;stroke-linecap:round}
+/* 宠物动作 */
+.breathe{animation:breathe 3.2s ease-in-out infinite;transform-origin:50% 90%}
+@keyframes breathe{50%{transform:scale(1.03,.97)}}
+.a-hop{animation:hop .5s ease 2}.a-spin{animation:spin .9s ease}.a-look{animation:look 1.2s ease}.a-squish{animation:squish 1.4s ease}
+.a-stretch{animation:stretch 1.2s ease}.a-think{animation:think 1.6s ease}.a-giggle{animation:giggle .5s linear 2}
+@keyframes hop{0%,100%{transform:translateY(0)}40%{transform:translateY(-16px)}}
+@keyframes spin{0%{transform:rotate(0)}30%{transform:rotate(-12deg)}70%{transform:rotate(12deg)}100%{transform:rotate(0)}}
+@keyframes look{0%,100%{transform:translateX(0)}25%{transform:translateX(-10px)}75%{transform:translateX(10px)}}
+@keyframes squish{0%,100%{transform:scale(1)}40%{transform:scale(1.1,.86)}}
+@keyframes stretch{0%,100%{transform:scale(1)}40%{transform:scale(.92,1.12)}}
+@keyframes think{0%,100%{transform:rotate(0)}30%,70%{transform:rotate(8deg)}}
+@keyframes giggle{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+@media (prefers-reduced-motion:reduce){.breathe,[class*="a-"],.cere,.cere .stars i,.fly{animation:none!important}.cere{display:none}.bar i{transition:none}}
+
+/* 幕后 */
+.side{display:grid;gap:14px;min-width:0}
+.panel{border:1px solid var(--line);border-radius:11px;background:var(--paper);padding:14px 16px;min-width:0}
+.panel h3{font:700 15px var(--serif);color:var(--green);margin:0 0 8px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;margin:0;font-size:13.5px}
+.kv dt{color:var(--muted);white-space:nowrap}.kv dd{margin:0;min-width:0}
+.calc{font:600 15px var(--serif);color:var(--amber);margin:0}
+pre{margin:0;overflow-x:auto;background:var(--code);border-radius:8px;padding:10px 12px;font:12px/1.6 var(--mono);color:var(--ink);max-height:230px}
+.ctl{display:flex;flex-wrap:wrap;gap:7px}
+.ctl button,.ctl label{border:1px solid var(--line);border-radius:7px;padding:3px 10px;background:var(--bg);font-size:13px;cursor:pointer}
+.ctl button.on{border-color:var(--green);color:var(--green);font-weight:700}
+.ctl input[type=file]{position:absolute;width:1px;height:1px;opacity:0}
+.muted{color:var(--muted);font-size:13px;margin:6px 0 0}
+@media(max-width:860px){.page{grid-template-columns:1fr}.phone{position:static;max-width:420px;width:100%;margin:0 auto;height:740px}}
+@media(max-width:440px){.phone{border-width:0;border-radius:18px}}
+</style>
+
+<div class="page">
+  <p style="grid-column:1/-1;border:1px solid #d9a441;border-radius:8px;padding:8px 12px;font-size:13px">这是早期的可点原型（数据不保存），正式实现见 kid/。</p>
+  <div class="intro">
+    <h1>团团小屋 · 可点的原型 v0.2</h1>
+    <p>左边是孩子看到的，可以做题、赚金币、照顾宠物、学本领；在小屋里什么都不点，宠物过一会儿会自己说话。右边是幕后：每道题怎么标价、答完记下了什么、照顾一天要花多少。演示版一天 12 题，题目取自 W39 的真实错题类型，刷新即重来。小狗形象是占位，可以在右下角换成你生成的图。</p>
+  </div>
+  <div class="phone" id="app" aria-live="polite"></div>
+  <div class="side" id="side"></div>
+</div>
+
+<script>
+(() => {
+const BASE = { oral: 1, first: 2, clock: 4, steps: 6, word: 12 }
+const FNAME = { oral: '口算闪答', first: '先算哪一步', clock: '拨钟面', steps: '递等式分步', word: '应用题三步' }
+const MIN = { oral: 2, first: 3, clock: 5, steps: 6, word: 8 }           // 最短思考秒数（演示版调短了）
+const DIFF = { 同构: 1, 略变: 1.3, 综合: 1.6 }
+const SRC = { 本周重点: 1.5, 往周未过关: 1.2, 下周预习: 1, 已掌握保温: 0.8 }
+const SKILLS = [
+  { k: '审题', n: '灵鼻子', s: '审题', d: '你圈对关键词时，它会凑过去嗅一嗅，跟着指出来。' },
+  { k: '概念不清', n: '排排队', s: '运算顺序', d: '团团会把先算的部分举起来。' },
+  { k: '计算失误', n: '稳稳爪', s: '计算', d: '算完先估一估位数。' },
+  { k: '格式规范', n: '收尾巴', s: '答句单位', d: '答句写完整，单位不落下。' },
+  { k: '漏题', n: '巡逻', s: '检查', d: '交卷前绕着作业走一圈。一整天没有急着答错的题，得 1 点。' },
+  { k: '策略缺失', n: '探路', s: '找规律', d: '画图、列表、找规律。' },
+]
+const COST = [3, 6, 10]
+// 应用题：题干每一段都能圈。k=关键词，n=用不上的噪音，其余是普通信息（圈了不算错）
+const GROUPS = [
+  { id: 'g1', name: '口算热身', sub: '加减法和乘法口算', src: '已掌握保温', kp: 'EX.02 口算', items: [
+    { id: 'W40-t01-004', f: 'oral', lv: '同构', err: '计算失误', text: '35 × 6', a: 210, traps: { 190: '计算失误' }, hint: '30×6=180，5×6=30，合起来。', explain: '180+30=210。' },
+    { id: 'W40-t01-011', f: 'oral', lv: '同构', err: '计算失误', text: '200 − 55', a: 145, traps: {}, hint: '200−50=150，再减 5。', explain: '150−5=145。' },
+    { id: 'W40-t02-007', f: 'oral', lv: '同构', err: '计算失误', text: '3 × 120', a: 360, traps: { 460: '计算失误' }, hint: '3×12=36，末尾添一个 0。', explain: '3×12=36，添 0 得 360。' },
+  ] },
+  { id: 'g2', name: '时间小侦探', sub: '24 时记时法', src: '本周重点', hot: 1, kp: '01X.1 24 时记时法与经过时间', items: [
+    { id: 'W40-t07-013', f: 'word', lv: '略变', err: '审题', a: 17, unit: '时', units: ['时', '小时', '次'], traps: { 20: '审题' },
+      segs: [{ t: '小红感冒了，', n: 1 }, { t: '早上 8 时' }, { t: '第一次测体温，' }, { t: '体温计是新买的。', n: 1 }, { t: '以后' }, { t: '每隔 3 小时', k: 1 }, { t: '测一次，' }, { t: '第 4 次', k: 1 }, { t: '测体温是几时？' }],
+      why: '「每隔 3 小时」和「第 4 次」决定要加几次 3：第 4 次只隔了 3 次。感冒和新体温计跟算式没关系。',
+      choices: [{ t: '8 + 3 × 4' }, { t: '8 + 3 × (4 − 1)', ok: 1 }, { t: '(8 + 3) × 4' }], ask: '答：第 4 次测体温是',
+      hint: '第 4 次只经过 3 个间隔，不是 4 个。', explain: '8 时、11 时、14 时、17 时。8+3×(4−1)=17，答句写「17 时」，表示时刻。' },
+    { id: 'W40-t05-002', f: 'clock', lv: '同构', err: '概念不清', text: '把时针拨到 21:30 的位置', a: 19, trap: 18,
+      hint: '几时半，时针在两个数的正中间。', explain: '21:30 是晚上 9 时半，时针在 9 和 10 的正中间。' },
+    { id: 'W40-t08-006', f: 'word', lv: '同构', err: '审题', a: 18, unit: '时', units: ['时', '分', '小时'], traps: { 6: '审题' }, tail: '30 分',
+      segs: [{ t: '小明' }, { t: '傍晚', k: 1 }, { t: ' 6 时 30 分吃晚饭，' }, { t: '吃了两碗米饭。', n: 1 }, { t: '用' }, { t: '24 时记时法', k: 1 }, { t: '表示，是几时几分？' }],
+      why: '「傍晚」说明是下午的时间，「24 时记时法」要求加 12。吃了几碗饭用不上。',
+      choices: [{ t: '6 + 12', ok: 1 }, { t: '6' }, { t: '12 − 6' }], ask: '答：是',
+      hint: '傍晚是下午的时间，要加 12。', explain: '下午和晚上的时刻加 12，6+12=18，是 18 时 30 分。' },
+  ] },
+  { id: 'g3', name: '先算哪一步', sub: '带括号的混合运算', src: '本周重点', hot: 1, kp: '01.3 含括号的两步混合运算', items: [
+    { id: 'W40-t03-009', f: 'first', lv: '略变', err: '概念不清', toks: ['800', '−', '316', '×', '2'], a: 3, hint: '有乘有减，先算乘法。', explain: '先算 316×2=632，再算 800−632=168。' },
+    { id: 'W40-t03-015', f: 'first', lv: '略变', err: '概念不清', toks: ['63', '÷', '(', '145', '−', '142', ')'], a: 4, hint: '有括号，先算括号里面的。', explain: '先算 145−142=3，再算 63÷3=21。' },
+    { id: 'W40-t04-003', f: 'steps', lv: '略变', err: '概念不清', text: '100 − 12 ÷ 4', lines: [{ pre: '= 100 − ', a: 3, traps: {}, hint: '先算 12÷4，把它的得数填进去。' }, { pre: '= ', a: 97, traps: { 22: '概念不清' }, hint: '用 100 减去刚才算出的 3。' }],
+      hint: '先算 12÷4。', explain: '12÷4=3，100−3=97。不能从左往右先算 100−12。' },
+  ] },
+  { id: 'g4', name: '第几次？', sub: '间隔问题 · 换了新故事', src: '往周未过关', old: 1, kp: 'EX.01 找规律与推理', items: [
+    { id: 'W38-t11-020', f: 'word', lv: '略变', err: '审题', a: 86, unit: '个', units: ['个', '天', '次'], traps: { 92: '审题', 110: '审题' },
+      segs: [{ t: '小猴' }, { t: '第 1 天摘 50 个桃，' }, { t: '以后' }, { t: '每天都比前一天多摘 6 个，', k: 1 }, { t: '计划摘 10 天。', n: 1 }, { t: '猴妈妈很高兴。', n: 1 }, { t: '第 7 天', k: 1 }, { t: '摘了多少个？' }],
+      why: '「第 7 天」比第 1 天多了 6 次，「每天多摘 6 个」告诉你每次多几个。计划摘 10 天、猴妈妈高兴都用不上。',
+      choices: [{ t: '50 + 6 × 7' }, { t: '50 + 6 × (7 − 1)', ok: 1 }, { t: '50 + 6 × 10' }], ask: '答：第 7 天摘了',
+      hint: '从第 1 天到第 7 天，只多了 6 次。', explain: '50+6×(7−1)=86，答句写「86 个」。' },
+    { id: 'W38-t12-008', f: 'word', lv: '略变', err: '审题', a: 8, unit: '班', units: ['班', '小时', '人'], traps: { 7: '审题' },
+      segs: [{ t: '公交车' }, { t: '6 时发第一班，' }, { t: '以后' }, { t: '每隔 2 小时', k: 1 }, { t: '发一班，' }, { t: '最后一班 20 时', k: 1 }, { t: '发车。' }, { t: '每辆车能坐 40 人。', n: 1 }, { t: '一天' }, { t: '一共发几班？', k: 1 }],
+      why: '「一共」要把第一班也算上，班数比间隔多 1。能坐 40 人用不上。',
+      choices: [{ t: '(20 − 6) ÷ 2' }, { t: '(20 − 6) ÷ 2 + 1', ok: 1 }, { t: '20 ÷ 2' }], ask: '答：一天一共发',
+      hint: '14 小时里有 7 个间隔，班次比间隔多 1。', explain: '(20−6)÷2+1=8，答句写「8 班」。第一班也要算进去。' },
+  ] },
+  { id: 'g5', name: '关底题', sub: '做完上面四组后解锁', src: '本周重点', boss: 1, kp: '01.4 两步计算的实际问题', items: [
+    { id: 'W40-t09-001', f: 'word', lv: '综合', err: '审题', a: 71, unit: '根', units: ['根', '只', '个'], traps: { 72: '审题', 60: '审题' },
+      segs: [{ t: '有 6 只小猴，' }, { t: '小猴们住在山上。', n: 1 }, { t: '计划每只分 12 根香蕉。' }, { t: '分给 5 只后，', k: 1 }, { t: '剩下的' }, { t: '不够分', k: 1 }, { t: '给第 6 只了。' }, { t: '最多', k: 1 }, { t: '准备了多少根香蕉？' }],
+      why: '「不够分」说明剩下不到 12 根，「最多」就是剩 11 根，「分给 5 只后」说明已经分掉 12×5 根。',
+      choices: [{ t: '12 × 6' }, { t: '12 × 5' }, { t: '12 × 5 + 11', ok: 1 }], ask: '答：最多准备了',
+      hint: '「不够分」说明剩下的比 12 根少，最多剩 11 根。', explain: '分掉 12×5=60 根，剩下最多 11 根，60+11=71，答句写「71 根」。' },
+  ] },
+]
+const ALL = GROUPS.flatMap(g => g.items.map(it => ({ it, g })))
+const proc = it => it.f === 'word' || it.f === 'steps'
+const maxCoins = (it, g) => Math.round(BASE[it.f] * DIFF[it.lv] * SRC[g.src]) + (proc(it) ? 2 : 0)
+const DAYMAX = ALL.reduce((n, { it, g }) => n + maxCoins(it, g), 0) + 5 * Math.floor(ALL.length / 5)
+
+// 背包与小卖部：没有免费的吃的。摸摸头免费，但一天只算 3 次，每次心情 +3
+const GOODS = [
+  { k: 'cookie', n: '骨头饼干', d: '饱食 ＋10', p: 10, kind: 'food', full: 10 },
+  { k: 'rice', n: '鸡肉蔬菜饭', d: '饱食 ＋35', p: 40, kind: 'food', full: 35 },
+  { k: 'bento', n: '豪华便当', d: '饱食 ＋70，心情 ＋10', p: 80, kind: 'food', full: 70, mood: 10 },
+  { k: 'soap', n: '泡泡香皂', d: '洗一次澡，清洁 ＋50', p: 30, kind: 'soap', clean: 50 },
+  { k: 'ball', n: '橡胶小球', d: '能玩 4 次，每次心情 ＋15', p: 50, kind: 'toy', uses: 4, mood: 15 },
+  { k: 'disc', n: '飞盘', d: '能玩 5 次，每次心情 ＋20', p: 80, kind: 'toy', uses: 5, mood: 20 },
+  { k: 'scarf', n: '蓝围巾', d: '装扮，买了就戴上', p: 220, kind: 'keep' },
+  { k: 'curtain', n: '小窗帘', d: '小屋家具', p: 400, kind: 'keep' },
+]
+const DECAY = { full: 40, mood: 35, clean: 25 }   // 每天下降多少，最低停在 20
+
+// 闲聊台词：没人点它时每 12 秒挑一句，需求低时优先说需求，晚上 8 点半后只道晚安
+let LINES = {"idle": [{"t": "云朵像不像一个大馒头？我闻闻……", "act": "sniff"}, {"t": "我刚才数了数，我有两只耳朵，一个不少！", "act": "giggle"}, {"t": "如果袜子会说话，它会不会喊脚好臭？", "act": "giggle"}, {"t": "嗯……蜗牛搬家要走多久呢？", "act": "think"}, {"t": "伸个大懒腰——咔咔咔，骨头在唱歌！", "act": "stretch"}, {"t": "我转一圈，你猜我晕不晕？", "act": "spin"}, {"t": "眨眨眼，我在给你发摩斯密码哦", "act": "blink"}, {"t": "那边好像有只小虫子，嘘——", "act": "look"}, {"t": "我想学跳绳，可是绳子总缠住我的脚……", "act": "hop"}, {"t": "嗨！我刚刚想到一个笑话，又忘了。", "act": "wave"}, {"t": "打个哈欠——啊呜，把空气吃掉一口", "act": "yawn"}, {"t": "月亮白天去哪儿了？是不是在睡觉？", "act": "think"}, {"t": "跳一跳，看我能不能碰到天花板！", "act": "hop"}, {"t": "我今天的发型是不是有点乱乱的？", "act": "look"}], "math": [{"t": "晚上9时半就是21:30，我该钻被窝啦", "act": "sleepy"}, {"t": "下午3时就是15时，加上12就对啦", "act": "think"}, {"t": "从8:00到8:40，经过了40分钟哦", "act": "look"}, {"t": "每隔2分钟敲一下，第1下到第4下隔6分钟", "act": "hop"}, {"t": "一排种5棵树，中间只有4个空隙呢", "act": "think"}, {"t": "有括号的先算括号里，我记牢啦", "act": "blink"}, {"t": "我吃了3个苹果，答案后面要带上“个”", "act": "giggle"}, {"t": "读题我要读两遍，慢慢来不着急", "act": "think"}], "state_hungry": [{"t": "肚子咕咕叫，能给我一块骨头饼干吗？", "act": "sniff"}, {"t": "我闻到好吃的味道了，可以分我一口吗？", "act": "sniff"}, {"t": "有空喂我吃点东西好不好呀？", "act": "look"}], "state_bored": [{"t": "我们一起玩个小游戏好不好？", "act": "hop"}, {"t": "陪我转个圈圈吧，一个人转好无聊", "act": "spin"}, {"t": "有空的时候，来逗逗我嘛", "act": "wave"}], "state_dirty": [{"t": "我身上有点脏脏的，能帮我洗个澡吗？", "act": "look"}, {"t": "泡泡浴！我想要好多好多泡泡！", "act": "hop"}, {"t": "我闻闻自己……嗯，该洗洗啦", "act": "sniff"}], "time_morning": [{"t": "早上好！太阳公公也刚起床呢", "act": "stretch"}, {"t": "早呀！今天吃早饭了吗？", "act": "wave"}], "time_evening": [{"t": "天黑啦，星星在一颗一颗地亮起来", "act": "look"}, {"t": "晚饭吃了什么呀？我好想闻一闻", "act": "sniff"}], "time_late": [{"t": "我困啦，要去睡觉了，晚安哦！", "act": "sleepy"}, {"t": "啊呜……明天见，祝你做个甜甜的梦", "act": "yawn"}], "after_practice": [{"t": "你圈了{circled}次关键词，读题好仔细！", "act": "hop"}, {"t": "连着{best}题一次做对，是认真读题的功劳", "act": "spin"}, {"t": "今天圈了{circled}次关键词，你一步一步来的", "act": "giggle"}, {"t": "{best}题连着做对，你写得稳稳当当的", "act": "wave"}], "tap": [{"t": "哎呀，好痒好痒！", "act": "giggle"}, {"t": "你找我呀？嘿嘿，我在这儿！", "act": "wave"}, {"t": "被戳到了！我弹起来啦～", "act": "hop"}, {"t": "嗯？刚才是谁在敲门？", "act": "look"}, {"t": "再戳一下，我就转个圈给你看", "act": "spin"}, {"t": "嘿！你的手指头好暖和", "act": "blink"}, {"t": "我刚打了个盹，被你叫醒啦", "act": "yawn"}, {"t": "你好呀，今天过得怎么样？", "act": "wave"}], "tap_too_much": [{"t": "哈哈哈停一停，我笑得要打嗝啦！", "act": "giggle"}, {"t": "转转转……我变成陀螺啦，头好晕～", "act": "spin"}]}
+const ACT = { blink: 'squish', look: 'look', yawn: 'squish', stretch: 'stretch', hop: 'hop', spin: 'spin', sniff: 'look', wave: 'hop', think: 'think', giggle: 'giggle', sleepy: 'squish', squish: 'squish' }
+
+const fresh = () => ({ coins: 386, grow: 2600, full: 62, mood: 55, clean: 48, combo: 0, best: 0, flash: 0, slow: 0, today: 0, done: {}, wr: {}, log: [], day: 2,
+  pts: { 审题: 3, 概念不清: 1, 计算失误: 5, 格式规范: 0, 漏题: 0, 策略缺失: 0 }, prog: { 审题: 4, 概念不清: 2, 计算失误: 1, 格式规范: 0, 漏题: 0, 策略缺失: 0 },
+  skill: { 审题: 0, 概念不清: 1, 计算失误: 2, 格式规范: 0, 漏题: 0, 策略缺失: 0 }, own: {}, bag: { rice: 1 }, toy: {}, pats: 0, spent: 0,
+  circled: 0, kwPerfect: 0, forgotUnit: 0, patrol: false, stage: null, last: null })
+let S = fresh(), view = 'home', Q = null, say = '你来啦！今天有「第几次」的题，我们一起找关键词吧。', act = 'hop', sel = '审题', timer = null, IMG = {}, unitLv = 0, taps = []
+
+const stage = () => S.stage ?? (S.grow < 2500 ? 1 : S.grow < 7000 ? 2 : S.grow < 13500 ? 3 : 4)
+const STAGE = ['小窝', '幼犬', '少年', '青年', '成年'], NAME = '团团'
+const good = () => S.full >= 60 && S.mood >= 60 && S.clean >= 60
+function dog(st, scarf) {
+  if (st === 0) return `<svg viewBox="0 0 120 120"><ellipse class="pk" cx="60" cy="94" rx="46" ry="18"/><ellipse class="pbel" cx="60" cy="88" rx="38" ry="10"/><circle class="pb" cx="60" cy="78" r="20"/><ellipse class="pd" cx="44" cy="70" rx="7" ry="11" transform="rotate(30 44 70)"/><ellipse class="pd" cx="76" cy="70" rx="7" ry="11" transform="rotate(-30 76 70)"/><ellipse class="pbel" cx="60" cy="85" rx="11" ry="7"/><path class="pz" d="M49 78q4 3 8 0M63 78q4 3 8 0"/><ellipse class="pe" cx="60" cy="84" rx="3" ry="2"/><rect class="pk" x="14" y="94" width="92" height="15" rx="7.5"/></svg>`
+  const s = [0, .72, .84, .94, 1][st], n = [0, 1, 2, 3, 5][st]
+  const floppy = (x, r) => `<ellipse class="pd" cx="${x}" cy="50" rx="9" ry="17" transform="rotate(${r} ${x} 50)"/>`
+  const ears = st === 1 ? floppy(36, 20) + floppy(84, -20) : st === 2 ? floppy(36, 20) + '<path class="pd" d="M84 46L80 18L62 36Z"/>' : '<path class="pd" d="M36 46L40 18L58 36Z"/><path class="pd" d="M84 46L80 18L62 36Z"/>'
+  const tail = st >= 3 ? '<path class="pb" d="M84 92q24-4 18-26q-4 11-19 14z"/>' : '<ellipse class="pb" cx="86" cy="94" rx="10" ry="5" transform="rotate(-35 86 94)"/>'
+  const stars = Array.from({ length: n }, (_, i) => `<circle class="pt" cx="${60 + (i - (n - 1) / 2) * 7.5}" cy="86" r="3.3"/>`).join('')
+  return `<svg viewBox="0 0 120 120"><g transform="translate(60 116) scale(${s}) translate(-60 -116)">
+    ${st === 4 ? '<path class="pf" d="M38 78Q60 88 82 78L94 108Q60 116 26 108Z"/>' : ''}${tail}
+    <ellipse class="pb" cx="60" cy="94" rx="${st >= 3 ? 27 : 24}" ry="18"/><ellipse class="pbel" cx="60" cy="98" rx="13" ry="11"/>
+    ${st === 3 ? '<rect class="pf" x="80" y="82" width="12" height="17" rx="4"/>' : ''}
+    <ellipse class="pb" cx="47" cy="111" rx="8" ry="5"/><ellipse class="pb" cx="73" cy="111" rx="8" ry="5"/>
+    ${ears}<circle class="pb" cx="60" cy="54" r="27"/><ellipse class="pbel" cx="60" cy="64" rx="17" ry="12"/>
+    <circle class="pe" cx="50" cy="52" r="4"/><circle class="pe" cx="70" cy="52" r="4"/><circle class="pw" cx="51.5" cy="50.5" r="1.3"/><circle class="pw" cx="71.5" cy="50.5" r="1.3"/>
+    <ellipse class="pe" cx="60" cy="61" rx="4.5" ry="3.2"/><path class="pz" d="M55 66q5 4 10 0"/>
+    <circle class="pc" cx="42" cy="62" r="5"/><circle class="pc" cx="78" cy="62" r="5"/>
+    <rect class="ps" x="42" y="77" width="36" height="6" rx="3"/>${scarf ? '<path class="ps" d="M38 74h44v10H38zM72 82l6 14-9-2z"/>' : ''}${stars}</g></svg>`
+}
+function pet(st, scarf) { return IMG[st] ? `<img src="${IMG[st]}" alt="${STAGE[st]}">` : dog(st, scarf) }
+const petNow = () => pet(stage(), S.own.scarf)
+const coin = n => `<span class="pill"><i class="ico coin"></i>${n}</span>`
+const level = () => 1 + Math.floor(S.grow / 400)
+const groupDone = g => g.items.every(it => S.done[it.id])
+const allDone = () => ALL.every(({ it }) => S.done[it.id])
+const doneCount = () => Object.keys(S.done).length
+const canLearn = () => SKILLS.filter(s => S.skill[s.k] < 3 && S.pts[s.k] >= COST[S.skill[s.k]]).length
+const totalPts = () => Object.values(S.pts).reduce((a, b) => a + b, 0)
+const pick = a => a[Math.floor(Math.random() * a.length)]
+const fill = t => t.replace('{name}', NAME).replace('{circled}', S.circled).replace('{best}', S.best)
+const bar = (n, v, cls) => `<span>${n}</span><span class="bar ${cls} ${v < 40 ? 'low' : ''}"><i style="width:${v}%"></i></span><span>${v}</span>`
+
+// ---------- 画面 ----------
+function vHome() {
+  const n = canLearn()
+  return `<div class="k-top"><h2>${NAME}的小屋</h2>${coin(S.coins)}<span class="pill"><i class="ico star"></i>${totalPts()}</span></div>
+  <div class="k-body">
+    <div class="bubble">${say}</div>
+    <div class="room ${S.own.curtain ? 'curtain' : ''}" data-a="tapPet" role="button" aria-label="戳一戳宠物"><div class="${act ? 'a-' + (ACT[act] || 'hop') : ''}"><div class="breathe">${petNow()}</div></div><span class="mood-tag">${good() ? '状态好 · 成长 ×1.2' : '状态一般'}</span></div>
+    <div class="k-card bars">${bar('饱食', S.full, '')}${bar('心情', S.mood, 'b')}${bar('清洁', S.clean, 'c')}<span>成长</span><span class="bar s"><i style="width:${S.grow % 400 / 4}%"></i></span><span>Lv ${level()}</span></div>
+    <div class="acts"><button data-a="care" data-v="food">喂食<small>${bagCount('food')} 份</small></button><button data-a="care" data-v="soap">洗澡<small>${bagCount('soap')} 块香皂</small></button><button data-a="care" data-v="toy">陪玩<small>${toyUses()} 次</small></button><button data-a="pat">摸摸<small>今天 ${3 - S.pats} 次</small></button></div>
+    ${allDone() ? `<button class="k-btn" data-a="go" data-v="result">今天完成啦<small>看看今天的成绩</small></button>` : `<button class="k-btn" data-a="go" data-v="quests">今日任务 ${doneCount()} / ${ALL.length}<small>最多可赚 ${DAYMAX}${n ? ` · 有 ${n} 个本领可以学` : ''}</small></button>`}
+  </div>`
+}
+const bagCount = kind => GOODS.filter(g => g.kind === kind).reduce((n, g) => n + (S.bag[g.k] || 0), 0)
+const toyUses = () => Object.values(S.toy).reduce((a, b) => a + b, 0)
+function vQuests() {
+  const open = GROUPS.slice(0, 4).every(groupDone)
+  return `<div class="k-top"><h2>周二的任务</h2>${coin(S.coins)}</div><div class="k-body">${GROUPS.map(g => {
+    const left = g.items.filter(it => !S.done[it.id]).length, mx = Math.max(...g.items.map(it => maxCoins(it, g))), lock = g.boss && !open, fin = !left
+    return `<button class="k-card quest ${fin ? 'done' : ''} ${lock ? 'lock' : ''}" ${lock || fin ? 'disabled' : ''} data-a="group" data-v="${g.id}"><b>${g.name}${g.hot && !g.boss ? '<span class="tag hot">本周重点</span>' : ''}${g.old ? '<span class="tag old">以前的</span>' : ''}</b>${coin((g.id === 'g1' ? '每题 ' : '最高 ') + mx)}<span class="dim">${lock ? g.sub : `${g.boss ? '今天最难的一道' : g.sub} · ${fin ? '做完了' : `还有 ${left} 题`}`}</span></button>`
+  }).join('')}<p class="dim">金币多的题，是你这周最需要练的题。</p></div>`
+}
+function pad(units) {
+  const u = units ? units.map(x => `<button class="u" data-a="unit" data-v="${x}">${x}</button>`).join('') + (units.length < 4 ? '<span></span>'.repeat(4 - units.length) : '') : ''
+  return `<div class="pad">${[1, 2, 3, '⌫', 4, 5, 6, 0, 7, 8, 9].map(k => `<button data-a="key" data-v="${k}">${k}</button>`).join('')}<button class="go" data-a="submit">交卷</button>${u}</div>`
+}
+function clock() {
+  const p = (a, r) => [100 + r * Math.sin(a * Math.PI / 180), 100 - r * Math.cos(a * Math.PI / 180)]
+  const nums = Array.from({ length: 12 }, (_, i) => { const [x, y] = p((i + 1) * 30, 64); return `<text x="${x}" y="${y}">${i + 1}</text>` }).join('')
+  const dots = Array.from({ length: 24 }, (_, z) => { const [x, y] = p(z * 15, 86); return `<circle class="dot ${Q.zone === z ? 'on' : ''}" cx="${x}" cy="${y}" r="9.5" data-a="zone" data-v="${z}"/>` }).join('')
+  const [mx, my] = p(180, 60), hand = Q.zone == null ? '' : (([x, y]) => `<line class="hh" x1="100" y1="100" x2="${x}" y2="${y}"/>`)(p(Q.zone * 15, 40))
+  return `<svg class="clock" viewBox="0 0 200 200"><circle class="face" cx="100" cy="100" r="96"/>${nums}${dots}<line class="mh" x1="100" y1="100" x2="${mx}" y2="${my}"/>${hand}<circle cx="100" cy="100" r="4" class="pe"/></svg>`
+}
+function segText(it, mode) {   // mode: pick 自己圈 / reveal 对答案 / fixed 之后各步只标关键词
+  return it.segs.map((s, i) => {
+    const on = Q.sel.has(i)
+    if (mode === 'pick') return `<span class="seg ${on ? 'on' : ''}" role="button" tabindex="0" data-a="seg" data-v="${i}">${s.t}</span>`
+    if (mode === 'reveal') { const c = s.k ? (on ? 'key' : 'miss') : s.n ? (on ? 'noise' : '') : on ? 'on' : ''; return c ? `<span class="seg fixed ${c}">${s.t}</span>` : s.t }
+    return s.k ? `<span class="seg fixed key">${s.t}</span>` : s.t
+  }).join('')
+}
+function buddy(it) {
+  const sk = SKILLS.find(s => s.k === it.err), p = S.prog[it.err]
+  return `<span class="buddy"><span class="ava ${Q.mood ? 'a-' + Q.mood : ''}">${petNow()}</span><span class="ring" style="--p:${p * 20}"><b>${p}/5</b></span><small><b>${sk.n}</b>技能点</small></span>`
+}
+function vQ() {
+  const { it, g } = Q, idx = g.items.indexOf(it) + 1
+  let body = ''
+  if (Q.fin) {
+    const d = Q.fin
+    body = `<div class="k-card q">${it.f === 'word' ? segText(it, 'fixed') : it.f === 'first' ? it.toks.join(' ') : it.text}</div>
+      <div class="fb ${d.ok ? '' : 'zero'}">${d.ok ? `<span class="fly">＋${d.c}</span><b class="c"><i class="ico coin"></i>＋${d.c}</b>${d.w === 0 ? '第一次就答对了！' : '订正对了，拿到一部分金币。'}${d.bonus ? ' 连续 5 题第一次就对，再加 5。' : ''}` : `<b>这道题先放一放</b><br>${it.explain}<br>过两天它会换个样子再来。`}</div>
+      ${d.w && d.ok ? `<div class="bubble plain">${it.explain}</div>` : ''}
+      <button class="k-btn" data-a="next">${g.items.some(x => !S.done[x.id]) ? '下一题' : allDone() ? '看今天的成绩' : '回到任务'}</button>
+      ${d.point ? `<div class="cere" aria-hidden="true"><div class="stars">${[[-70, -40], [70, -40], [-50, 50], [55, 45], [0, -80]].map(([x, y]) => `<i style="--x:${x}px;--y:${y}px"></i>`).join('')}</div><span class="ava">${petNow()}</span><b>叮！「${d.point}」技能点 ＋1</b><span>${NAME}又离新本领近了一步</span></div>` : ''}`
+  } else if (it.f === 'oral') body = `<div class="k-card q big">${it.text} ＝ <span class="box">${Q.input}</span></div>${msg()}${pad()}`
+  else if (it.f === 'first') body = `<p class="dim">点一下先算的那个符号。</p><div class="k-card q big">${it.toks.map((t, i) => /[×÷+−]/.test(t) ? `<button class="tok" data-a="tok" data-v="${i}">${t}</button>` : `<span>${t}</span>`).join(' ')}</div>${msg()}`
+  else if (it.f === 'clock') body = `<div class="k-card q">${it.text}。<span class="dim">点钟面边上的小圆点，时针就会指过去。</span></div>${clock()}${msg()}<button class="k-btn" data-a="submit" ${Q.zone == null ? 'disabled' : ''}>拨好了</button>`
+  else if (it.f === 'steps') body = `<div class="k-card"><div class="line">${it.text}</div>${it.lines.map((l, i) => i > Q.step ? '' : `<div class="line">${l.pre}<span class="box">${i < Q.step ? l.a : Q.input}</span></div>`).join('')}</div><p class="dim">一行一行填，最后一行是一个数。</p>${msg()}${pad()}`
+  else {
+    const st = Q.step
+    const tabs = `<div class="steps">${['圈关键词', '选算式', '算和答'].map((n, i) => `<span class="${i < Math.min(st, 2) || (st === 3 && i < 2) ? 'done' : i === Math.min(st, 2) ? 'now' : ''}">${n}</span>`).join('')}</div>`
+    if (st === 0) body = `${tabs}<p class="dim">你觉得哪些地方最要紧，就点哪里，可以点好几处。</p><div class="k-card q">${segText(it, 'pick')}</div>${msg()}<button class="k-btn" data-a="circled" ${Q.sel.size ? '' : 'disabled'}>圈好了，对一对</button>`
+    if (st === 1) body = `${tabs}<div class="k-card q">${segText(it, 'reveal')}</div><div class="legend"><span><i style="background:var(--k-ok);border:2px solid var(--k-leaf)"></i>圈对了</span><span><i style="background:var(--k-miss);border:2px dashed var(--k-coin)"></i>漏了</span><span><i style="background:#f1f1ec;border:2px solid #b9bfb2"></i>用不上</span></div><div class="bubble plain">${Q.kwMsg}<br>${it.why}</div><button class="k-btn" data-a="kwok">知道了，下一步</button>`
+    if (st === 2) body = `${tabs}<div class="k-card q">${segText(it, 'fixed')}</div>${msg()}<div class="opts">${Q.order.map(i => `<button data-a="choice" data-v="${i}">${it.choices[i].t}</button>`).join('')}</div>`
+    if (st === 3) {
+      const slot = Q.unit ? `<button class="uchip" data-a="unit" data-v="">${Q.unit}</button>` : unitLv === 0 ? '<span class="uslot" aria-label="空着的单位格"></span>' : ''
+      body = `${tabs}<div class="k-card q">${segText(it, 'fixed')}</div>
+        <div class="k-card"><div class="expr">${it.choices.find(c => c.ok).t} ＝ <span class="box">${Q.input}</span></div>
+        <div class="ans">${it.ask} <b>${Q.input || '＿＿'}</b> ${slot} ${it.tail || ''}</div></div>${msg()}${pad(it.units)}`
+    }
+  }
+  return `<div class="k-top"><button class="back" data-a="go" data-v="quests" aria-label="回到任务">‹</button><h2>${g.name} ${idx}/${g.items.length}</h2>${buddy(it)}</div>
+  <div class="k-body">${Q.cover ? `<div class="cover">${petNow()}<b style="font:400 20px var(--kid)">慢慢来</b><span>${NAME}在帮你把题目再读一遍……</span></div>` : ''}${body}</div>`
+}
+const msg = () => Q.msg ? `<div class="bubble plain ${Q.flash ? 'warn' : ''}">${Q.msg}</div>` : ''
+function vResult() {
+  const rs = Object.values(S.done), first = rs.filter(r => r.w === 0).length, fix = rs.filter(r => r.w && r.ok).length, again = rs.filter(r => !r.ok).length
+  return `<div class="k-top"><h2>今天完成啦</h2></div><div class="k-body">
+    <div class="room ${S.own.curtain ? 'curtain' : ''}"><div class="a-hop"><div class="breathe">${petNow()}</div></div></div><div class="sum"><i class="ico coin"></i>＋${S.today}</div>
+    <div class="k-card rows"><span>第一次就答对</span><b>${first} 题</b><span>订正后答对</span><b>${fix} 题</b><span>过两天换个样子再来</span><b>${again} 题</b><span>关键词圈得刚刚好</span><b>${S.kwPerfect} 题</b><span>忘写单位</span><b>${S.forgotUnit} 次</b><span>答得太急的错</span><b>${S.flash} 次</b></div>
+    <div class="k-card">${S.flash ? '今天有几题答得太急了。明天试试读完题再动手。' : '今天没有一道题是急着答错的，得到 1 个「巡逻」技能点。'}</div>
+    <button class="k-btn" data-a="go" data-v="home">回小屋</button></div>`
+}
+function vSkills() {
+  const s = SKILLS.find(x => x.k === sel), lv = S.skill[sel], cost = COST[lv], have = S.pts[sel]
+  return `<div class="k-top"><h2>本领</h2><span class="pill"><i class="ico star"></i>${totalPts()}</span></div><div class="k-body">
+    <div class="skills">${SKILLS.map(x => `<button class="skill ${x.k === sel ? 'sel' : ''}" data-a="sel" data-v="${x.k}"><b>${x.n}</b><small>${x.s} · ${S.pts[x.k]} 点</small><span class="dots">${[0, 1, 2].map(i => `<i class="${i < S.skill[x.k] ? 'f' : ''}"></i>`).join('')}</span></button>`).join('')}</div>
+    <div class="k-card"><b>${s.n} · ${lv ? `第 ${lv} 级` : '还没学会'}</b><p style="margin:4px 0">${s.d}</p>
+      ${sel === '漏题' ? '' : `<div class="bars"><span>下一个技能点</span><span class="bar s"><i style="width:${S.prog[sel] * 20}%"></i></span><span>${S.prog[sel]} / 5</span></div>`}
+      <p class="dim" style="margin-top:6px">${lv >= 3 ? '已经学满了。' : `学第 ${lv + 1} 级要 ${cost} 个「${s.s}」技能点，现在有 ${have} 个。`}${sel === '漏题' ? '' : '换了样子的题第一次就做对，每 5 道得 1 点。'}</p></div>
+    <button class="k-btn" data-a="learn" ${lv < 3 && have >= cost ? '' : 'disabled'}>${lv >= 3 ? '学满了' : have >= cost ? `教${NAME}学「${s.n}」第 ${lv + 1} 级` : `还差 ${cost - have} 个技能点`}</button></div>`
+}
+function vShop() {
+  const row = x => `<b>${x.n}<small>${x.d}${x.kind === 'keep' ? '' : ` · 背包里 ${x.kind === 'toy' ? (S.toy[x.k] || 0) + ' 次' : (S.bag[x.k] || 0) + ' 份'}`}</small></b>${S.own[x.k] ? '<span class="dim">已拥有</span>' : `<button class="buy" data-a="buy" data-v="${x.k}"><i class="ico coin"></i>${x.p}</button>`}`
+  const sec = (t, kinds) => `<div class="k-card shop"><h3>${t}</h3>${GOODS.filter(g => kinds.includes(g.kind)).map(row).join('')}</div>`
+  return `<div class="k-top"><h2>小卖部</h2>${coin(S.coins)}</div><div class="k-body">
+    ${say && view === 'shop' ? `<div class="bubble plain">${say}</div>` : ''}
+    ${sec('吃的', ['food'])}${sec('洗澡和玩具', ['soap', 'toy'])}${sec('装扮和家具', ['keep'])}
+    <div class="wish"><b>心愿单 · 周末去科技馆</b><p style="margin:2px 0">这周来满 4 天就能兑换。爸爸妈妈设的，和金币没关系。</p><div class="stamps">${[1, 2, 3, 4, 5].map(d => `<i class="${d < S.day || (d === S.day && allDone()) ? 'f' : ''}"></i>`).join('')}</div></div></div>`
+}
+const NAV = [['home', '小屋'], ['quests', '任务'], ['skills', '本领'], ['shop', '小卖部']]
+function render() {
+  const v = { home: vHome, quests: vQuests, q: vQ, result: vResult, skills: vSkills, shop: vShop }[view]()
+  document.getElementById('app').innerHTML = v + (view === 'q' ? '' : `<div class="nav">${NAV.map(([k, n]) => `<button class="${view === k || (k === 'home' && view === 'result') ? 'on' : ''}" data-a="go" data-v="${k}">${n}</button>`).join('')}</div>`)
+  document.getElementById('side').innerHTML = side()
+  act = ''; if (Q) Q.mood = ''
+}
+
+// ---------- 幕后 ----------
+function side() {
+  let cur = `<p class="muted">点「今日任务」开始做题，这里会显示每道题的标价依据。</p>`
+  if (view === 'q') {
+    const { it, g } = Q, traps = it.f === 'word' || it.f === 'oral' ? Object.entries(it.traps).map(([v, e]) => `${v}（${e}）`).join('、') : it.f === 'steps' ? '第 2 行填 22（概念不清，从左往右算）' : it.f === 'clock' ? '指在 9 上（概念不清）' : '点了另一个符号（概念不清）'
+    cur = `<dl class="kv"><dt>题号</dt><dd><code>${it.id}</code></dd><dt>知识点</dt><dd>${g.kp}</dd><dt>练的错因</dt><dd>${it.err}</dd><dt>题型</dt><dd>${FNAME[it.f]}，基础 ${BASE[it.f]}</dd><dt>难度</dt><dd>${it.lv} × ${DIFF[it.lv]}</dd><dt>来源</dt><dd>${g.src} × ${SRC[g.src]}</dd><dt>陷阱值</dt><dd>${traps || '无'}</dd>${it.f === 'word' ? `<dt>关键词</dt><dd>${it.segs.filter(s => s.k).map(s => s.t).join('、')}</dd><dt>噪音</dt><dd>${it.segs.filter(s => s.n).map(s => s.t).join('、')}</dd><dt>单位</dt><dd>${it.unit}。${unitLv === 0 ? '答句里留一个空格提醒' : '不提醒，要自己按单位键'}，漏写算一次「格式规范」错</dd>` : ''}<dt>最短思考</dt><dd>${MIN[it.f]} 秒，比这还快又答错，后面 3 题「慢慢来」</dd><dt>正确答案</dt><dd>只在服务器端，孩子端拿不到</dd></dl>`
+  }
+  const l = S.last
+  return `<div class="panel"><h3>这道题</h3>${cur}</div>
+  <div class="panel"><h3>上一题的金币</h3>${l ? `<p class="calc">${l.c} 金币</p><p class="muted">${l.base} × ${l.diff} × ${l.src} × ${l.q} ＝ ${Math.round(l.raw * 100) / 100}，取整 ${l.core}${l.pb ? `，过程奖 ＋${l.pb}` : ''}${l.bonus ? '，连击奖 ＋5' : ''}。${l.q === 1 ? '第一次就答对。' : l.q === 0 ? '三次都没对，不给金币也不扣。' : `错了 ${l.w} 次后答对。`}${l.kw != null ? ` 关键词：${['漏圈了，过程奖 0', '圈全但多圈了，过程奖 1', '圈得刚刚好，过程奖 2'][l.kw]}。` : ''}${l.growB ? ` 状态好，成长值多加 ${l.growB}。` : ''}</p>` : `<p class="muted">还没有答题。</p>`}</div>
+  <div class="panel"><h3>照顾的账</h3><dl class="kv"><dt>每天下降</dt><dd>饱食 ${DECAY.full}、心情 ${DECAY.mood}、清洁 ${DECAY.clean}，最低停在 20</dd><dt>补回来要花</dt><dd>约 40 + 30 + 15 ≈ 85 金币，约一天收入的一半</dd><dt>免费的</dt><dd>只有摸摸，每天 3 次，每次心情 ＋3，补不满</dd><dt>照顾的好处</dt><dd>三项都在 60 以上时「状态好」，做题的成长值 ×1.2；低了不扣任何东西，只是没有加成</dd><dt>今天花了</dt><dd>${S.spent} 金币</dd></dl></div>
+  <div class="panel"><h3>今天到目前</h3><dl class="kv"><dt>已赚</dt><dd>${S.today} / 最多 ${DAYMAX} 金币</dd><dt>认真连击</dt><dd>${S.combo} 题${S.combo ? `，再 ${5 - S.combo % 5} 题加 5 金币` : ''}</dd><dt>急着答错</dt><dd>${S.flash} 次${S.slow ? `，接下来 ${S.slow} 题「慢慢来」` : ''}</dd><dt>忘写单位</dt><dd>${S.forgotUnit} 次</dd></dl></div>
+  <div class="panel"><h3>答题记录（每周五回到家长端）</h3>${S.log.length ? `<pre>${S.log.slice(-6).map(r => JSON.stringify(r)).join('\n')}</pre><p class="muted">答成陷阱值时自动带上错因；漏写单位记为「格式规范」，step 是「忘写单位」，家长端能单独统计。</p>` : `<p class="muted">每次作答记一行：题号、第几次、对错、填了什么、掉进哪个陷阱、错在哪一步、用时、金币。</p>`}</div>
+  <div class="panel"><h3>演示控制</h3>
+    <div class="ctl">${STAGE.map((n, i) => `<button class="${stage() === i ? 'on' : ''}" data-a="stage" data-v="${i}">${n}</button>`).join('')}<label for="imgs">换成我的图</label><input type="file" id="imgs" accept="image/*" multiple></div>
+    <p class="muted">「换成我的图」一次选 5 张，按文件名排序依次对应小窝到成年，只在这个页面里临时生效。</p>
+    <div class="ctl" style="margin-top:8px"><button class="${unitLv === 0 ? 'on' : ''}" data-a="ulv" data-v="0">单位：留空格提醒</button><button class="${unitLv === 1 ? 'on' : ''}" data-a="ulv" data-v="1">单位：不提醒</button></div>
+    <div class="ctl" style="margin-top:8px"><button data-a="nextday">过了一天</button><button data-a="gift">＋300 金币</button><button data-a="fast">下一题「慢慢来」</button><button data-a="chat">让它说句话</button><button data-a="reset">重新开始</button></div>
+    <p class="muted">「过了一天」会让三项需求下降、任务重置，可以看出不花金币照顾，状态就会掉下去。</p></div>`
+}
+
+// ---------- 做题 ----------
+function startQ(it, g) {
+  clearTimeout(timer)
+  Q = { it, g, step: 0, sel: new Set(), input: '', unit: null, zone: null, wrongs: S.wr[it.id] || 0, msg: '', flash: false, fin: null, cover: false, t0: Date.now(), order: it.choices ? it.choices.map((_, i) => i) : null, kw: null, kwMsg: '', mood: '' }
+  if (S.slow > 0) { Q.cover = true; timer = setTimeout(() => { if (Q && Q.it === it && view === 'q') { S.slow--; Q.cover = false; Q.t0 = Date.now(); render() } }, 3000) }
+  view = 'q'
+}
+function wrong(given, err, step, note) {
+  const it = Q.it, ms = Date.now() - Q.t0, fast = ms < MIN[it.f] * 1000 && step !== '忘写单位'
+  Q.wrongs++; S.wr[it.id] = Q.wrongs; S.combo = 0; Q.flash = fast; Q.mood = 'think'
+  if (fast) { S.flash++; S.slow = 3 }
+  S.log.push({ item: it.id, try: Q.wrongs, correct: false, given, trap_error_type: err, step_failed: step, ms, coins: 0 })
+  if (Q.wrongs >= 3) return finish()
+  Q.msg = (fast ? '太快啦，还没看清题。接下来几题我们慢慢来。<br>' : '') + (note || (Q.wrongs === 1 ? '提示：' + (it.lines?.[Q.step]?.hint || it.hint) : '讲解：' + it.explain + ' 再试一次。'))
+  if (Q.order) Q.order.sort(() => Math.random() - .5)
+  Q.t0 = Date.now()
+}
+function finish() {
+  const { it, g } = Q, w = Q.wrongs, q = w === 0 ? 1 : w === 1 ? (it.f === 'first' ? .3 : .5) : w === 2 ? .3 : 0
+  const raw = BASE[it.f] * DIFF[it.lv] * SRC[g.src] * q, core = q ? Math.max(1, Math.round(raw)) : 0
+  const pb = !q ? 0 : it.f === 'steps' ? 2 : it.f === 'word' ? Q.kw : 0
+  let c = core + pb, bonus = false, point = ''
+  if (w === 0) { S.combo++; S.best = Math.max(S.best, S.combo); if (S.combo % 5 === 0) { c += 5; bonus = true } }
+  if (w === 0 && it.lv !== '同构') { if (++S.prog[it.err] >= 5) { S.prog[it.err] = 0; S.pts[it.err]++; point = SKILLS.find(s => s.k === it.err).n } }
+  const growB = good() ? Math.round(c * .2) : 0
+  S.coins += c; S.grow += c + growB; S.today += c; S.done[it.id] = { c, w, ok: q > 0 }
+  if (allDone() && !S.flash && !S.patrol) { S.pts.漏题++; S.patrol = true }
+  if (q > 0) S.log.push({ item: it.id, try: w + 1, correct: true, given: it.f === 'clock' ? zoneName(it.a) : it.f === 'first' ? '先算 ' + it.toks[it.a] : it.a + (it.unit || ''), trap_error_type: null, step_failed: null, ms: Date.now() - Q.t0, coins: c })
+  S.last = { c, core, raw, q, w, pb, bonus, growB, kw: it.f === 'word' ? Q.kw : null, base: BASE[it.f], diff: DIFF[it.lv], src: SRC[g.src] }
+  Q.fin = { c, w, ok: q > 0, bonus, point }; Q.msg = ''; Q.mood = q ? 'hop' : 'think'
+}
+const zoneName = z => z % 2 ? `${(z - 1) / 2 || 12} 和 ${(z + 1) / 2} 中间` : `指着 ${z / 2 || 12}`
+function chat(kind) {
+  const h = new Date().getHours()
+  let pool
+  if (kind) pool = LINES[kind]
+  else if (h >= 20 && new Date().getMinutes() >= 30 || h >= 21) pool = LINES.time_late
+  else {
+    const need = [['state_hungry', S.full], ['state_bored', S.mood], ['state_dirty', S.clean]].filter(([, v]) => v < 40)
+    const r = Math.random()
+    pool = need.length && r < .5 ? LINES[pick(need)[0]] : allDone() && r < .65 ? LINES.after_practice : r < .8 ? LINES.idle : r < .92 ? LINES.math : LINES[h < 11 ? 'time_morning' : 'time_evening']
+  }
+  const l = pick(pool || LINES.idle); say = fill(l.t); act = l.act
+}
+const add = (k, v) => { S[k] = Math.min(100, S[k] + v) }
+const A = {
+  go(v) { clearTimeout(timer); if (v === 'home' && view !== 'home') chat(); if (v === 'shop') say = ''; view = v },
+  group(id) { const g = GROUPS.find(x => x.id === id), it = g.items.find(x => !S.done[x.id]); if (it) startQ(it, g) },
+  key(k) { if (Q.cover || Q.fin) return; Q.input = k === '⌫' ? Q.input.slice(0, -1) : (Q.input + k).slice(0, 5) },
+  seg(i) { i = +i; Q.sel.has(i) ? Q.sel.delete(i) : Q.sel.add(i) },
+  circled() { const it = Q.it, keys = it.segs.map((s, i) => s.k ? i : -1).filter(i => i >= 0)
+    const hit = keys.filter(i => Q.sel.has(i)).length, noise = [...Q.sel].filter(i => it.segs[i].n).length
+    Q.kw = hit < keys.length ? 0 : noise ? 1 : 2; S.circled++; if (Q.kw === 2) S.kwPerfect++
+    Q.kwMsg = Q.kw === 2 ? '圈得刚刚好！关键词一个不落，也没圈多余的。' : Q.kw === 1 ? `关键词都圈到了，还多圈了 ${noise} 处用不上的。` : `漏了 ${keys.length - hit} 个关键词，橙色虚线的就是。`
+    if (S.skill.审题 && Q.kw) Q.kwMsg += ' 灵鼻子也嗅出来了。'
+    Q.step = 1; Q.mood = Q.kw === 2 ? 'hop' : 'think' },
+  kwok() { Q.step = 2; Q.t0 = Date.now() },
+  choice(i) { const ch = Q.it.choices[+i]; if (ch.ok) { Q.step = 3; Q.msg = ''; Q.t0 = Date.now() } else wrong(ch.t, Q.it.err, '选算式') },
+  unit(u) { if (!Q || Q.fin) return; Q.unit = u || null },
+  zone(z) { Q.zone = +z },
+  tok(i) { const it = Q.it; +i === it.a ? finish() : wrong('先算 ' + it.toks[+i], it.err, '先算哪一步') },
+  submit() { const it = Q.it; if (Q.cover || Q.fin) return
+    if (it.f === 'clock') return Q.zone === it.a ? finish() : wrong(zoneName(Q.zone), it.err, '拨时针')
+    if (!Q.input) { Q.msg = '还没填得数呢。'; return }
+    const n = +Q.input
+    if (it.f === 'oral') { if (n === it.a) return finish(); wrong(n, it.traps[n] || it.err, '得数'); Q.input = ''; return }
+    if (it.f === 'steps') { const ln = it.lines[Q.step]; if (n !== ln.a) { wrong(n, ln.traps[n] || '计算失误', `第 ${Q.step + 1} 行`); Q.input = ''; return } Q.step++; Q.input = ''; Q.msg = ''; Q.t0 = Date.now(); if (Q.step >= it.lines.length) finish(); return }
+    if (n !== it.a) { wrong(n, it.traps[n] || '计算失误', '得数'); Q.input = ''; return }
+    if (!Q.unit) { S.forgotUnit++; return wrong(`${n}（没写单位）`, '格式规范', '忘写单位', unitLv === 0 ? '得数算对了！答句里还有一个空格没填。' : '得数算对了！再读一遍答句，是不是少了点什么？') }
+    if (Q.unit !== it.unit) return wrong(n + Q.unit, '格式规范', '单位不对', `得数对了，「${Q.unit}」放在这里对吗？`)
+    finish() },
+  next() { const it = Q.g.items.find(x => !S.done[x.id]); if (it) return startQ(it, Q.g)
+    if (allDone()) { chat('after_practice'); view = 'result' } else view = 'quests' },
+  care(kind) {
+    if (kind === 'toy') { const k = Object.keys(S.toy).find(k => S.toy[k] > 0); if (!k) { say = '没有玩具了。小卖部有橡胶小球和飞盘。'; act = 'think'; return } const x = GOODS.find(g => g.k === k); S.toy[k]--; add('mood', x.mood); say = `玩${x.n}真开心！心情 ＋${x.mood}。`; act = 'hop'; return }
+    const x = GOODS.filter(g => g.kind === kind && S.bag[g.k] > 0).sort((a, b) => b.p - a.p)[0]
+    if (!x) { say = kind === 'food' ? '背包里没有吃的了，去小卖部看看？' : '没有香皂了，小卖部有泡泡香皂。'; act = 'think'; return }
+    S.bag[x.k]--
+    if (kind === 'food') { add('full', x.full); if (x.mood) add('mood', x.mood); say = `${x.n}好好吃！饱食 ＋${x.full}。`; act = 'hop' }
+    else { add('clean', x.clean); say = '泡泡澡好舒服，香香的！'; act = 'spin' } },
+  pat() { if (S.pats >= 3) { say = '今天已经摸了好多次啦，陪我玩玩具吧！'; act = 'giggle'; return } S.pats++; add('mood', 3); say = '嘿嘿，舒服。心情 ＋3。'; act = 'squish' },
+  tapPet() { const now = Date.now(); taps = [...taps.filter(t => now - t < 3000), now]; const l = pick(LINES[taps.length >= 5 ? 'tap_too_much' : 'tap']); say = fill(l.t); act = l.act },
+  sel(k) { sel = k },
+  learn() { const lv = S.skill[sel]; if (lv < 3 && S.pts[sel] >= COST[lv]) { S.pts[sel] -= COST[lv]; S.skill[sel]++; say = `我学会「${SKILLS.find(s => s.k === sel).n}」第 ${lv + 1} 级啦！`; act = 'spin'; view = 'home' } },
+  buy(k) { const x = GOODS.find(g => g.k === k); if (S.coins < x.p) { say = `还差 ${x.p - S.coins} 金币，做任务就能赚到。`; return }
+    S.coins -= x.p; S.spent += x.p
+    if (x.kind === 'keep') S.own[k] = true; else if (x.kind === 'toy') S.toy[k] = (S.toy[k] || 0) + x.uses; else S.bag[k] = (S.bag[k] || 0) + 1
+    say = x.kind === 'keep' ? `买到「${x.n}」了，回小屋看看。` : `「${x.n}」放进背包了，回小屋就能用。` },
+  stage(i) { S.stage = +i },
+  ulv(v) { unitLv = +v },
+  gift() { S.coins += 300 },
+  fast() { S.slow = 3 },
+  chat() { chat(); view = 'home' },
+  nextday() { clearTimeout(timer); for (const k in DECAY) S[k] = Math.max(20, S[k] - DECAY[k])
+    Object.assign(S, { done: {}, wr: {}, today: 0, combo: 0, flash: 0, slow: 0, pats: 0, spent: 0, circled: 0, kwPerfect: 0, forgotUnit: 0, patrol: false, day: S.day % 5 + 1 })
+    Q = null; view = 'home'; chat() },
+  reset() { clearTimeout(timer); S = fresh(); view = 'home'; Q = null; say = '你来啦！今天有「第几次」的题，我们一起找关键词吧。'; act = 'hop' },
+}
+const act_ = e => { const t = e.target.closest('[data-a]'); if (!t || t.disabled) return
+  if (view === 'q' && Q?.cover && t.closest('#app') && t.dataset.a !== 'go') return
+  A[t.dataset.a](t.dataset.v); render() }
+if (typeof document.addEventListener === 'function') {
+  document.addEventListener('click', act_)
+  document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.seg[data-a],.room[data-a]')) { e.preventDefault(); act_(e) } })
+  document.addEventListener('change', e => { if (e.target.id !== 'imgs') return
+    const files = [...e.target.files].sort((a, b) => a.name.localeCompare(b.name)).slice(0, 5)
+    files.forEach((f, i) => { const r = new FileReader(); r.onload = () => { IMG[i] = r.result; render() }; r.readAsDataURL(f) }) })
+  setInterval(() => { if (view === 'home' && document.visibilityState !== 'hidden') { chat(); render() } }, 12000)
+}
+window.__demo = { A, get S() { return S }, get Q() { return Q }, get view() { return view }, setLines(l) { LINES = l }, render }
+render()
+})()
+</script>
