@@ -13,20 +13,27 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { readWeek, writeWeek, listWeeks, loadSettings, saveSettings } from './store.js'
 import { verifyItem } from './sheet.js'
-import { buildPack, LEVELS } from '../shared/contract.js'
+import { buildPack, packDays, LEVELS, PACK_DAYS } from '../shared/contract.js'
 
 /** 生成题库包；正确答案再用辅导单那套 verifyItem 验一遍，验不过的题丢掉。 */
 export function makePack(week) {
   const bank = readWeek(week).bank
   if (!bank?.templates?.length) throw new Error(`错题/${week}.md 里还没有「题库」，先运行 npm run kid bank`)
   const { pack, report } = buildPack(bank, week)
-  // 钟面、多空题、统计表、整理数据没有单一算式，实例化时已经逐空检查过
+  // 钟面、多空题、统计表、整理数据、竖式、分步题、有余数的题没有单一的整除算式，实例化时已经逐题检查过
   const okExpr = it => (['word', 'plan'].includes(it.format) ? it.choices.find(c => c.ok).t : it.format === 'first' ? it.tokens.join('') : it.text).replace(/−/g, '-')
   const before = pack.items.length
-  pack.items = pack.items.filter(it => ['clock', 'multi', 'stat', 'data'].includes(it.format) || verifyItem({ expression: okExpr(it), answer: it.answer }))
+  pack.items = pack.items.filter(it => ['clock', 'multi', 'stat', 'data', 'column', 'multistep'].includes(it.format) || it.rem != null || it.remDiv || verifyItem({ expression: okExpr(it), answer: it.answer }))
   return { pack, report, dropped: before - pack.items.length }
 }
 
+/** 这份题库按每天都来做够几天；不够 PACK_DAYS 的组指出来 */
+function printDays(pack) {
+  const all = packDays(pack), none = all.filter(g => !pack.items.some(it => it.group === g.id)), days = all.filter(g => !none.includes(g)), short = days.filter(g => g.days < PACK_DAYS), min = Math.min(...days.map(g => g.days))
+  if (none.length) console.log(`⚠ 这些组没有模板：${none.map(g => g.name).join('、')}`)
+  console.log(`按每天都来做，这份题库够 ${min} 天（各组：${days.map(g => `${g.name} ${g.days} 天`).join('，')}）`)
+  if (short.length) console.log(`⚠ 不够 ${PACK_DAYS} 天：${short.map(g => `${g.name}（${g.days} 天）`).join('、')}。给这一组多写一两个模板，或者放宽取值范围`)
+}
 function printReport(report, dropped) {
   for (const r of report) console.log(`${r.id.padEnd(6)} 生成 ${String(r.made).padStart(3)} 道${Object.keys(r.problems).length ? '　跳过：' + Object.entries(r.problems).map(([k, n]) => `${k} ×${n}`).join('、') : ''}${r.made < 10 ? '　⚠ 少于 10 道，放宽取值范围或换写法' : ''}`)
   if (dropped) console.log(`复核验算丢弃 ${dropped} 道`)
@@ -112,7 +119,7 @@ export function demoPack(week) {
   if (!bank) throw new Error('rules.md 里没找到示例题库')
   const ids = new Set(bank.templates.map(t => t.id)), more = extra.filter(t => !ids.has(t.id) && (ids.add(t.id), true))
   bank.groups.splice(bank.groups.findIndex(g => g.boss), 0, { id: 'gx', name: '新题型体验', sub: '统计表、竖式、两步题……', bucket: '本周重点', daily: 6 })
-  bank.templates.push(...more.map(t => ({ ...t, group: bank.groups.some(g => g.id === t.group && g.id !== 'g5') ? t.group : 'gx' })))
+  bank.templates.push(...more.map(t => ({ ...t, group: bank.groups.some(g => g.id === t.group) ? t.group : 'gx' })))
   return buildPack(bank, week)
 }
 const isoWeekNow = () => { const d = new Date(), w = d.getUTCDay() || 7; d.setUTCDate(d.getUTCDate() + 4 - w); const y = d.getUTCFullYear(); return `${y}-W${String(Math.ceil(((d - Date.UTC(y, 0, 1)) / 86400000 + 1) / 7)).padStart(2, '0')}` }
@@ -131,6 +138,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   else if (cmd === 'demo') {
     const w = /^\d{4}-W\d{2}$/.test(week || '') ? week : isoWeekNow(), { pack, report } = demoPack(w)
     printReport(report, 0)
+    printDays(pack)
     if (!process.env.KID_URL) throw new Error('体验题库只推到 dev：KID_URL=https://dev--mathfriend.netlify.app npm run kid demo')
     const r = await sync('PUT', '/pack', pack)
     console.log(`已把体验题库推到 ${process.env.KID_URL}：${r.week}，${r.items} 道题`)
@@ -143,6 +151,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const data = readWeek(week); data.bank = c.bank; writeWeek(data)
     const { pack, report, dropped } = makePack(week)
     printReport(report, dropped)
+    printDays(pack)
     if (c.redo.length) console.log(`往周未过关，自动带入：${c.redo.map(t => `${t.id}（${t.knowledge_point} ${t.error_type}）`).join('、')}`)
     if (c.keep.length) console.log(`往周已过关，回来保温：${c.keep.map(t => `${t.id}（${t.knowledge_point} ${t.error_type}）`).join('、')}`)
     console.log(`已写入 错题/${week}.md 的「题库」段：${c.bank.templates.length} 个模板，共 ${pack.items.length} 道`)
@@ -162,10 +171,12 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   } else if (cmd === 'pack') {
     const { pack, report, dropped } = makePack(week)
     printReport(report, dropped)
+    printDays(pack)
     if (arg) { fs.writeFileSync(arg, JSON.stringify(pack, null, 1)); console.log(`题库包写到 ${arg}（含答案，别放进 public/ 或提交）`) }
   } else if (cmd === 'push') {
     const { pack, report, dropped } = makePack(week)
     printReport(report, dropped)
+    printDays(pack)
     const r = await sync('PUT', '/pack', pack)
     console.log(`已推送 ${r.week}：${r.items} 道题`)
   } else if (cmd === 'pull') {

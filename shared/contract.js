@@ -14,6 +14,11 @@ export const LEVEL_MIX = [[0.6, 0.3, 0.1], [0.4, 0.4, 0.2], [0.2, 0.5, 0.3]]
 export const STORY_PAGES = 16
 export const BOSS_SIZE = 8, BOSS_PASS = 6, BOSS_COINS = 30   // 周五闯关：8 题，答对 6 题算通关
 export const EXTRA_STEP = 5                                   // 加练一次加几题（金币减半）
+// 每次同步的题库至少够做多少天（按孩子每天都来算）。家长偶尔没及时更新，孩子也有新题做
+export const PACK_DAYS = 14
+export const PACK_MARGIN = 1.5                                // 周五闯关和加练也从里面抽，多留五成
+/** 每组每天抽几题：模板没写 daily 时，口算热身（已掌握保温）6 题，其他 4 题 */
+export const dailyOf = g => g.daily || (g.bucket === '已掌握保温' ? 6 : 4)
 // 围巾戴在哪：各阶段站立图里项圈的位置（占图片宽高的百分比），由 kid/public/pet/s1～s4.webp 量出来
 export const SCARF_AT = { 1: { x: 41.1, y: 60.4, w: 37 }, 2: { x: 31.7, y: 57.3, w: 32.8 }, 3: { x: 34.2, y: 57.2, w: 36.8 }, 4: { x: 32.1, y: 54, w: 32.8 } }
 export const DIFF = { 同构: 1, 略变: 1.3, 综合: 1.6 }
@@ -37,7 +42,9 @@ export const SKILL_USES = { 1: 3, 2: 1, 3: 1 }
 export const SKILL_AT = { 审题: ['circle', 'build', 'goal', 'pickcat', 'tapnum'], 概念不清: ['build', 'chain'], 计算失误: ['chain', 'say', 'fill', 'range', 'blanks', 'table', 'column', 'check'], 格式规范: ['say', 'tapnum'], 漏题: ['say', 'blanks', 'spot', 'table', 'tapnum', 'column', 'check'], 策略缺失: ['goal', 'build'] }
 export const SKILL_L2 = { 审题: ['circle'], 概念不清: ['chain'], 计算失误: ['chain', 'say', 'fill', 'table', 'column'], 格式规范: ['say'], 漏题: ['say', 'blanks', 'table', 'tapnum', 'column'], 策略缺失: ['goal'] }
 // 题型默认由哪些积木拼成；word / plan 的模板可以写 flow 改（只能从默认里删步骤，不能换顺序）
-export const FLOWS = { oral: ['fill'], first: ['first'], clock: ['clock'], estimate: ['range', 'fill'], steps: ['chain'], fix: ['spot', 'fill'], multi: ['blanks'], word: ['circle', 'build', 'chain', 'say'], plan: ['goal', 'build', 'chain', 'say'], data: ['tapnum'], column: ['column'] }   // stat 的积木按小问由模板定
+export const FLOWS = { oral: ['fill'], first: ['first'], clock: ['clock'], estimate: ['range', 'fill'], steps: ['chain'], fix: ['spot', 'fill'], multi: ['blanks'], word: ['circle', 'build', 'chain', 'say'], plan: ['circle', 'goal', 'build', 'chain', 'say'], data: ['circle', 'tapnum'], column: ['column'] }   // stat 的积木按小问由模板定
+/** 一道题实际的积木：没有分段的旧题（比如以前生成的挑战题）跳过圈关键词 */
+export const flowOf = it => (it.flow || FLOWS[it.format]).filter(b => b !== 'circle' || it.segs)
 export const STEP_NAME = { fill: '填得数', first: '先算哪一步', clock: '拨时针', range: '估一估', chain: '一行一行算', spot: '找错行', blanks: '填空', circle: '圈关键词', goal: '先求什么', build: '列式', say: '写答句', table: '填统计表', pickcat: '选一类', tapnum: '找出来再数', column: '列竖式', check: '验算' }
 export const GOODS = [
   { k: 'cookie', n: '骨头饼干', d: '饱食 ＋10', p: 10, kind: 'food', full: 10 },
@@ -242,6 +249,14 @@ const sameNums = (a, b) => JSON.stringify(a.filter(isNum).sort((x, y) => x - y))
 export { sameNums }
 
 /**
+ * 应用题的题干分段（圈关键词用）。模板写了 segs 就用模板的（k 关键词、n 噪音）；
+ * 没写就按逗号、句号、问号切开：带数的句子和问句算关键词，其他的不算错也不算对。
+ */
+function segsOf(t, text, v) {
+  if (Array.isArray(t.segs)) return t.segs.map(s => ({ t: fill(s.t, v), ...(s.k ? { k: 1 } : {}), ...(s.n ? { n: 1 } : {}) }))
+  return (String(text).match(/[^，。？！；,.?!;]+[，。？！；,.?!;]?/g) || [text]).map(x => ({ t: x, ...(/[\d一二两三四五六七八九十百千半倍]|？|\?/.test(x) ? { k: 1 } : {}) }))
+}
+/**
  * 把一个模板实例化成多道题。返回 { items, problems }，problems 是出不来题的原因（给 Claude 看着改模板）。
  * slots：[lo, hi] 两个整数是整数范围；其他数组是从里面挑一个；"=表达式" 是派生值（按书写顺序计算）。
  */
@@ -335,6 +350,7 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
       Object.assign(item, { nums, over, kind: t.ask || 'over', answer: nums.filter(test).length, unit: t.unit || '个', units: t.units || [t.unit || '个', '分'],
         text: fill(t.text || '', { ...v, over }), ask: fill(t.pre || '答：', { ...v, over }) })
       if (!item.answer || item.answer === cnt) { bad('一个都不符合或全都符合'); continue }
+      item.segs = segsOf(t, item.text || '', { ...v, over })
     } else if (t.format === 'column') {
       // 竖式：模板只写算式，格子由程序排
       const m = fill(t.expression, v).replace(/\*/g, '×').replace(/\//g, '÷').replace(/-/g, '−').match(/^\s*(\d+)\s*([+−×÷])\s*(\d+)\s*$/)
@@ -369,8 +385,9 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
       item.parts = parts; item.answer = parts.at(-1).v; item.unit = parts.at(-1).unit
       Object.assign(item, { ask: fill(t.ask, vv), units: t.units || parts.at(-1).units })
       item.traps = (t.traps || []).map(x => ({ value: evalExpr(fill(x.e, vv)), error_type: x.error_type || t.error_type, say: fill(x.say, vv) })).filter(x => okAnswer(x.value))
-      item.flow = [...(item.goals ? ['goal'] : []), ...parts.flatMap(() => ['build', 'say'])]
-      item.stepOf = [...(item.goals ? [0] : []), ...parts.flatMap((_, k) => [k, k])]
+      item.segs = segsOf(t, item.text, v)
+      item.flow = ['circle', ...(item.goals ? ['goal'] : []), ...parts.flatMap(() => ['build', 'say'])]
+      item.stepOf = [-1, ...(item.goals ? [0] : []), ...parts.flatMap((_, k) => [k, k])]
     } else if (t.format === 'multi') {
       // 多空题：一屏几个空，□ 是要填的位置
       item.text = fill(t.text, v)
@@ -382,7 +399,7 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
     } else {
       // word：圈关键词开头；plan（挑战题）：先选「要先求什么」开头。后两步都是选算式、算和答
       if (t.format === 'plan') {
-        item.text = fill(t.text, v); item.goals = t.goals.map(g => ({ t: fill(g.t, v), ...(g.ok ? { ok: 1 } : {}) }))
+        item.text = fill(t.text, v); item.segs = segsOf(t, item.text, v); item.goals = t.goals.map(g => ({ t: fill(g.t, v), ...(g.ok ? { ok: 1 } : {}) }))
         if (item.goals.filter(g => g.ok).length !== 1) { bad('goals 里必须正好一个 ok'); continue }
       } else item.segs = t.segs.map(s => ({ t: fill(s.t, v), ...(s.k ? { k: 1 } : {}), ...(s.n ? { n: 1 } : {}) }))
       item.choices = t.choices.map(c => ({ t: pretty(fill(c.e, v)), v: evalExpr(fill(c.e, v)), ...(c.ok ? { ok: 1 } : {}), trap: c.trap || t.error_type, say: fill(c.say, v) }))
@@ -424,16 +441,24 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
   return { items, problems }
 }
 
+/** 这份题库按每天都来做，每组够做几天（不重复），返回 [{ id, name, days }]，关底题组每天只抽 1 题 */
+export function packDays(pack) {
+  return pack.groups.map(g => ({ id: g.id, name: g.name, days: Math.floor(pack.items.filter(it => it.group === g.id).length / dailyOf(g)) }))
+}
+
 /** 由周 md 里的「题库」（{ groups, templates, tuning }）生成题库包。 */
 export function buildPack(bank, week) {
   const report = []
+  // 每个模板生成多少道：够这一组每天抽 daily 题、做 PACK_DAYS 天（留余量），至少 25 道
+  const perTpl = g => Math.max(25, Math.ceil(dailyOf(g) * PACK_DAYS * PACK_MARGIN / bank.templates.filter(t => t.group === g.id).length))
   const items = bank.templates.flatMap(t => {
     const g = bank.groups.find(x => x.id === t.group)
     if (!g) { report.push({ id: t.id, made: 0, problems: { [`没有分组 ${t.group}`]: 1 } }); return [] }
-    const { items, problems } = instantiate(t, g, week, Number(bank.tuning?.focus_boost) || 0)
+    const { items, problems } = instantiate(t, g, week, Number(bank.tuning?.focus_boost) || 0, t.count || perTpl(g))
     report.push({ id: t.id, made: items.length, problems })
     return items
   })
+  report.days = packDays({ groups: bank.groups, items })
   return { pack: { v: PACK_VERSION, week, created: new Date().toISOString(), tuning: { unit_hint: 1, blank_hint: 1, slow: 1, boss_day: 5, bedtime: '20:30', ...bank.tuning }, groups: bank.groups, items }, report }
 }
 
@@ -443,11 +468,11 @@ export function buildPack(bank, week) {
  */
 export function publicItem(it, o = {}) {
   const p = { id: it.id, group: it.group, format: it.format, level: it.level, err: it.err, max: maxCoins(it) }
-  if (it.format === 'word') p.segs = it.segs.map(s => ({ t: s.t }))
+  if (it.segs) p.segs = it.segs.map(s => ({ t: s.t }))
   if (['plan', 'clock', 'multi', 'multistep'].includes(it.format)) p.text = it.text
   const tier = it.level === '同构' ? Math.min(1, o.tier ?? 1) : o.tier ?? 1
   if (it.format === 'stat') p.title = it.title
-  p.flow = (it.flow || FLOWS[it.format]).map((type, j) => {
+  p.flow = flowOf(it).map((type, j) => {
     const q = it.asks?.[(it.parts?.[j] || 0) - 1], part = it.parts ? { part: it.parts[j] } : {}
     if (it.format === 'stat') {
       if (type === 'table') return { type, part: 0, record: it.record, cats: it.cats, head: it.unit === '人' ? '人数' : '数量', marks: it.vals.map(n => it.record === 'check' ? '✓'.repeat(n) : '正'.repeat(Math.floor(n / 5)) + ['', '一', '丅', '下', '止'][n % 5]) }

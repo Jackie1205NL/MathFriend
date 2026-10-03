@@ -80,6 +80,7 @@ function chat(kind) {
   say = fact(l.t); act = l.act
 }
 /** 做动作：动作图停留约 4.5 秒并轻轻晃动；anim 是整只狗的动画（跳、转圈、散步） */
+// 只有喂食、洗澡、玩球、摸摸、把戏换动作图（动作图上不戴配饰）；其他时候只让整只狗跳一跳、转一转，配饰一直戴着
 function strike(p, anim = '') {
   if (!POSES.includes(p)) { act = p || anim; return }
   pose = p; act = anim; clearTimeout(poseTimer)
@@ -156,9 +157,9 @@ function vQuests() {
 }
 
 // ---------- 做题：题目由积木拼成，每一步只收作答，整道题做完再判 ----------
-function pad(units, go = '交卷', goAct = 'submit') {
+function pad(units, go = '交卷', goAct = 'submit', off = false) {
   const u = units ? units.map(x => `<button class="u ${Q?.unit === x ? 'on' : ''}" data-a="unit" data-v="${esc(x)}">${esc(x)}</button>`).join('') + '<span></span>'.repeat(Math.max(0, 4 - units.length)) : ''
-  return `<div class="pad">${[1, 2, 3, '⌫', 4, 5, 6, 0, 7, 8, 9].map(k => `<button data-a="key" data-v="${k}">${k}</button>`).join('')}<button class="go" data-a="${goAct}" ${go ? '' : 'disabled'}>${go || '　'}</button>${u}</div>`
+  return `<div class="pad">${[1, 2, 3, '⌫', 4, 5, 6, 0, 7, 8, 9].map(k => `<button data-a="key" data-v="${k}">${k}</button>`).join('')}<button class="go" data-a="${goAct}" ${go && !off ? '' : 'disabled'}>${go || '　'}</button>${u}</div>`
 }
 const curItem = () => Q.demo || groups().find(x => x.id === Q.gid).items.find(x => x.id === Q.id)
 // 「试一试」用的示范题：学会新等级后停在这个本领用得上的那一步，菜单直接打开，不扣次数、不计分
@@ -235,7 +236,8 @@ function colGrid(b) {
 const lastOf = type => { for (let j = Math.min(Q.i, Q.flow.length - 1); j >= 0; j--) if (Q.flow[j].type === type) return j; return Q.flow.findIndex(b => b.type === type) }
 const built = () => { const bi = lastOf('build'), r = Q.rec[bi]; return !r ? [] : r.expr || (r.i != null ? toTokens(curItem().flow[bi].choices[r.i]) : []) }
 const chainFinal = () => { const r = Q.rec[fi('chain')]; if (!r) return null; let t = stripParens(curItem().flow[fi('chain')].start || built()); for (const L of r.lines) t = reduceAt(t, L.k, L.v); return t.length === 1 ? t[0] : null }
-function autoOp() { const L = Q.lines.at(-1), ks = L.t.flatMap((x, k) => canTap(L.t, k) ? [k] : []); Q.op = ks.length === 1 && L.t.filter(isOp).length === 1 ? ks[0] : null }
+/** 这一行只剩一个能算的符号（其他的被括号挡着），就直接选上，出填写的框 */
+function autoOp() { const L = Q.lines.at(-1), ks = L.t.flatMap((x, k) => canTap(L.t, k) ? [k] : []); Q.op = ks.length === 1 ? ks[0] : null }
 function save(x) { Q.rec[Q.i] = { ...(Q.rec[Q.i] || {}), ...x } }
 function next() { if (lastStep()) return submitQ(); Q.i++; enter() }
 function submitQ() {
@@ -290,7 +292,7 @@ function vStep() {
   if (b.type === 'tapnum') {
     const order = b.nums.map((_, i) => i); if (Q.fx.sorted) order.sort((x, y) => b.nums[x] - b.nums[y])
     const slot = Q.unit ? `<button class="uchip" data-a="unit" data-v="">${esc(Q.unit)}</button>` : V.tuning.unit_hint ? '<span class="uslot" aria-label="空着的单位格"></span>' : ''
-    return `<div class="card q">${esc(b.text)}</div><div class="card nums">${order.map(i => `<button class="${Q.sel.has(i) ? 'on' : ''}" data-a="seg" data-v="${i}">${b.nums[i]}</button>`).join('')}</div>
+    return `${it.segs ? qText() : `<div class="card q">${esc(b.text)}</div>`}<div class="card nums">${order.map(i => `<button class="${Q.sel.has(i) ? 'on' : ''}" data-a="seg" data-v="${i}">${b.nums[i]}</button>`).join('')}</div>
       <div class="card"><div class="ans">${esc(b.ask)} ${box(Q.input)} ${slot}</div></div>${pad(b.units, go, 'stepgo')}`
   }
   if (b.type === 'fill') {
@@ -309,7 +311,7 @@ function vStep() {
       return `<div class="mrow ${Q.cur >= start && Q.cur < g ? 'cur' : ''}">${parts.map((x, j) => esc(x) + (j < parts.length - 1 ? `<button class="bx ${Q.fx.flash && Q.vals[start + j] === '' ? 'bad' : ''}" data-a="blank" data-v="${start + j}">${box(Q.vals[start + j], Q.cur === start + j)}</button>` : '')).join('')}</div>` }).join('')
     return `${it.text ? `<p class="dim">${esc(it.text)}</p>` : ''}<div class="card multi">${rows}</div><p class="dim">点一个空再填数。每个空都要填。</p>${pad(null, go, 'stepgo')}`
   }
-  if (b.type === 'circle') return `${qText('pick')}<p class="dim">可以点好几处，再点一下取消。圈完不会马上对答案，整道题做完再一起看。</p><button class="btn" data-a="stepgo" ${Q.sel.size ? '' : 'disabled'}>圈好了，去列式</button>`
+  if (b.type === 'circle') return `${qText('pick')}<p class="dim">可以点好几处，再点一下取消。圈完不会马上对答案，整道题做完再一起看。</p><button class="btn" data-a="stepgo" ${Q.sel.size ? '' : 'disabled'}>圈好了，${Q.flow[Q.i + 1]?.type === 'build' ? '去列式' : '下一步'}</button>`
   if (b.type === 'goal') return `${qText()}<div class="opts">${b.opts.map((o, i) => `<button class="${i === Q.fx.strike ? 'struck' : ''}" data-a="pickgo" data-v="${i}" ${i === Q.fx.strike ? 'disabled' : ''}>${esc(o)}</button>`).join('')}</div>`
   if (b.type === 'build') {
     const gi = fi('goal'), head = b.head ? `<div class="bubble plain good">${esc(b.head)}</div>` : gi >= 0 ? `<div class="bubble plain good">先求：${esc(it.flow[gi].opts[Q.rec[gi]?.i] ?? '')}</div>` : ''
@@ -331,7 +333,7 @@ function vStep() {
       }).join(' ')}</div>`
     }).join('')
     const L = Q.lines.at(-1), nl = Q.op == null ? '' : `<div class="line">= ${[...L.t.slice(0, Q.op - 1), '□', ...L.t.slice(Q.op + 2)].map(x => x === '□' ? box(Q.input) : `<span>${x}</span>`).join(' ')}</div>`
-    return `${qText()}<div class="card">${rows}${nl}</div><p class="dim">算错了也不会被打断，交卷后一起看。</p>${pad(null, Q.op == null ? '' : '填好了', 'stepgo')}`
+    return `${qText()}<div class="card">${rows}${nl}</div><p class="dim">算错了也不会被打断，交卷后一起看。</p>${pad(null, Q.op == null ? '先点符号' : '填好了', 'stepgo', Q.op == null)}`
   }
   if (b.type === 'say') {
     const slot = Q.unit ? `<button class="uchip" data-a="unit" data-v="">${esc(Q.unit)}</button>` : V.tuning.unit_hint ? '<span class="uslot" aria-label="空着的单位格"></span>' : ''
@@ -498,7 +500,7 @@ const QA = {
       const L = Q.lines.at(-1), v = Number(Q.input); Object.assign(L, { k: Q.op, v }); Q.input = ''
       const nt = reduceAt(L.t, Q.op, v); Q.op = null; Q.fx.mark = false
       if (nt.length === 1) { save({ lines: Q.lines.map(x => ({ k: x.k, v: x.v })) }); return next() }
-      Q.lines.push({ t: nt }); autoOp(); sayPet(Q.op != null ? '只剩一个符号了，直接算。' : '下一行，先点你要先算的符号。'); return
+      Q.lines.push({ t: nt }); autoOp(); sayPet(Q.op != null ? '这一行只能先算这一个，直接算。' : '下一行，先点你要先算的符号。'); return
     }
     if (b.type === 'say' && b.cells) { if (Q.vals.some(v => v === '')) return sayPet('答句里还有空着的格子。'); save({ vs: Q.vals.map(Number), units: [...Q.units] }); return next() }
     if (b.type === 'say') { if (!Q.input) return sayPet('还没填得数呢。'); save({ v: Number(Q.input), unit: Q.unit }); return next() }
@@ -676,8 +678,17 @@ function scene(k, o = {}) {
     + (own('snowman') ? '<circle cx="56" cy="232" r="24" fill="#fff" stroke="#c4d3e4" stroke-width="2"/><circle cx="56" cy="196" r="16" fill="#fff" stroke="#c4d3e4" stroke-width="2"/><circle cx="51" cy="193" r="2" fill="#333"/><circle cx="61" cy="193" r="2" fill="#333"/><polygon points="56,198 70,201 56,202" fill="#f08a1c"/>' : '')
     + (own('sled') ? '<rect x="270" y="236" width="66" height="12" rx="3" fill="#c0392b"/><path d="M266 254 h72 q8 0 8 -8" fill="none" stroke="#6b3d1c" stroke-width="3"/>' : '')
     + (own('stove') ? '<ellipse cx="300" cy="214" rx="40" ry="16" fill="#ffd76655"/><rect x="286" y="198" width="28" height="26" rx="4" fill="#7a5130"/><path d="M294 200 q6 -16 12 0" fill="#f08a1c"/>' : '')
-  if (k === 'hall') s = '<rect width="360" height="270" fill="#7a1f2b"/><rect y="196" width="360" height="74" fill="#c98a4b"/><rect y="196" width="360" height="6" fill="#8a5a2b"/><path d="M0 0 h70 q-20 100 0 200 h-70z" fill="#c0392b"/><path d="M360 0 h-70 q20 100 0 200 h70z" fill="#c0392b"/><rect x="100" y="18" width="160" height="34" rx="6" fill="#ffd766"/><text x="180" y="42" text-anchor="middle" font-size="20" fill="#7a1f2b" font-family="ZCOOL KuaiLe, sans-serif">毕业典礼</text>'
-    + [[92, 70], [268, 70]].map(([x, y]) => `<line x1="${x}" y1="52" x2="${x}" y2="${y - 16}" stroke="#ffd766"/><ellipse cx="${x}" cy="${y}" rx="18" ry="16" fill="#e23a3a"/><rect x="${x - 3}" y="${y + 14}" width="6" height="12" fill="#ffd766"/>`).join('')
+  // 毕业礼堂：明亮的学校礼堂，红底黄字横幅、彩旗、气球、木地板舞台、台前一排花
+  if (k === 'hall') s = sky('#e3f3ff', '#c4e4fb')
+    + '<rect x="34" y="66" width="292" height="132" rx="14" fill="#ffffff" opacity=".75"/>'
+    + [[70, 92], [120, 80], [240, 84], [292, 98], [180, 74]].map(([x, y], i) => `<polygon points="${x},${y - 7} ${x + 2},${y - 2} ${x + 7},${y - 2} ${x + 3},${y + 1} ${x + 5},${y + 6} ${x},${y + 3} ${x - 5},${y + 6} ${x - 3},${y + 1} ${x - 7},${y - 2} ${x - 2},${y - 2}" fill="${['#ffd766', '#f6a5c0', '#9ad7ff', '#ffd766', '#b6e3a1'][i]}"/>`).join('')
+    + '<path d="M0 10 Q90 34 180 14 Q270 34 360 10" fill="none" stroke="#c99a52" stroke-width="1.5"/>'
+    + Array.from({ length: 13 }, (_, i) => { const x = 8 + i * 27, y = 13 + Math.sin(i / 12 * Math.PI) * 12; return `<polygon points="${x},${y} ${x + 16},${y} ${x + 8},${y + 16}" fill="${['#e0322f', '#ffc928', '#3b8fd6', '#2f9e5b', '#f08a1c'][i % 5]}"/>` }).join('')
+    + '<rect x="78" y="36" width="204" height="40" rx="5" fill="#d92b2b"/><rect x="82" y="40" width="196" height="32" rx="3" fill="none" stroke="#ffd766" stroke-width="1.5"/>'
+    + '<text x="180" y="64" text-anchor="middle" font-size="24" fill="#ffe27a" font-family="ZCOOL KuaiLe, sans-serif" letter-spacing="6">毕业典礼</text>'
+    + '<rect y="196" width="360" height="74" fill="#f0c78a"/>' + Array.from({ length: 8 }, (_, i) => `<line x1="${i * 48}" y1="196" x2="${i * 48 - 20}" y2="270" stroke="#dcae6c" stroke-width="2"/>`).join('') + '<rect y="192" width="360" height="8" fill="#c98f4f"/>'
+    + [[22, 150], [338, 150]].map(([cx, cy], side) => [0, 1, 2, 3].map(j => { const x = cx + (side ? -1 : 1) * (j % 2) * 16, y = cy - j * 26; return `<line x1="${x}" y1="${y + 16}" x2="${cx}" y2="196" stroke="#8aa0b0" stroke-width="1"/><ellipse cx="${x}" cy="${y}" rx="12" ry="15" fill="${['#e0322f', '#ffc928', '#3b8fd6', '#2f9e5b'][(j + side) % 4]}"/><ellipse cx="${x - 4}" cy="${y - 5}" rx="3" ry="4" fill="#fff" opacity=".5"/>` }).join('')).join('')
+    + Array.from({ length: 12 }, (_, i) => { const x = 14 + i * 30; return `<rect x="${x + 6}" y="238" width="3" height="20" fill="#3f9c5f"/><circle cx="${x + 7}" cy="234" r="8" fill="${['#ffc928', '#f6a5c0', '#f08a1c'][i % 3]}"/><circle cx="${x + 7}" cy="234" r="3" fill="#8a5a2b"/>` }).join('')
   return `<svg viewBox="0 0 360 270" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${s}</svg>`
 }
 // 明信片：地点插画 + 一层天气或时间 + 邮票
@@ -812,28 +823,28 @@ const A = {
   petname(v) { const n = v ?? document.getElementById('nm-pet')?.value; return run(async () => { const r = await api('/act', { kind: 'name', name: n }); V = r.view; if (S().name) meetBack = false; else showToast(r.msg) }) },
   kidname() { const n = document.getElementById('nm-kid')?.value; return run(async () => { const r = await api('/act', { kind: 'kidname', name: n }); V = r.view; if (S().kid) meetHi = true; else showToast(r.msg) }) },
   meetback() { meetBack = true },
-  meetdone() { meetHi = false; say = `${S().kid}，以后请多关照！`; strike('wag') },
-  greet() { return run(async () => { const r = await api('/act', { kind: 'greet' }); V = r.view; say = r.msg; strike('wag') }) },
+  meetdone() { meetHi = false; say = `${S().kid}，以后请多关照！`; strike('hop') },
+  greet() { return run(async () => { const r = await api('/act', { kind: 'greet' }); V = r.view; say = r.msg; strike('hop') }) },
   care(kind) { return run(async () => { const r = await api('/act', { kind }); V = r.view; say = r.msg; if (r.act) strike(r.act) }) },
   buy(k) { return run(async () => { const r = await api('/act', { kind: 'buy', k }); V = r.view; say = r.msg; if (page !== 'shop') showToast(r.msg) }) },
   learn() { return run(async () => { const r = await api('/act', { kind: 'learn', k: sel }); V = r.view; say = r.msg; if (r.act) { learned = { k: sel, lv: S().skill[sel] }; sheet = 'learned' } }) },
   tryit() { sheet = null; startDemo(learned.k) },
   sel(k) { sel = k },
-  tap() { const t = Date.now(); taps = [...taps.filter(x => t - x < 3000), t]; const l = pick(LINES[taps.length >= 5 ? 'tap_too_much' : 'tap']); say = fact(l.t); strike(taps.length >= 5 ? 'spin' : pick(['wag', l.act])) },
+  tap() { const t = Date.now(); taps = [...taps.filter(x => t - x < 3000), t]; const l = pick(LINES[taps.length >= 5 ? 'tap_too_much' : 'tap']); say = fact(l.t); strike(taps.length >= 5 ? 'spin' : pick(['hop', l.act])) },   // 点小狗只让它跳一跳、转一转，不换动作图，配饰一直戴着
   sheet(v) { sheet = v },
   close() { sheet = null; card = null },
-  event() { return run(async () => { const r = await api('/act', { kind: 'event' }); V = r.view; say = r.msg; strike(r.act || 'wag') }) },
+  event() { return run(async () => { const r = await api('/act', { kind: 'event' }); V = r.view; say = r.msg; strike('hop') }) },
   ball() { sheet = null; return A.care('toy') },
   hidestart() { return run(async () => { const r = await api('/act', { kind: 'hide' }); V = r.view; if (V.hide) sheet = 'hide'; else showToast(r.msg) }) },
   hard() { return run(async () => { const r = await api('/act', { kind: 'hide', hard: !V.hide.hard }); V = r.view }) },
-  cup(i) { return run(async () => { const r = await api('/act', { kind: 'cup', i: +i }); V = r.view; if (V.hide?.win) { say = r.msg; strike('wag') } }) },
+  cup(i) { return run(async () => { const r = await api('/act', { kind: 'cup', i: +i }); V = r.view; if (V.hide?.win) { say = r.msg; strike('hop') } }) },
   trick(k) { const t = TRICKS.find(x => x.k === k); sheet = null; say = fact(t.say); strike(t.pose || t.anim, t.pose ? t.anim || '' : '') },
   place(k) { if (k === 'home') return A.go('home'); place = k; page = 'place'; say = '' },
   nope() { showToast('还没开放，看看卡片上还差什么。') },
-  trip() { return run(async () => { const r = await api('/act', { kind: 'trip', k: place }); V = r.view; say = r.msg; strike(r.act || 'wag', r.anim || ''); if (r.card) { card = r.card; sheet = 'card' } }) },
+  trip() { return run(async () => { const r = await api('/act', { kind: 'trip', k: place }); V = r.view; say = r.msg; strike(r.anim || 'hop'); if (r.card) { card = r.card; sheet = 'card' } }) },
   jar() { return run(async () => { const r = await api('/act', { kind: 'jar' }); V = r.view; say = r.msg }) },
   ceremony() { return run(async () => { const r = await api('/act', { kind: 'ceremony' }); V = r.view; if (S().graduated && S().grad === D()) grad = 1; else showToast(r.msg) }) },
-  gradnext() { grad = grad >= 2 ? 0 : grad + 1; if (!grad) { page = 'home'; say = `${S().kid || '小朋友'}，寒假也要一起玩哦！`; strike('wag') } },
+  gradnext() { grad = grad >= 2 ? 0 : grad + 1; if (!grad) { page = 'home'; say = `${S().kid || '小朋友'}，寒假也要一起玩哦！`; strike('hop') } },
 }
 const onAct = e => {
   const t = e.target.closest('[data-a]')

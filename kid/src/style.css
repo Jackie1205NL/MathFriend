@@ -274,11 +274,11 @@ button.frow{box-shadow:0 4px 0 var(--line)}
 .cup.up .lid{transform:translate(14px,-52px) rotate(18deg)}
 .cup .bone{transform-box:fill-box;transform-origin:50% 50%;animation:boneIn .6s .25s both}
 @keyframes boneIn{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
-.gradcere{position:fixed;inset:0;z-index:8;background:linear-gradient(#7a1f2b,#3e0f17);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:40px;text-align:center}
-.gradcere.green{background:linear-gradient(#2b5a3f,#173323)}
+.gradcere{position:fixed;inset:0;z-index:8;background:linear-gradient(#cfeaff,#fff6dc);color:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:40px;text-align:center}
+.gradcere.green{background:linear-gradient(#dff3e5,#fff6dc)}
 .gradcere .pet{position:relative;left:auto;bottom:auto;transform:none;height:360px}
 .gradcere p{margin:0;font-size:23px;line-height:1.7;max-width:540px}
-.gradcere h2{font-size:46px;color:var(--sun)}
+.gradcere h2{font-size:46px;color:#d92b2b}
 .gradcere .btn{max-width:360px}
 .conf{position:absolute;inset:0;pointer-events:none;overflow:hidden}
 .conf i{position:absolute;top:-10px;width:10px;height:16px;animation:fall 3.2s linear infinite}

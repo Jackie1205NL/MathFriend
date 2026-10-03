@@ -2,7 +2,7 @@
 // 存储只要有 get(key) / set(key, value) 两个方法：线上是 Netlify Blobs（kid/functions/kid.mjs），本地开发是文件（kid/vite.config.js）。
 import { PACK_VERSION, FORMATS, MIN_SECONDS, SKILLS, SKILL_COST, GOODS, DECAY, NEED_FLOOR, PATS_PER_DAY, LEVELS, LEVEL_MIX, STORY_PAGES, BOSS_SIZE, BOSS_PASS, BOSS_COINS, EXTRA_STEP, STAGES,
   SEASON, PLACES, POSTCARDS, POSTCARD_DAYS, JAR, TRIP_MOOD, EVENT_COINS, coinsFor, publicItem, stageOf, placeOpen, eventOf, cleanName, addDays,
-  SKILL_EVERY, SKILL_USES, SKILL_AT, SKILL_L2, FLOWS, STEP_NAME, toTokens, showExpr, validExpr, exprValue, exprSteps, sameNums, stripParens, nextOp, canTap, calcOp, reduceAt } from '../../shared/contract.js'
+  SKILL_EVERY, SKILL_USES, SKILL_AT, SKILL_L2, FLOWS, STEP_NAME, flowOf, dailyOf, toTokens, showExpr, validExpr, exprValue, exprSteps, sameNums, stripParens, nextOp, canTap, calcOp, reduceAt } from '../../shared/contract.js'
 
 const DAY = 86400000
 const today = (now = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(now)
@@ -90,7 +90,7 @@ function pickToday(pack, log, date, ladder) {
   const groups = pack.groups.filter(g => !(friday && g.boss)).map(g => {
     const pool = items.filter(it => it.group === g.id), fresh = pool.filter(it => !seen.has(it.id))
     const ordered = [...order(fresh.filter(it => redo.has(it.tpl))), ...order(fresh.filter(it => !redo.has(it.tpl))), ...order(pool.filter(it => seen.has(it.id)))]
-    const daily = g.daily || (g.bucket === '已掌握保温' ? 6 : 4), want = friday ? Math.ceil(daily / 2) : daily, out = [], perTpl = {}
+    const daily = dailyOf(g), want = friday ? Math.ceil(daily / 2) : daily, out = [], perTpl = {}
     for (const it of ordered) { if (out.length >= want) break; if ((perTpl[it.tpl] || 0) >= 2) continue; perTpl[it.tpl] = (perTpl[it.tpl] || 0) + 1; out.push(it.id) }
     return { id: g.id, items: out }
   }).filter(g => g.items.length)
@@ -157,7 +157,7 @@ export function createApi(store, env) {
       today: day ? day.groups.map(dg => ({ ...(dg.id === 'friday' ? FRIDAY : dg.id === 'extra' ? EXTRA : pack.groups.find(g => g.id === dg.id)), items: dg.items.map(id => { const it = byId[id], r = day.items[id] || {}; return { ...publicItem(it, { tier: s.tiers?.[`${it.kp}|${it.err}`]?.lv ?? 0 }), done: r.fin || null, guard: r.guard || null, caught: r.caught || null, l2: !!r.l2, help: r.help || [] } }) })) : [],
       uses: usesLeft(s, date),
       allDone: !!day?.done,
-      wish: pack?.tuning?.wish ? { text: String(pack.tuning.wish), need: Number(pack.tuning.wish_days) || 4, got: s.att.week === pack.week ? s.att.days.length : 0 } : null,
+      wish: pack?.tuning?.wish ? { text: String(pack.tuning.wish), need: Number(pack.tuning.wish_days) || 4, got: s.att.week === isoWeek(date) ? s.att.days.length : 0 } : null,
       morning: s.hatched && s.name && s.kid && s.greet !== date ? { gift: s.gift?.date === date ? s.gift.what : null, note: pack?.tuning?.note ? String(pack.tuning.note) : '', facts: facts(ctx) } : null,
       facts: facts(ctx),
       event: ev && { t: ev.t, b: ev.b },
@@ -183,6 +183,12 @@ export function createApi(store, env) {
    * 按积木逐步判分。每一步都照孩子自己的结果往下走：列错了式子，递等式就照他的式子算；
    * 所以能分清是列式错还是计算错。返回 { items: [{ i, good: 'y'|'n'|'h', msg, cat }], ok, habits, given, final }
    */
+  /** 圈关键词：关键词全中、多圈了几处用不上的。只提醒，不算错 */
+  function judgeCircle(it, a) {
+    const sel = new Set((Array.isArray(a?.sel) ? a.sel : []).map(Number)), keys = it.segs.flatMap((s, j) => s.k ? [j] : []), noise = it.segs.flatMap((s, j) => s.n ? [j] : [])
+    const missed = keys.filter(j => !sel.has(j)).length, extra = noise.filter(j => sel.has(j)).length, kw = missed ? 0 : extra ? 1 : 2
+    return { kw, good: kw === 2 ? 'y' : 'h', cat: kw === 2 ? '' : '审题', msg: kw === 2 ? '关键词圈得刚刚好' : missed ? `漏圈了 ${missed} 处要紧的地方。${it.why || '带数的话和问题都要圈。'}` : `要紧的都圈到了，还多圈了 ${extra} 处用不上的。${it.why || ''}` }
+  }
   /** 统计表：先填表，再答几个小问。后面的小问照孩子自己填的数往下走，按小问判分 */
   function judgeStat(it, steps) {
     const items = [], habits = new Set(), add = (i, good, msg, cat = '') => items.push({ i, good, msg, cat }), n = it.cats.length
@@ -235,7 +241,9 @@ export function createApi(store, env) {
   }
   /** 整理数据：点出符合条件的数，再数个数 */
   function judgeData(it, steps) {
-    const items = [], habits = new Set(), add = (good, msg, cat = '') => items.push({ i: 0, good, msg, cat }), a = steps?.[0] || {}
+    const flow = flowOf(it), ti = flow.indexOf('tapnum'), items = [], habits = new Set(), add = (good, msg, cat = '') => items.push({ i: ti, good, msg, cat }), a = steps?.[ti] || {}
+    let kw = 0
+    if (flow[0] === 'circle') { const c = judgeCircle(it, steps?.[0]); kw = c.kw; if (kw === 2) habits.add('审题'); items.push({ i: 0, good: c.good, msg: c.msg, cat: c.cat }) }
     const sel = new Set((Array.isArray(a.sel) ? a.sel : []).map(Number)), test = { over: x => x > it.over, under: x => x < it.over, atleast: x => x >= it.over }[it.kind]
     const want = it.nums.flatMap((x, j) => test(x) ? [j] : []), word = { over: '超过', under: '少于', atleast: '不少于' }[it.kind]
     const eq = [...sel].filter(j => it.nums[j] === it.over && !test(it.over)), extra = [...sel].filter(j => !test(it.nums[j]) && it.nums[j] !== it.over), miss = want.filter(j => !sel.has(j))
@@ -249,7 +257,7 @@ export function createApi(store, env) {
     if (!unit) add('n', '答句忘写单位', '格式规范'); else if (unit !== it.unit) add('n', `单位写成了「${unit}」`, '格式规范'); else habits.add('格式规范')
     const ok = v === want.length && unit === it.unit
     if (ok) add('y', `${it.ask} ${v} ${unit}`)
-    return { items, ok, habits: [...habits], given: `点了 ${[...sel].map(j => it.nums[j]).join(',')} | ${v ?? ''}${unit}`, kw: 0, unitMiss: !unit && v === want.length }
+    return { items, ok, habits: [...habits], given: `点了 ${[...sel].map(j => it.nums[j]).join(',')} | ${v ?? ''}${unit}`, kw, unitMiss: !unit && v === want.length }
   }
   /** 竖式：每一位对不对，能认出「忘了加进位」「忘了退位」 */
   /** 除法竖式：商每一位、下面各行、余数 */
@@ -308,9 +316,10 @@ export function createApi(store, env) {
   /** 分步应用题：每一步列式和得数都照孩子自己上一步的得数往下走 */
   function judgeMulti(it, steps) {
     const items = [], habits = new Set(), add = (i, good, msg, cat = '') => items.push({ i, good, msg, cat }), flow = it.flow
-    let ok = true, goalOk = false, own = [], unitsOk = true, calcOk = true, exprs = [], given = []
+    let ok = true, goalOk = false, own = [], unitsOk = true, calcOk = true, exprs = [], given = [], kwM = 0
     flow.forEach((type, i) => {
       const a = steps?.[i] || {}, k = it.stepOf[i], P = it.parts[k], tag = it.parts.length > 1 ? `第${'一二三四'[k]}步` : ''
+      if (type === 'circle') { const c = judgeCircle(it, a); kwM = c.kw; if (c.kw === 2) habits.add('审题'); return add(i, c.good, c.msg, c.cat) }
       if (type === 'goal') {
         const g = Number(a.i); given.push('先求 ' + (it.goals[g]?.t ?? '?'))
         if (it.goals[g]?.ok) { goalOk = true; habits.add('策略缺失'); return add(i, 'y', `先求「${it.goals[g].t}」，找对了`) }
@@ -343,7 +352,7 @@ export function createApi(store, env) {
     })
     if (unitsOk) habits.add('格式规范')
     if (calcOk) habits.add('计算失误')
-    return { items, ok, habits: [...habits], given: given.join(' | '), kw: 0, goalOk, unitMiss: items.filter(x => x.good === 'n').every(x => x.msg.includes('忘写单位')) && items.some(x => x.msg.includes('忘写单位')) }
+    return { items, ok, habits: [...habits], given: given.join(' | '), kw: kwM, goalOk, unitMiss: items.filter(x => x.good === 'n').every(x => x.msg.includes('忘写单位')) && items.some(x => x.msg.includes('忘写单位')) }
   }
   function judge(it, steps) {
     if (it.format === 'column') {
@@ -354,7 +363,7 @@ export function createApi(store, env) {
     if (it.format === 'multistep') return judgeMulti(it, steps)
     if (it.format === 'stat') return judgeStat(it, steps)
     if (it.format === 'data') return judgeData(it, steps)
-    const flow = it.flow || FLOWS[it.format], items = [], habits = new Set()
+    const flow = flowOf(it), items = [], habits = new Set()
     const add = (i, good, msg, cat = '') => items.push({ i, good, msg, cat })
     const trap = v => it.traps?.find(t => t.value === v)
     let expr = null, final = null, ok = true, given = [], kw = 0, goalOk = false, chainOk = true, rangeOk = false, blankMiss = false, unitMiss = false
@@ -401,11 +410,9 @@ export function createApi(store, env) {
           else { ok = false; add(i, 'n', `${t}：应该是 ${want.join('、')}，你写了 ${got.join('、')}`, '计算失误') }
         })
       } else if (type === 'circle') {
-        const sel = new Set((Array.isArray(a.sel) ? a.sel : []).map(Number)), keys = it.segs.flatMap((s, j) => s.k ? [j] : []), noise = it.segs.flatMap((s, j) => s.n ? [j] : [])
-        const missed = keys.filter(j => !sel.has(j)).length, extra = noise.filter(j => sel.has(j)).length
-        kw = missed ? 0 : extra ? 1 : 2
+        const c = judgeCircle(it, a); kw = c.kw
         if (kw === 2) habits.add('审题')
-        add(i, kw === 2 ? 'y' : 'h', kw === 2 ? '关键词圈得刚刚好' : missed ? `漏圈了 ${missed} 个关键词。${it.why || ''}` : `关键词都圈到了，还多圈了 ${extra} 处用不上的。${it.why || ''}`, kw === 2 ? '' : '审题')
+        add(i, c.good, c.msg, c.cat)
       } else if (type === 'goal') {
         const k = Number(a.i); given.push('先求 ' + (it.goals[k]?.t ?? '?'))
         if (it.goals[k]?.ok) { goalOk = true; habits.add('策略缺失'); return add(i, 'y', `先求「${it.goals[k].t}」，找对了`) }
@@ -545,21 +552,22 @@ export function createApi(store, env) {
     }
     const key = `${it.kp}|${it.err}`
     step(s.ladder[key] ||= { lv: 1, hist: [] }, 2)
-    if ((it.flow || FLOWS[it.format]).includes('build')) step((s.tiers ||= {})[key] ||= { lv: 0, hist: [] }, 2)   // 新的「知识点 × 错因」从第 0 档（选算式）开始
+    if (flowOf(it).includes('build')) step((s.tiers ||= {})[key] ||= { lv: 0, hist: [] }, 2)   // 新的「知识点 × 错因」从第 0 档（选算式）开始
     // 3 级守护没用上：这周的次数退回
     let refund = ''
     if (rec.guard) { const U = s.uses?.[rec.guard]; if (U && U.w3 > 0) U.w3--; refund = SKILLS.find(x => x.k === rec.guard).n; rec.guard = null }
     rec.fin = { c, core, ok, partsOk: J.partsOk || null, pb, bonus, points, point: points[0] || '', extra: !!extra, grew: 0, items: J.items, habits: J.habits, caught: rec.caught || null, help: rec.help || [], refund, l2: !!rec.l2, ...solution(it), walk: ok ? null : walk(it) }
     ctx.log.push(row(ctx, it, { try: rec.caught ? 2 : 1, correct: ok, given: J.given, coins: c, trap_error_type: ok ? null : J.items.find(x => x.good === 'n')?.cat || it.err,
-      step_failed: ok ? null : J.unitMiss && J.items.filter(x => x.good === 'n').length === 1 ? '忘写单位' : STEP_NAME[(it.flow || FLOWS[it.format])[J.items.find(x => x.good === 'n')?.i]] || null,
-      ms: rec.ms, help: rec.help?.length ? rec.help : null, steps: (it.flow || FLOWS[it.format]).map((_, i) => J.items.filter(x => x.i === i).every(x => x.good === 'y') ? 1 : 0).join('') }))
+      step_failed: ok ? null : J.unitMiss && J.items.filter(x => x.good === 'n').length === 1 ? '忘写单位' : STEP_NAME[flowOf(it)[J.items.find(x => x.good === 'n')?.i]] || null,
+      ms: rec.ms, help: rec.help?.length ? rec.help : null, steps: flowOf(it).map((_, i) => J.items.filter(x => x.i === i).every(x => x.good === 'y') ? 1 : 0).join('') }))
     const all = ctx.day.groups.flatMap(g => g.items)
     if (all.every(id => ctx.day.items[id]?.fin) && !ctx.day.done) {
       ctx.day.done = true; if (!ctx.day.flash) { s.pts['漏题']++; rec.fin.patrol = true }
       // 陪伴天数：做完当天的任务算陪了 1 天，周末也算，只增不减；毕业典礼以后不再计
       if (s.lastDay !== ctx.date && ctx.date <= SEASON.end) { s.days++; s.lastDay = ctx.date; rec.fin.day = s.days }
       // 出勤：心愿单按这个兑换
-      if (s.att.week !== ctx.pack.week) s.att = { week: ctx.pack.week, days: [] }
+      // 按日历上的这一周算（一份题库可能用两周）
+      if (s.att.week !== isoWeek(ctx.date)) s.att = { week: isoWeek(ctx.date), days: [] }
       if (!s.att.days.includes(ctx.date)) s.att.days.push(ctx.date)
       const need = Number(ctx.pack.tuning?.wish_days) || 4
       if (ctx.pack.tuning?.wish && s.att.days.length === need) { rec.fin.wish = String(ctx.pack.tuning.wish); mark(s, ctx.date, `这周来满 ${need} 天，可以兑换心愿：${rec.fin.wish}`) }
@@ -596,7 +604,7 @@ export function createApi(store, env) {
     if (!J.ok && rec.guard && first && first.cat === rec.guard) {
       const k = rec.guard; rec.guard = null
       rec.caught = { k, n: SKILLS.find(x => x.k === k).n, msg: first.msg, step: first.i }
-      ctx.log.push(row(ctx, it, { try: 1, correct: false, caught: SKILLS.find(x => x.k === k).n, help: rec.help?.length ? rec.help : null, given: J.given, trap_error_type: first.cat, step_failed: STEP_NAME[(it.flow || FLOWS[it.format])[first.i]], ms }))
+      ctx.log.push(row(ctx, it, { try: 1, correct: false, caught: SKILLS.find(x => x.k === k).n, help: rec.help?.length ? rec.help : null, given: J.given, trap_error_type: first.cat, step_failed: STEP_NAME[flowOf(it)[first.i]], ms }))
       return { ok: false, caught: rec.caught }
     }
     // 急着答错：整道题的用时比最短思考时间还短。只是忘写单位不算
@@ -611,7 +619,7 @@ export function createApi(store, env) {
   function useSkill(ctx, b) {
     const s = ctx.state, k = b.k, L = Number(b.L), sk = SKILLS.find(x => x.k === k)
     const it = ctx.pack?.items.find(x => x.id === b.item), rec = it && ctx.day?.items[it.id]
-    const type = it && (it.flow || FLOWS[it.format])[Number(b.step)]
+    const type = it && flowOf(it)[Number(b.step)]
     if (!sk || ![1, 2, 3].includes(L) || (s.skill[k] || 0) < L) return { msg: '还没学会这一级。' }
     if (!it || !ctx.day.groups.some(g => g.items.includes(it.id)) || rec?.fin) return { msg: '' }
     if (!SKILL_AT[k].includes(type) || (L === 2 && !SKILL_L2[k].includes(type))) return { msg: '这一步用不上。' }
