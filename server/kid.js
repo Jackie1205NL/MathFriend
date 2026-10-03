@@ -5,6 +5,9 @@
 //   npm run kid push 2026-W40               生成题库包并推送到孩子端（Netlify）
 //   npm run kid pull 2026-W40               取回该周答题记录，按「知识点 × 错因」汇总写进周 md 的「答题」段
 //   npm run kid link <孩子端网址> <同步令牌>  保存地址和令牌（存在应用数据目录，不进项目文件夹）
+//   KID_URL=<dev 网址> npm run kid demo    把 rules.md 的示例模板拼成体验题库，推到 dev 分支部署试玩（不需要错题数据）
+//   KID_URL=<dev 网址> npm run kid clock 2027-01-22   拨 dev 站的日期（看长大、毕业），不写日期拨回今天
+//   KID_URL=… / KID_TOKEN=…                任何命令前加上，临时换推送地址和令牌，不改保存的设置
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -84,7 +87,8 @@ export function summarize(log, ladder = {}) {
 }
 
 async function sync(method, path, body) {
-  const { kidUrl, kidToken } = loadSettings()
+  // KID_URL / KID_TOKEN 可以临时指定（比如推到 dev 分支部署），不改保存的正式地址
+  const saved = loadSettings(), kidUrl = process.env.KID_URL || saved.kidUrl, kidToken = process.env.KID_TOKEN || saved.kidToken
   if (!kidUrl || !kidToken) throw new Error('还没设置孩子端地址：npm run kid link <网址> <同步令牌>')
   const r = await fetch(kidUrl.replace(/\/$/, '') + '/api/kid' + path, { method, headers: { 'content-type': 'application/json', 'x-sync-token': kidToken }, body: body && JSON.stringify(body) })
   const d = await r.json().catch(() => ({}))
@@ -92,10 +96,45 @@ async function sync(method, path, body) {
   return d
 }
 
+/**
+ * 体验题库：把 rules.md 第 9 节里的示例模板（各题型都有）拼成一份题库包，不需要错题数据。
+ * 只给 dev 分支部署试玩用：KID_URL=https://dev--mathfriend.netlify.app npm run kid demo
+ */
+export function demoPack(week) {
+  const md = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '.claude', 'skills', 'weekly', 'rules.md'), 'utf8')
+  const blocks = [...md.matchAll(/```json\n([\s\S]*?)```/g)].map(m => m[1])
+  let bank = null
+  const extra = []
+  for (const b of blocks) {
+    try { const j = JSON.parse(b); if (j.templates) bank = bank || j; else if (j.id && j.format) extra.push(j); continue } catch { /* 一个代码块里有几行模板 */ }
+    for (const chunk of b.split(/\n(?=\{)/)) { try { const j = JSON.parse(chunk); if (j.id && j.format) extra.push(j) } catch { /* 跳过不完整的 */ } }
+  }
+  if (!bank) throw new Error('rules.md 里没找到示例题库')
+  const ids = new Set(bank.templates.map(t => t.id)), more = extra.filter(t => !ids.has(t.id) && (ids.add(t.id), true))
+  bank.groups.splice(bank.groups.findIndex(g => g.boss), 0, { id: 'gx', name: '新题型体验', sub: '统计表、竖式、两步题……', bucket: '本周重点', daily: 6 })
+  bank.templates.push(...more.map(t => ({ ...t, group: bank.groups.some(g => g.id === t.group && g.id !== 'g5') ? t.group : 'gx' })))
+  return buildPack(bank, week)
+}
+const isoWeekNow = () => { const d = new Date(), w = d.getUTCDay() || 7; d.setUTCDate(d.getUTCDate() + 4 - w); const y = d.getUTCFullYear(); return `${y}-W${String(Math.ceil(((d - Date.UTC(y, 0, 1)) / 86400000 + 1) / 7)).padStart(2, '0')}` }
+
 // ---------- 命令行 ----------
 const [cmd, week, arg] = process.argv.slice(2)
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) try {
   if (cmd === 'link') { saveSettings({ kidUrl: week, kidToken: arg }); console.log(`已保存孩子端地址 ${week}`) }
+  else if (cmd === 'clock') {
+    // 拨 dev 站的日期：KID_URL=https://dev--mathfriend.netlify.app npm run kid clock 2027-01-22 [16:00]；不写日期就拨回今天
+    if (!process.env.KID_URL) throw new Error('只能拨 dev：KID_URL=https://dev--mathfriend.netlify.app npm run kid clock 2027-01-22')
+    if (week && !/^\d{4}-\d{2}-\d{2}$/.test(week)) throw new Error('日期写成 2027-01-22')
+    await sync('POST', '/dev/clock', week ? { date: week, time: arg || '16:00' } : {})
+    console.log(week ? `dev 站的日期拨到了 ${week} ${arg || '16:00'}` : 'dev 站的日期拨回了今天')
+  }
+  else if (cmd === 'demo') {
+    const w = /^\d{4}-W\d{2}$/.test(week || '') ? week : isoWeekNow(), { pack, report } = demoPack(w)
+    printReport(report, 0)
+    if (!process.env.KID_URL) throw new Error('体验题库只推到 dev：KID_URL=https://dev--mathfriend.netlify.app npm run kid demo')
+    const r = await sync('PUT', '/pack', pack)
+    console.log(`已把体验题库推到 ${process.env.KID_URL}：${r.week}，${r.items} 道题`)
+  }
   else if (!/^\d{4}-W\d{2}$/.test(week || '')) throw new Error('用法：npm run kid bank|tune|pack|push|pull <周> …，或 npm run kid link <网址> <令牌>')
   else if (cmd === 'bank') {
     const bank = JSON.parse(fs.readFileSync(arg, 'utf8'))

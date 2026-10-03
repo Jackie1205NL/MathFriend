@@ -107,12 +107,12 @@ function pickToday(pack, log, date, ladder) {
 export function createApi(store, env) {
   const load = async (k, d) => (await store.get(k)) ?? d
   const session = async () => digest(`kid:${env.KID_PIN}`)
-  // 本地开发可以拨时间（POST /api/kid/dev/clock），线上没有这个接口
+  // 本地开发和 dev 分支部署可以拨时间（POST /api/kid/dev/clock），正式站没有这个接口
   let offset = 0
   const nowMs = () => Date.now() + offset
 
   async function context() {
-    if (env.DEV) offset = await load('dev-clock', 0)
+    if (env.DEV || env.CLOCK) offset = await load('dev-clock', 0)
     const pack = await store.get('pack')
     const now = nowMs(), date = today(new Date(now))
     const raw = await store.get('state')
@@ -767,7 +767,8 @@ export function createApi(store, env) {
       if (p === '/log' && req.method === 'GET') return json({ week: url.searchParams.get('week'), log: await load(`log:${url.searchParams.get('week')}`, []), state: await store.get('state') })
       return json({ error: '不支持' }, 405)
     }
-    if (env.DEV && p === '/dev/clock' && req.method === 'POST') {
+    // 拨时钟：本地开发随便拨；dev 分支部署（env.CLOCK）要带同步令牌；正式站没有这个接口
+    if ((env.DEV || (env.CLOCK && req.headers.get('x-sync-token') === env.SYNC_TOKEN)) && p === '/dev/clock' && req.method === 'POST') {
       const b = await req.json().catch(() => ({})), ms = b.date ? Date.parse(`${b.date}T${b.time || '16:00'}:00+08:00`) - Date.now() : 0
       await store.set('dev-clock', ms); return json({ ok: true, offset: ms })
     }
