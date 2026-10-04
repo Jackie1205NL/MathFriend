@@ -87,15 +87,28 @@ function pickToday(pack, log, date, ladder) {
   const friday = Number(pack.tuning?.boss_day) === (new Date(date + 'T12:00:00Z').getUTCDay() || 7)
   const weight = it => LEVEL_MIX[ladder[`${it.kp}|${it.err}`]?.lv ?? 1][Math.max(0, LEVELS.indexOf(it.level))]
   const order = a => a.map(it => [-Math.log((hash(date + it.id) % 99991 + 1) / 99992) / weight(it), it]).sort((p, q) => p[0] - q[0]).map(p => p[1])
-  const groups = pack.groups.filter(g => !(friday && g.boss)).map(g => {
+  // 每组的题型和顺序不变；约三分之一换成别的组、往周（综合复习题池 mix 组）里同题型的题，同一模板尽量平均出，不让一组题翻来覆去一个样
+  const taken = new Set()
+  const groups = pack.groups.filter(g => !(friday && g.boss) && !g.mix).map(g => {
     const pool = items.filter(it => it.group === g.id), fresh = pool.filter(it => !seen.has(it.id))
     const ordered = [...order(fresh.filter(it => redo.has(it.tpl))), ...order(fresh.filter(it => !redo.has(it.tpl))), ...order(pool.filter(it => seen.has(it.id)))]
     const daily = dailyOf(g), want = friday ? Math.ceil(daily / 2) : daily, out = [], perTpl = {}
-    for (const it of ordered) { if (out.length >= want) break; if ((perTpl[it.tpl] || 0) >= 2) continue; perTpl[it.tpl] = (perTpl[it.tpl] || 0) + 1; out.push(it.id) }
-    return { id: g.id, items: out }
+    const fmts = new Set(pool.map(it => it.format)), boss = pack.groups.filter(x => x.boss).map(x => x.id)
+    const others = g.boss ? [] : order(items.filter(it => it.group !== g.id && !boss.includes(it.group) && fmts.has(it.format) && !seen.has(it.id)))
+    const nMix = Math.min(Math.floor(want / 3), new Set(others.map(it => it.tpl)).size)
+    const per = Math.max(1, Math.ceil((want - nMix) / Math.max(1, new Set(pool.map(it => it.tpl)).size)))
+    const take = (list, n, cap) => { for (const it of list) { if (out.length >= n) break; if (taken.has(it.id) || (perTpl[it.tpl] || 0) >= cap) continue; perTpl[it.tpl] = (perTpl[it.tpl] || 0) + 1; taken.add(it.id); out.push(it) } }
+    take(ordered, want - nMix, per); take(others, want, 1); take(ordered, want, per + 1); take(ordered, want, 99)
+    // 同一模板的题错开（轮流出），混进来的题均匀插在中间
+    const own = out.filter(it => it.group === g.id), mix = out.filter(it => it.group !== g.id), byTpl = {}
+    own.forEach(it => (byTpl[it.tpl] ||= []).push(it))
+    const lists = Object.values(byTpl), rr = []
+    for (let k = 0; rr.length < own.length; k++) lists.forEach(l => { if (l[k]) rr.push(l[k]) })
+    mix.forEach((it, j) => rr.splice(Math.min(rr.length, Math.round((j + 1) * (rr.length + 1) / (mix.length + 1))), 0, it))
+    return { id: g.id, items: rr.map(it => it.id) }
   }).filter(g => g.items.length)
   if (friday) {
-    const taken = new Set(groups.flatMap(g => g.items))
+    groups.flatMap(g => g.items).forEach(id => taken.add(id))
     const cand = items.filter(it => !seen.has(it.id) && !taken.has(it.id)).sort((p, q) => LEVELS.indexOf(q.level) - LEVELS.indexOf(p.level) || hash(date + p.id) - hash(date + q.id))
     const out = [], perTpl = {}
     for (const round of [1, 2]) for (const it of cand) { if (out.length >= BOSS_SIZE) break; if ((perTpl[it.tpl] || 0) >= round || out.includes(it.id)) continue; perTpl[it.tpl] = (perTpl[it.tpl] || 0) + 1; out.push(it.id) }
@@ -221,7 +234,7 @@ export function createApi(base, env) {
   function judgeCircle(it, a) {
     const sel = new Set((Array.isArray(a?.sel) ? a.sel : []).map(Number)), keys = it.segs.flatMap((s, j) => s.k ? [j] : []), noise = it.segs.flatMap((s, j) => s.n ? [j] : [])
     const missed = keys.filter(j => !sel.has(j)).length, extra = noise.filter(j => sel.has(j)).length, kw = missed ? 0 : extra ? 1 : 2
-    return { kw, good: kw === 2 ? 'y' : 'h', cat: kw === 2 ? '' : '审题', msg: kw === 2 ? '关键词圈得刚刚好' : missed ? `漏圈了 ${missed} 处要紧的地方。${it.why || '带数的话和问题都要圈。'}` : `要紧的都圈到了，还多圈了 ${extra} 处用不上的。${it.why || ''}` }
+    return { kw, good: kw === 2 ? 'y' : 'h', cat: kw === 2 ? '' : '审题', msg: kw === 2 ? '关键词圈得刚刚好' : missed ? `漏圈了 ${missed} 处要紧的地方。${it.why || '带单位的数、「每」「一共」「还剩」这样的词、问的是多少，都要圈。'}` : `要紧的都圈到了，还多圈了 ${extra} 处用不上的。${it.why || ''}` }
   }
   /** 统计表：先填表，再答几个小问。后面的小问照孩子自己填的数往下走，按小问判分 */
   function judgeStat(it, steps) {
@@ -666,7 +679,7 @@ export function createApi(base, env) {
     if (L === 3) { if (r.guard) return { msg: '这题已经有本领守着了。' }; r.guard = k }
     if (L === 2) {
       r.l2 = true
-      if (k === '审题') fx.grey = it.segs?.findIndex(x => x.n) ?? -1
+      if (k === '审题') fx.grey = (it.segs || []).flatMap((x, i) => x.n ? [i] : [])     // 用不上的那句（切碎后是几段）都变灰
       if (k === '策略缺失') fx.strike = it.goals ? it.goals.map((g, i) => [g, i]).filter(([g]) => !g.ok).at(-1)?.[1] ?? -1 : -1
       if (k === '计算失误' && type === 'column' && it.op === '÷') fx.digits = String(it.answer).length
       else if (k === '计算失误' && type === 'column') fx.paws = it.cells.filter(c => c.kind === 'carry' && c.v).map(c => c.col)
@@ -809,7 +822,7 @@ export function createApi(base, env) {
     if (p === '/admin/users' && req.method === 'GET') {
       // 顺便带上每个孩子的小狗名字和陪伴天数，方便认人（不带答题记录）
       const out = []
-      for (const u of list) { const st = await scoped(store, u.id).get('state'); out.push({ ...pub(u), pet: st?.name || '', days: st?.days || 0 }) }
+      for (const u of list) { const st = await scoped(store, u.id).get('state'); out.push({ ...pub(u), pet: st?.name || '', kid: st?.kid || '', days: st?.days || 0 }) }
       const pack = await store.get('pack'), days = pack && packDays(pack).filter(g => pack.items.some(it => it.group === g.id))
       return json({ users: out, weeks: (await store.get('pack-weeks')) || (pack ? [pack.week] : []), pack: pack ? { week: pack.week, created: pack.created, items: pack.items.length, days: Math.min(...days.map(g => g.days)), groups: days } : null })
     }
@@ -837,6 +850,13 @@ export function createApi(base, env) {
     if (body.pin != null) { if (!pinOk(body.pin)) return json({ error: '密码要是 4 位数字' }, 400); u.salt = crypto.randomUUID(); u.hash = await pinHash(u.salt, body.pin); await store.set(`fail:${u.name.toLowerCase()}`, { n: 0, until: 0 }) }
     if (body.name != null) { const name = userName(body.name); if (!name || name.toLowerCase() === 'admin' || list.some(x => x !== u && x.name.toLowerCase() === name.toLowerCase())) return json({ error: '这个用户名不能用或已经有人用了' }, 400); u.name = name }
     if (body.off != null) u.off = !!body.off
+    // 改孩子的名字、小狗的名字：写进这个账号的存档（还没进过小屋的先建一个空存档，进来时不用再起名）
+    if (body.kid != null || body.pet != null) {
+      const S = scoped(store, u.id), st = (await S.get('state')) || { ...freshState(), needs: { ...freshState().needs, at: Date.now() } }, n = cleanName(body.kid ?? body.pet)
+      if (!n) return json({ error: '名字不能是空的（最多 6 个字）' }, 400)
+      if (body.kid != null) st.kid = n; else st.name = n
+      await S.set('state', st)
+    }
     await store.set('users', list)
     return json({ ok: true, user: pub(u) })
   }

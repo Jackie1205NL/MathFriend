@@ -100,10 +100,14 @@ h3{font:400 22px var(--kid);margin:0}
 .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:17px;text-align:center}
 .steps span{border-radius:12px;padding:6px 2px;background:var(--line);color:var(--dim)}
 .steps .done{background:var(--leaf);color:#fff}.steps .now{background:var(--sun);color:var(--ink);font-weight:700}
+.stepbar{display:flex;gap:8px;align-items:center}.stepbar .steps{flex:1}.stepbar .pill{flex:none;font-size:17px;padding:6px 12px}
+.steps button{border:0;border-radius:12px;padding:6px 2px;font:inherit;cursor:pointer}.steps button.done{text-decoration:underline;text-underline-offset:3px}
 .q{font-size:23px;line-height:2.2}
 .q.big{font:700 40px/1.6 var(--sans);text-align:center;letter-spacing:.04em}
-.seg{border:2px dashed var(--line);border-radius:12px;padding:2px 4px;cursor:pointer;-webkit-box-decoration-break:clone;box-decoration-break:clone}
-.seg.on{border:2px solid var(--berry);background:#fff5f8}
+/* 圈关键词：没点的时候就是普通文字，不提前框出任何词；题干切成短词（关键词、干扰词都能点），点哪个词只圈哪个词 */
+.seg{display:inline-block;border:2px solid transparent;border-radius:10px;padding:0 1px;margin:2px 0;cursor:pointer;line-height:1.6}
+.seg.on{border:2px solid #e8a33d;background:#ffe08a}
+.seg.flat{border-color:transparent;background:none;padding:0 1px;margin:0;cursor:default}.seg.flat.on{border-color:#e8a33d;background:#ffe08a}
 .seg.key{border:2px solid var(--leaf);background:var(--ok)}
 .seg.miss{border:2px dashed var(--coin);background:var(--miss)}
 .seg.noise{border:2px solid #b9bfb2;background:#f1f1ec;text-decoration:line-through;text-decoration-color:#9aa197}

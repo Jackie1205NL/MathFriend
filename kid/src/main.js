@@ -123,7 +123,7 @@ function growCard() {
 let loginName = ls.get('kid-user', ''), adminMode = false, ADM = null, ADMP = null, ADMW = [], admMsg = '', admEdit = null
 function vLogin() {
   const n = adminMode ? 8 : 4
-  return `<div class="top"><h1>${adminMode ? '管理员登录' : '团团小屋'}</h1></div><div class="body login">
+  return `<div class="top"><h1>${adminMode ? '管理员登录' : house(ls.get('kid-pet', ''))}</h1></div><div class="body login">
     ${adminMode ? '' : '<div class="room"><div class="pet"><span class="wear breathe"><img src="/pet/s1.webp" alt=""></span></div></div>'}
     <div class="card"><p>${adminMode ? '输入管理员密码。' : '写上你的名字，再输入 4 位密码，进小屋找小狗玩。'}</p>
       ${adminMode ? '' : `<input id="login-name" class="lname" maxlength="12" autocomplete="username" placeholder="你的名字" aria-label="用户名" value="${esc(loginName)}">`}
@@ -132,9 +132,9 @@ function vLogin() {
     <button class="link" data-a="adminmode">${adminMode ? '‹ 回到孩子登录' : '管理员登录'}</button></div>`
 }
 function vAdmin() {
-  const us = ADM || [], row = u => `<div class="card urow ${u.off ? 'off' : ''}"><div><b>${esc(u.name)}</b>${u.off ? ' <span class="tagx">停用</span>' : ''}<small>${u.pet ? `小狗「${esc(u.pet)}」· ` : ''}陪伴 ${u.days} 天 · ${u.seen ? `最近来过 ${md(u.seen)}` : '还没来过'}</small></div>
-    ${admEdit?.id === u.id ? `<div class="field"><input id="adm-v" ${admEdit.k === 'pin' ? 'inputmode="numeric" maxlength="4" placeholder="新的 4 位密码"' : 'maxlength="12" placeholder="新的用户名"'} aria-label="新值"><button class="btn" data-a="admsave">保存</button><button class="btn alt" data-a="admcancel">取消</button></div>`
-      : `<div class="ubtns"><button class="buy" data-a="admedit" data-v="${u.id}:pin">重置密码</button><button class="buy" data-a="admedit" data-v="${u.id}:name">改名</button><button class="buy" data-a="admoff" data-v="${u.id}">${u.off ? '启用' : '停用'}</button></div>`}</div>`
+  const us = ADM || [], row = u => `<div class="card urow ${u.off ? 'off' : ''}"><div><b>${esc(u.name)}</b>${u.off ? ' <span class="tagx">停用</span>' : ''}<small>${u.kid ? `孩子「${esc(u.kid)}」· ` : ''}${u.pet ? `小狗「${esc(u.pet)}」· ` : ''}陪伴 ${u.days} 天 · ${u.seen ? `最近来过 ${md(u.seen)}` : '还没来过'}</small></div>
+    ${admEdit?.id === u.id ? `<div class="field"><input id="adm-v" ${{ pin: 'inputmode="numeric" maxlength="4" placeholder="新的 4 位密码"', name: 'maxlength="12" placeholder="新的用户名"', kid: `maxlength="6" placeholder="孩子的名字" value="${esc(u.kid)}"`, pet: `maxlength="6" placeholder="小狗的名字" value="${esc(u.pet)}"` }[admEdit.k]} aria-label="新值"><button class="btn" data-a="admsave">保存</button><button class="btn alt" data-a="admcancel">取消</button></div>`
+      : `<div class="ubtns"><button class="buy" data-a="admedit" data-v="${u.id}:pin">重置密码</button><button class="buy" data-a="admedit" data-v="${u.id}:name">改用户名</button><button class="buy" data-a="admedit" data-v="${u.id}:kid">改孩子名字</button><button class="buy" data-a="admedit" data-v="${u.id}:pet">改小狗名字</button><button class="buy" data-a="admoff" data-v="${u.id}">${u.off ? '启用' : '停用'}</button></div>`}</div>`
   return `<div class="top"><h1>账号管理</h1><button class="pill scr" data-a="admout">退出</button></div><div class="body">
     ${admMsg ? `<div class="bubble plain">${esc(admMsg)}</div>` : ''}
     <div class="card"><b>新建孩子账号</b><p class="dim">每个账号有自己的小狗和存档，题目大家共用。用户名最多 12 个字，密码是 4 位数字。</p>
@@ -158,7 +158,7 @@ function vHome() {
     : `<button class="btn" data-a="go" data-v="quests">今日任务 ${doneCount()} / ${allItems().length}<small>最多可赚 ${allItems().reduce((a, it) => a + it.max, 0)}${canLearn ? ` · 有 ${canLearn} 个本领可以学` : ''}</small></button>`
   const banner = s.graduated ? `<div class="card banner snow"><b>${breakTime ? '寒假中' : '毕业啦'}</b> ${name()}戴着学士帽住在小屋里${breakTime ? '，下学期开学那天会来一位新朋友' : ''}。</div>`
     : D() >= SEASON.finale ? `<button class="btn red" data-a="go" data-v="book">毕业周 · ${D() >= SEASON.ceremony ? '今天可以举行毕业典礼' : `周五 ${md(SEASON.ceremony)} 毕业典礼`}<small>去纪念册看看</small></button>` : ''
-  return `<div class="top"><h1>${s.name ? name() + '的小屋' : '团团小屋'}</h1><button class="pill scr" data-a="logout" aria-label="换人">换人</button>${coin(s.coins)}<span class="pill"><i class="ico star"></i>${stars()}</span></div>
+  return `<div class="top"><h1>${house(s.name)}</h1><button class="pill scr" data-a="sound" aria-label="声音">${ls.get('kid-sound', true) ? '声音开' : '声音关'}</button><button class="pill scr" data-a="logout" aria-label="换人">换人</button>${coin(s.coins)}<span class="pill"><i class="ico star"></i>${stars()}</span></div>
   <div class="body">
     ${banner}
     <div class="bubble">${esc(say) || (st ? `嗨，${kid()}！今天也一起加油吧。` : '它还在小窝里睡觉。做完第一道题，它就会醒来。')}</div>
@@ -184,10 +184,33 @@ function pad(units, go = '交卷', goAct = 'submit', off = false) {
   const u = units ? units.map(x => `<button class="u ${Q?.unit === x ? 'on' : ''}" data-a="unit" data-v="${esc(x)}">${esc(x)}</button>`).join('') + '<span></span>'.repeat(Math.max(0, 4 - units.length)) : ''
   return `<div class="pad">${[1, 2, 3, '⌫', 4, 5, 6, 0, 7, 8, 9].map(k => `<button data-a="key" data-v="${k}">${k}</button>`).join('')}<button class="go" data-a="${goAct}" ${go && !off ? '' : 'disabled'}>${go || '　'}</button>${u}</div>`
 }
+// ---------- 声音：电子宠物那种「哔哔」声，用 Web Audio 现场合成，不用声音文件；小屋顶上可以关 ----------
+const SFX = {
+  chirp: [[880, 60], [1320, 90]], spin: [[660, 50], [880, 50], [1100, 50], [1320, 80]], eat: [[330, 50], [0, 40], [330, 50], [0, 40], [392, 70]],
+  bath: [[600, 40], [900, 40], [700, 40], [1100, 60]], bounce: [[523, 60], [784, 60], [1047, 100]], trick: [[523, 70], [659, 70], [784, 70], [1047, 150]],
+  coin: [[988, 60], [1319, 170]], no: [[220, 90, 'triangle']], happy: [[784, 90], [988, 90], [1175, 180]], sad: [[440, 140, 'triangle'], [349, 220, 'triangle']],
+  win: [[523, 80], [659, 80], [784, 80], [1047, 80], [784, 80], [1047, 240]],
+}
+let actx = null
+function sfx(k) {
+  if (!SFX[k] || !ls.get('kid-sound', true)) return
+  try {
+    actx ||= new (window.AudioContext || window.webkitAudioContext)()
+    let t = actx.currentTime + 0.01
+    for (const [f, ms, type = 'square'] of SFX[k]) {
+      if (f) { const o = actx.createOscillator(), g = actx.createGain(); o.type = type; o.frequency.value = f; g.gain.setValueAtTime(0.07, t); g.gain.exponentialRampToValueAtTime(0.001, t + ms / 1000); o.connect(g).connect(actx.destination); o.start(t); o.stop(t + ms / 1000) }
+      t += ms / 1000
+    }
+  } catch { /* 不支持声音就算了 */ }
+}
+// iPad 上声音要在点屏幕的那一下启动；喂食之类的声音要等服务器回来才响，所以每次点屏幕都先把声音叫醒
+document.addEventListener('pointerdown', () => { try { actx ||= new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume() } catch { /* 不支持声音 */ } })
+const house = n => n ? `${n}的小屋` : '小柴犬的家'
+const greyed = i => [Q.fx.grey ?? []].flat().includes(i)
 const curItem = () => Q.demo || groups().find(x => x.id === Q.gid).items.find(x => x.id === Q.id)
 // 「试一试」用的示范题：学会新等级后停在这个本领用得上的那一步，菜单直接打开，不扣次数、不计分
-const DEMO_WORD = { id: 'demo', format: 'word', max: 0, segs: [{ t: '妈妈带了 100 元' }, { t: '去文具店，' }, { t: '店门口趴着 2 只小猫。' }, { t: '一盒彩笔 12 元，' }, { t: '买了 3 盒，' }, { t: '应找回多少元？' }],
-  flow: [{ type: 'circle' }, { type: 'build', tier: 1, chips: [{ v: 100, seg: 0 }, { v: 12, seg: 3 }, { v: 3, seg: 4 }] }, { type: 'chain' }, { type: 'say', ask: '答：应找回', units: ['元', '盒', '支'], tail: '' }], hide: { grey: 2, digits: 2 } }
+const DEMO_WORD = { id: 'demo', format: 'word', max: 0, segs: [{ t: '妈妈带了 ' }, { t: '100 元，' }, { t: '去文具店。' }, { t: '店门口趴着 ' }, { t: '2 只' }, { t: '小猫。' }, { t: '一盒彩笔 ' }, { t: '12 元，' }, { t: '买了 ' }, { t: '3 盒，' }, { t: '应找回' }, { t: '多少元？' }],
+  flow: [{ type: 'circle' }, { type: 'build', tier: 1, chips: [{ v: 100, seg: 1 }, { v: 12, seg: 7 }, { v: 3, seg: 9 }] }, { type: 'chain' }, { type: 'say', ask: '答：应找回', units: ['元', '盒', '支'], tail: '' }], hide: { grey: [3, 4, 5], digits: 2 } }
 const DEMO_PLAN = { id: 'demo', format: 'plan', max: 0, text: '图书馆上午借出 45 本书，下午借出的是上午的 2 倍。这一天一共借出多少本书？',
   flow: [{ type: 'goal', opts: ['下午借出多少本', '一共借出多少本', '上午比下午少借多少本'] }, { type: 'build', tier: 0, choices: ['45 + 45 × 2', '45 × 2', '45 + 2'] }, { type: 'chain' }, { type: 'say', ask: '答：这一天一共借出', units: ['本', '倍'], tail: '' }], hide: { strike: 2, digits: 3 } }
 function startDemo(k) {
@@ -230,7 +253,9 @@ function enter() {
   }
 }
 const fi = type => Q.flow.findIndex(b => b.type === type)
-const chipVal = (b, i) => b.stat ? Number(Q.rec[0]?.cells?.[b.chips[i].cat]) : b.chips[i].from != null ? Number(Q.rec[Q.flow.findIndex(x => x.type === 'say' && x.ms === b.chips[i].from)]?.v ?? 0) : b.chips[i].v
+// 数字卡的值：统计表取孩子自己填的格子，分步题「第一步」卡取孩子上一步写的得数；没填就是 NaN，页面显示「？」
+const num = x => x === '' || x == null ? NaN : Number(x)
+const chipVal = (b, i) => b.stat ? num(Q.rec[0]?.cells?.[b.chips[i].cat]) : b.chips[i].from != null ? num(Q.rec[Q.flow.findIndex(x => x.type === 'say' && x.ms === b.chips[i].from)]?.v) : b.chips[i].v
 /** 竖式填格子的顺序：个位得数 → 写在十位上的进位 → 十位得数 → …… */
 const colSeq = b => { const out = []; for (let c = 0; c < b.width; c++) { out.push('d' + c); if (c < b.width - 1) out.push('c' + (c + 1)) } return out }
 const divSeq = b => { const n = String(b.a).length, out = [...Array(n).keys()].map(j => 'q' + j); b.rows.forEach((r, k) => { for (let p = 0; p < r.len; p++) out.push(`r${k}_${p}`) }); return out }
@@ -270,7 +295,7 @@ function submitQ() {
     V = res.view; Q.t0 = Date.now()
     if (res.caught) { Q.catch = res.caught; Q.guard = null; Q.mood = 'think'; return }
     const d = res.fin
-    Q.fin = d; Q.menu = null; Q.mood = d.ok ? 'hop' : 'think'; sayPet('')
+    Q.fin = d; Q.menu = null; Q.mood = d.ok ? 'hop' : 'think'; sayPet(''); sfx(d.ok ? 'happy' : 'sad')
     if (d.points?.length) cere = d.points.join('」「')
   })
 }
@@ -285,10 +310,10 @@ function qText(mode) {
   if (it.segs) {
     const ci = fi('circle'), circ = new Set(Q.rec[ci]?.sel || []), last = it.segs.length - 1
     return `<div class="card q">${speaker()}${it.segs.map((s, i) => {
-      let c = 'seg'
-      if (mode === 'pick') { if (Q.sel.has(i)) c += ' on'; if (Q.fx.grey === i) c += ' grey' } else if (circ.has(i)) c += ' on'
+      let c = mode === 'pick' ? 'seg' : 'seg flat'
+      if (mode === 'pick') { if (Q.sel.has(i)) c += ' on'; if (greyed(i)) c += ' grey' } else if (circ.has(i)) c += ' on'
       if (Q.fx.trail && i === last) c += ' trail'
-      return `<span class="${c}" ${mode === 'pick' && Q.fx.grey !== i ? `role="button" tabindex="0" data-a="seg" data-v="${i}"` : ''}>${esc(s.t)}</span>`
+      return `<span class="${c}" ${mode === 'pick' && !greyed(i) ? `role="button" tabindex="0" data-a="seg" data-v="${i}"` : ''}>${esc(s.t)}</span>`
     }).join('')}</div>`
   }
   return it.text ? `<div class="card q">${speaker()}${esc(it.text)}</div>` : ''
@@ -334,13 +359,13 @@ function vStep() {
       return `<div class="mrow ${Q.cur >= start && Q.cur < g ? 'cur' : ''}">${parts.map((x, j) => esc(x) + (j < parts.length - 1 ? `<button class="bx ${Q.fx.flash && Q.vals[start + j] === '' ? 'bad' : ''}" data-a="blank" data-v="${start + j}">${box(Q.vals[start + j], Q.cur === start + j)}</button>` : '')).join('')}</div>` }).join('')
     return `${it.text ? `<p class="dim">${esc(it.text)}</p>` : ''}<div class="card multi">${rows}</div><p class="dim">点一个空再填数。每个空都要填。</p>${pad(null, go, 'stepgo')}`
   }
-  if (b.type === 'circle') return `${qText('pick')}<p class="dim">可以点好几处，再点一下取消。圈完不会马上对答案，整道题做完再一起看。</p><button class="btn" data-a="stepgo" ${Q.sel.size ? '' : 'disabled'}>圈好了，${Q.flow[Q.i + 1]?.type === 'build' ? '去列式' : '下一步'}</button>`
+  if (b.type === 'circle') return `${qText('pick')}<p class="dim">点题目里要紧的数和词，点一下圈上，再点一下取消。圈完不会马上对答案，整道题做完再一起看。</p><button class="btn" data-a="stepgo" ${Q.sel.size ? '' : 'disabled'}>圈好了，${Q.flow[Q.i + 1]?.type === 'build' ? '去列式' : '下一步'}</button>`
   if (b.type === 'goal') return `${qText()}<div class="opts">${b.opts.map((o, i) => `<button class="${i === Q.fx.strike ? 'struck' : ''}" data-a="pickgo" data-v="${i}" ${i === Q.fx.strike ? 'disabled' : ''}>${esc(o)}</button>`).join('')}</div>`
   if (b.type === 'build') {
     const gi = fi('goal'), head = b.head ? `<div class="bubble plain good">${esc(b.head)}</div>` : gi >= 0 ? `<div class="bubble plain good">先求：${esc(it.flow[gi].opts[Q.rec[gi]?.i] ?? '')}</div>` : ''
     if (b.tier === 0) return `${qText()}${head}<p class="dim">选一个算式。选了直接进下一步，交卷后再看对不对。</p><div class="opts">${b.choices.map((o, i) => `<button data-a="pickgo" data-v="${i}">${esc(o)}</button>`).join('')}</div>`
     const circ = new Set(Q.rec[fi('circle')]?.sel || [])
-    const chips = b.chips.map((c, i) => `<button class="chip ${c.seg >= 0 && circ.has(c.seg) ? 'circ' : ''} ${c.from != null ? 'new' : ''}" data-a="chip" data-v="${i}" ${Q.expr.some(e => e.chip === i) ? 'disabled' : ''}>${b.stat ? esc(chipVal(b, i)) : c.v}<small>${b.stat ? esc(c.l) : c.from != null ? `第${'一二三'[c.from]}步` : c.seg >= 0 && circ.has(c.seg) ? '圈过的' : '&nbsp;'}</small></button>`).join('')
+    const chips = b.chips.map((c, i) => `<button class="chip ${c.seg >= 0 && circ.has(c.seg) ? 'circ' : ''} ${c.from != null ? 'new' : ''}" data-a="chip" data-v="${i}" ${Q.expr.some(e => e.chip === i) ? 'disabled' : ''}>${b.stat || c.from != null ? esc(Number.isFinite(chipVal(b, i)) ? chipVal(b, i) : '？') : c.v}<small>${b.stat ? esc(c.l) : c.from != null ? `第${'一二三'[c.from]}步` : c.seg >= 0 && circ.has(c.seg) ? '圈过的' : '&nbsp;'}</small></button>`).join('')
     return `${qText()}${head}<div class="card"><div class="expr">${Q.expr.length ? esc(showExpr(Q.expr.map(e => e.x))) : '<span class="ph">点下面的数和符号拼算式</span>'}</div></div>
       <div class="chips">${chips}</div>
       <div class="ops">${['+', '−', '×', '÷', '(', ')'].map(o => `<button data-a="op" data-v="${o}">${o}</button>`).join('')}<button data-a="del" aria-label="退一格">⌫</button><button data-a="clr">清空</button></div>
@@ -420,7 +445,7 @@ async function useSkill(k, L) {
     else { const t = L1[k], line = typeof t === 'string' ? t : t[b.type] || t.default || ''; sayPet(fx.hint ? `${line} ${fx.hint}` : line, 'skill') }
   }
   if (L === 2) {
-    if (k === '审题') { Q.fx.grey = fx.grey; Q.sel.delete(fx.grey); sayPet('（嗅嗅）变灰的这句和算数没关系，不用管它。', 'skill') }
+    if (k === '审题') { Q.fx.grey = [fx.grey].flat(); Q.fx.grey.forEach(i => Q.sel.delete(i)); sayPet('（嗅嗅）变灰的这句和算数没关系，不用管它。', 'skill') }
     if (k === '概念不清') { Q.fx.mark = true; sayPet('先算标着 ① 的那块。', 'skill') }
     if (k === '计算失误') {
       if (b.type === 'column') { Q.fx.paws = fx.paws; sayPet('亮着爪印的小格要写进位（或退位）。', 'skill') }
@@ -476,7 +501,9 @@ function vWalk() {
 }
 function vQ() {
   const g = Q.demo ? { name: '试一试', items: [Q.demo] } : groups().find(x => x.id === Q.gid), it = curItem(), idx = g.items.indexOf(it) + 1
-  const bar = Q.flow.length > 1 ? `<div class="steps" style="grid-template-columns:repeat(${Q.flow.length},1fr)">${Q.flow.map((t, i) => `<span class="${Q.fin || i < Q.i ? 'done' : i === Q.i ? 'now' : ''}">${STEP_NAME[t.type]}</span>`).join('')}</div>` : ''
+  // 做过的步骤可以点回去改，不扣分；回去改完再往后走，后面填过的还在
+  const live = !Q.fin && !Q.catch && !Q.walk && !Q.cover
+  const bar = Q.flow.length > 1 ? `<div class="stepbar">${live && Q.i > 0 ? '<button class="pill" data-a="backto" data-v="">‹ 上一步</button>' : ''}<div class="steps" style="grid-template-columns:repeat(${Q.flow.length},1fr)">${Q.flow.map((t, i) => live && i < Q.i ? `<button class="done" data-a="backto" data-v="${i}">${STEP_NAME[t.type]}</button>` : `<span class="${Q.fin || i < Q.i ? 'done' : i === Q.i ? 'now' : ''}">${STEP_NAME[t.type]}</span>`).join('')}</div></div>` : ''
   return `<div class="top"><button class="back" data-a="go" data-v="quests" aria-label="回到任务">‹</button><h1>${esc(g.name)} ${idx}/${g.items.length}</h1><button class="pill scr" data-a="scratch">草稿</button>${coin('最高 ' + (g.extra ? Math.ceil(it.max / 2) : it.max))}</div>
   <div class="body qbody">${Q.cover ? `<div class="cover"><img src="${face('thinking')}" alt=""><b style="font:400 30px var(--kid)">慢慢来</b><span>${name()}在帮你把题目再读一遍……</span></div>` : ''}${bar}${Q.walk ? vWalk() : Q.fin ? (it.segs || it.format === 'stat' ? qText() : '') + vQResult(g) : vStep()}</div>
   ${vDock()}${Q.menu ? vMenu() : ''}${Q.scratch ? '<div class="scratch"><canvas id="scratch"></canvas><div class="duo"><button class="btn alt" data-a="sclear">擦干净</button><button class="btn" data-a="scratch">关上</button></div></div>' : ''}${Q.catch ? vCatch() : ''}${Q.fire ? `<div class="toast fire"><img src="/pet/badge-${SKILLS.find(x => x.k === Q.fire.k).badge}.webp" alt="">${esc(Q.fire.text)}</div>` : ''}`
@@ -494,6 +521,14 @@ function initScratch() {
 }
 const QA = {
   scratch() { Q.scratch = !Q.scratch },
+  backto(v) {
+    if (!Q || Q.fin || Q.catch || Q.walk || Q.i === 0) return
+    let j = v === '' || v == null ? Q.i - 1 : Math.min(+v, Q.i - 1)
+    Q.menu = null
+    // 自动跳过的步骤（比如列出来就是一个数的递等式）回去会马上往前走，再往前退一步
+    do { Q.i = j; enter() } while (Q.i > j && --j >= 0)
+    sayPet('回到这一步，改好了再往下走。')
+  },
   sclear() { const c = document.getElementById('scratch'); c?.getContext('2d').clearRect(0, 0, c.width, c.height) },
   read() { const it = curItem(), t = it.segs ? it.segs.map(x => x.t).join('') : it.text || ''; try { const u = new SpeechSynthesisUtterance(t.replace(/×/g, '乘').replace(/÷/g, '除以').replace(/−/g, '减')); u.lang = 'zh-CN'; u.rate = 0.9; speechSynthesis.cancel(); speechSynthesis.speak(u) } catch { /* 不支持朗读 */ } },
   key(k) {
@@ -520,12 +555,12 @@ const QA = {
     })
   },
   adminmode() { adminMode = !adminMode; pin = ''; loginErr = '' },
-  logout() { return run(async () => { await api('/logout', {}).catch(() => {}); V = null; Q = null; page = 'login'; loginName = ''; ls.set('kid-user', ''); ls.set('kid-draft', null); pin = '' }) },
+  logout() { return run(async () => { await api('/logout', {}).catch(() => {}); V = null; Q = null; page = 'login'; loginName = ''; ls.set('kid-user', ''); ls.set('kid-pet', ''); ls.set('kid-draft', null); pin = '' }) },
   admout() { return run(async () => { await api('/admin/logout', {}).catch(() => {}); ADM = null; adminMode = false; page = 'login' }) },
   admadd() { const name = document.getElementById('adm-name')?.value, p2 = document.getElementById('adm-pin')?.value; return run(async () => { try { const r = await api('/admin/users', { name, pin: p2 }); admMsg = `建好了：${r.user.name}`; await loadAdmin() } catch (e) { admMsg = e.message } }) },
   admedit(v) { const [id, k] = v.split(':'); admEdit = { id, k } },
   admcancel() { admEdit = null },
-  admsave() { const v = document.getElementById('adm-v')?.value, e = admEdit; return run(async () => { try { const r = await api('/admin/users/' + e.id, e.k === 'pin' ? { pin: v } : { name: v }); admMsg = e.k === 'pin' ? `「${r.user.name}」的密码改好了，告诉孩子新密码。` : `改名了：${r.user.name}`; admEdit = null; await loadAdmin() } catch (er) { admMsg = er.message } }) },
+  admsave() { const v = document.getElementById('adm-v')?.value, e = admEdit; return run(async () => { try { const r = await api('/admin/users/' + e.id, { [e.k]: v }); admMsg = { pin: `「${r.user.name}」的密码改好了，告诉孩子新密码。`, name: `用户名改成了：${r.user.name}`, kid: `「${r.user.name}」里孩子的名字改好了。`, pet: `「${r.user.name}」的小狗改名了，小屋的名字也跟着变。` }[e.k]; admEdit = null; await loadAdmin() } catch (er) { admMsg = er.message } }) },
   admpack() {
     const f = document.getElementById('adm-pack')?.files?.[0]
     if (!f) { admMsg = '先选一个题库包文件。'; return }
@@ -568,8 +603,8 @@ const QA = {
   pickgo(i) { if (Q.fin || Q.catch) return; save({ i: +i }); return next() },
   zone(z) { Q.zone = +z },
   blank(i) { Q.cur = +i },
-  seg(i) { i = +i; if (Q.fx.grey === i) return; Q.sel.has(i) ? Q.sel.delete(i) : Q.sel.add(i) },
-  chip(i) { i = +i; if (Q.expr.some(e => e.chip === i)) return; Q.expr.push({ x: chipVal(step(), i), chip: i }) },
+  seg(i) { i = +i; if (greyed(i)) return; Q.sel.has(i) ? Q.sel.delete(i) : Q.sel.add(i) },
+  chip(i) { i = +i; if (Q.expr.some(e => e.chip === i)) return; const x = chipVal(step(), i); if (!Number.isFinite(x)) return sayPet('这张卡要用上一步的得数，上一步还没填。点「上一步」回去填上。'); Q.expr.push({ x, chip: i }) },
   tcell(i) { Q.pos = +i },
   ccell(k) { Q.pos = Q.seq.indexOf(k) },
   op(o) { Q.expr.push({ x: o }) },
@@ -636,6 +671,8 @@ function vShop() {
   const places = PLACES.filter(p => GOODS.some(g => g.place === p.k)).map(p => { const on = placeOpen(p, stage(), D()); return `<div><h3>${p.n}${on ? '' : ' · 还没开放'}</h3>${GOODS.filter(g => g.place === p.k).map(g => row(g, COLORS[p.k], g.d, on ? '' : '开放后')).join('')}</div>` }).join('')
   const monthly = GOODS.filter(g => g.month).map(g => row(g, COLORS.month, `<span class="tagm">${g.month} 月限定</span>`, g.month === m ? '' : (g.month - m + 12) % 12 < 6 ? `${g.month} 月见` : '已下架')).join('')
   return `<div class="top"><h1>小卖部</h1>${coin(s.coins)}</div><div class="body">${say ? `<div class="bubble plain">${esc(say)}</div>` : ''}
+    <div class="duo"><div class="card shop"><h3>吃的</h3>${GOODS.filter(g => g.kind === 'food').map(bagRow).join('')}</div>
+      <div class="card shop"><h3>洗澡和玩具</h3>${GOODS.filter(g => ['soap', 'toy'].includes(g.kind)).map(bagRow).join('')}</div></div>
     <div class="card"><div class="jar"><svg viewBox="0 0 56 64" aria-hidden="true"><rect x="8" y="10" width="40" height="50" rx="10" fill="#e6f2fb" stroke="#3b8fd6" stroke-width="2.5"/><rect x="10.5" y="${(12 + 46 * (1 - Math.min(1, s.jar / JAR.goal))).toFixed(1)}" width="35" height="${(46 * Math.min(1, s.jar / JAR.goal)).toFixed(1)}" rx="7" fill="#f6b84a"/><rect x="18" y="4" width="20" height="8" rx="3" fill="#3b8fd6"/></svg>
       <div><b>储蓄罐 · 毕业旅行基金</b><p class="dim">存满 ${JAR.goal.toLocaleString()}，毕业典礼那天和${name()}一起去旅行。</p>
       <div class="math">已经存了 ${s.jar}，还差 ${left}。${left ? `每次存 ${JAR.step}，还要存 ${left} ÷ ${JAR.step} = ${Math.ceil(left / JAR.step)} 次。` : '存满啦！'}</div></div></div>
@@ -644,8 +681,6 @@ function vShop() {
     <div class="card shop tri3">${places}</div>
     <div class="duo"><div class="card shop"><h3>本月限定</h3>${monthly}</div>
       <div class="card shop"><h3>小屋</h3>${GOODS.filter(g => g.kind === 'keep' && !g.place && !g.month).map(g => row(g, COLORS.home, g.d)).join('')}</div></div>
-    <div class="duo"><div class="card shop"><h3>吃的</h3>${GOODS.filter(g => g.kind === 'food').map(bagRow).join('')}</div>
-      <div class="card shop"><h3>洗澡和玩具</h3>${GOODS.filter(g => ['soap', 'toy'].includes(g.kind)).map(bagRow).join('')}</div></div>
     ${V.wish ? `<div class="wish"><b>心愿单 · ${esc(V.wish.text)}</b><p>这周做完任务满 ${V.wish.need} 天就能兑换。爸爸妈妈设的，和金币没关系。</p><div class="stamps">${Array.from({ length: V.wish.need }, (_, i) => `<i class="${i < V.wish.got ? 'f' : ''}"></i>`).join('')}</div>${V.wish.got >= V.wish.need ? '<p><b>来满啦，去找爸爸妈妈兑换吧！</b></p>' : ''}</div>` : ''}</div>`
 }
 function clock(it) {
@@ -856,6 +891,9 @@ const NAV_OF = { result: 'home', story: 'home', diary: 'home', book: 'home', pla
 let lastPage = ''
 function render() {
   if (page === 'admin' && ADM) { app.innerHTML = vAdmin(); return }
+  // 小屋的名字跟着小狗的名字走（浏览器标签和登录页也是，这台设备记住上一次的）
+  if (V?.state?.name && ls.get('kid-pet', '') !== V.state.name) ls.set('kid-pet', V.state.name)
+  document.title = house(page === 'login' || !V ? ls.get('kid-pet', '') : V.state?.name)
   if (page === 'login' || !V) { app.innerHTML = vLogin(); return }
   const v = { home: vHome, quests: vQuests, q: vQ, result: vResult, skills: vSkills, shop: vShop, story: vStory, diary: vDiary, map: vMap, place: vPlace, book: vBook }[page]()
   app.innerHTML = v + (page === 'q' ? '' : `<div class="nav">${NAV.map(([k, n]) => `<button class="${page === k || NAV_OF[page] === k ? 'on' : ''}" data-a="go" data-v="${k}">${n}</button>`).join('')}</div>`)
@@ -880,26 +918,27 @@ const A = {
   kidname() { const n = document.getElementById('nm-kid')?.value; return run(async () => { const r = await api('/act', { kind: 'kidname', name: n }); V = r.view; if (S().kid) meetHi = true; else showToast(r.msg) }) },
   meetback() { meetBack = true },
   meetdone() { meetHi = false; say = `${S().kid}，以后请多关照！`; strike('hop') },
-  greet() { return run(async () => { const r = await api('/act', { kind: 'greet' }); V = r.view; say = r.msg; strike('hop') }) },
-  care(kind) { return run(async () => { const r = await api('/act', { kind }); V = r.view; say = r.msg; if (r.act) strike(r.act) }) },
-  buy(k) { return run(async () => { const r = await api('/act', { kind: 'buy', k }); V = r.view; say = r.msg; if (page !== 'shop') showToast(r.msg) }) },
-  learn() { return run(async () => { const r = await api('/act', { kind: 'learn', k: sel }); V = r.view; say = r.msg; if (r.act) { learned = { k: sel, lv: S().skill[sel] }; sheet = 'learned' } }) },
+  greet() { return run(async () => { const r = await api('/act', { kind: 'greet' }); V = r.view; say = r.msg; strike('hop'); sfx('chirp') }) },
+  care(kind) { return run(async () => { const r = await api('/act', { kind }); V = r.view; say = r.msg; if (r.act) { strike(r.act); sfx({ food: 'eat', soap: 'bath', pat: 'chirp', toy: 'bounce' }[kind]) } }) },
+  buy(k) { const c0 = S().coins; return run(async () => { const r = await api('/act', { kind: 'buy', k }); V = r.view; say = r.msg; sfx(S().coins < c0 ? 'coin' : 'no'); if (page !== 'shop') showToast(r.msg) }) },
+  learn() { return run(async () => { const r = await api('/act', { kind: 'learn', k: sel }); V = r.view; say = r.msg; if (r.act) { learned = { k: sel, lv: S().skill[sel] }; sheet = 'learned'; sfx('win') } }) },
   tryit() { sheet = null; startDemo(learned.k) },
   sel(k) { sel = k },
-  tap() { const t = Date.now(); taps = [...taps.filter(x => t - x < 3000), t]; const l = pick(LINES[taps.length >= 5 ? 'tap_too_much' : 'tap']); say = fact(l.t); strike(taps.length >= 5 ? 'spin' : pick(['hop', l.act])) },   // 点小狗只让它跳一跳、转一转，不换动作图，配饰一直戴着
+  tap() { const t = Date.now(); taps = [...taps.filter(x => t - x < 3000), t]; const l = pick(LINES[taps.length >= 5 ? 'tap_too_much' : 'tap']); say = fact(l.t); strike(taps.length >= 5 ? 'spin' : pick(['hop', l.act])); sfx(taps.length >= 5 ? 'spin' : 'chirp') },   // 点小狗只让它跳一跳、转一转，不换动作图，配饰一直戴着
   sheet(v) { sheet = v },
+  sound() { ls.set('kid-sound', !ls.get('kid-sound', true)); sfx('chirp') },
   close() { sheet = null; card = null },
-  event() { return run(async () => { const r = await api('/act', { kind: 'event' }); V = r.view; say = r.msg; strike('hop') }) },
+  event() { return run(async () => { const r = await api('/act', { kind: 'event' }); V = r.view; say = r.msg; strike('hop'); sfx('chirp') }) },
   ball() { sheet = null; return A.care('toy') },
   hidestart() { return run(async () => { const r = await api('/act', { kind: 'hide' }); V = r.view; if (V.hide) sheet = 'hide'; else showToast(r.msg) }) },
   hard() { return run(async () => { const r = await api('/act', { kind: 'hide', hard: !V.hide.hard }); V = r.view }) },
-  cup(i) { return run(async () => { const r = await api('/act', { kind: 'cup', i: +i }); V = r.view; if (V.hide?.win) { say = r.msg; strike('hop') } }) },
-  trick(k) { const t = TRICKS.find(x => x.k === k); sheet = null; say = fact(t.say); strike(t.pose || t.anim, t.pose ? t.anim || '' : '') },
+  cup(i) { return run(async () => { const r = await api('/act', { kind: 'cup', i: +i }); V = r.view; if (V.hide?.win) { say = r.msg; strike('hop'); sfx('win') } else sfx('no') }) },
+  trick(k) { const t = TRICKS.find(x => x.k === k); sheet = null; say = fact(t.say); strike(t.pose || t.anim, t.pose ? t.anim || '' : ''); sfx('trick') },
   place(k) { if (k === 'home') return A.go('home'); place = k; page = 'place'; say = '' },
   nope() { showToast('还没开放，看看卡片上还差什么。') },
-  trip() { return run(async () => { const r = await api('/act', { kind: 'trip', k: place }); V = r.view; say = r.msg; strike(r.anim || 'hop'); if (r.card) { card = r.card; sheet = 'card' } }) },
+  trip() { return run(async () => { const r = await api('/act', { kind: 'trip', k: place }); V = r.view; say = r.msg; strike(r.anim || 'hop'); sfx(r.card ? 'win' : 'bounce'); if (r.card) { card = r.card; sheet = 'card' } }) },
   jar() { return run(async () => { const r = await api('/act', { kind: 'jar' }); V = r.view; say = r.msg }) },
-  ceremony() { return run(async () => { const r = await api('/act', { kind: 'ceremony' }); V = r.view; if (S().graduated && S().grad === D()) grad = 1; else showToast(r.msg) }) },
+  ceremony() { return run(async () => { const r = await api('/act', { kind: 'ceremony' }); V = r.view; if (S().graduated && S().grad === D()) { grad = 1; sfx('win') } else showToast(r.msg) }) },
   gradnext() { grad = grad >= 2 ? 0 : grad + 1; if (!grad) { page = 'home'; say = `${S().kid || '小朋友'}，寒假也要一起玩哦！`; strike('hop') } },
 }
 const onAct = e => {

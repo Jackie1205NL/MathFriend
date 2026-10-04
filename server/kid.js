@@ -18,11 +18,11 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { readWeek, writeWeek, listWeeks, loadSettings, saveSettings, computeProgress, readKnowledge, DIRS } from './store.js'
 import { verifyItem } from './sheet.js'
-import { buildPack, packDays, checkPack, LEVELS, PACK_DAYS, LOG_FORMAT } from '../shared/contract.js'
+import { buildPack, packDays, checkPack, dailyOf, LEVELS, PACK_DAYS, LOG_FORMAT } from '../shared/contract.js'
 
 /** 生成题库包；正确答案再用辅导单那套 verifyItem 验一遍，验不过的题丢掉。 */
 export function makePack(week) {
-  const bank = readWeek(week).bank
+  const bank = withMix(week, readWeek(week).bank)
   if (!bank?.templates?.length) throw new Error(`错题/${week}.md 里还没有「题库」，先运行 npm run kid bank`)
   const { pack, report } = buildPack(bank, week)
   // 钟面、多空题、统计表、整理数据、竖式、分步题、有余数的题没有单一的整除算式，实例化时已经逐题检查过
@@ -51,6 +51,24 @@ function printUncovered(week, bank) {
   const miss = uncovered(week, bank)
   if (miss.length) console.log(`⚠ 最近 4 周纸面上错过、题库还没覆盖：${miss.map(m => `${m.knowledge_point}${m.title === m.knowledge_point ? "" : " " + m.title} ${m.error_type}（错 ${m.n} 题）`).join('、')}。给它们补模板再 bank 一次（往周的错题可以单独建一组「以前的题」）`)
   else console.log('最近 4 周纸面上错过的「知识点 × 错因」，题库都覆盖到了')
+}
+
+/**
+ * 综合复习题池：往周题库里本周没有的模板都带上（每个出 12 道，关底题不带），放进 mix 组。
+ * 孩子端不单独显示这一组，只把里面的题按题型混进各组（每组每天约三分之一），让题目不只是本周重点、不翻来覆去一个样。
+ */
+function withMix(week, bank) {
+  if (!bank?.templates?.length) return bank
+  const root = id => String(id).split('@')[0], have = new Set(bank.templates.map(t => root(t.id))), add = []
+  for (const d of listWeeks().filter(w => w < week).reverse().map(readWeek)) {
+    const boss = new Set((d.bank?.groups || []).filter(g => g.boss).map(g => g.id))
+    for (const t of d.bank?.templates || []) {
+      if (boss.has(t.group) || have.has(root(t.id))) continue
+      have.add(root(t.id)); add.push({ ...t, id: `${root(t.id)}@${(t.from || d.week).slice(5)}m`, group: 'gm', count: 12, from: t.from || d.week })
+    }
+  }
+  if (!add.length) return bank
+  return { ...bank, groups: [...bank.groups, { id: 'gm', name: '综合复习', sub: '往周的题，混进各组', bucket: '已掌握保温', mix: true, daily: 1 }], templates: [...bank.templates, ...add] }
 }
 
 /** 这份题库按每天都来做够几天；不够 PACK_DAYS 的组指出来 */
@@ -223,6 +241,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     printDays(pack)
     if (c.redo.length) console.log(`往周未过关，自动带入：${c.redo.map(t => `${t.id}（${t.knowledge_point} ${t.error_type}）`).join('、')}`)
     if (c.keep.length) console.log(`往周已过关，回来保温：${c.keep.map(t => `${t.id}（${t.knowledge_point} ${t.error_type}）`).join('、')}`)
+    const thin = c.bank.groups.filter(g => !g.boss && !g.mix).map(g => [g, new Set(c.bank.templates.filter(t => t.group === g.id).map(t => t.id)).size]).filter(([g, n]) => n && n < Math.ceil(dailyOf(g) / 2) + 1)
+    if (thin.length) console.log(`⚠ 这些组模板太少，孩子两周里会觉得题目一个样：${thin.map(([g, n]) => `${g.name}（${n} 个，每天 ${dailyOf(g)} 题，至少要 ${Math.ceil(dailyOf(g) / 2) + 1} 个）`).join('、')}。换情境、换问法、加别的单元同题型的模板`)
     printUncovered(week, c.bank)
     console.log(`已写入 错题/${week}.md 的「题库」段：${c.bank.templates.length} 个模板，共 ${pack.items.length} 道`)
   } else if (cmd === 'tune') {
@@ -242,7 +262,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     // 标准交换文件：孩子端题库/pack-周.json，管理员在孩子端「导入题库」。不够 14 天、格式检查不过都不写
     const { pack, report, dropped } = makePack(week)
     printReport(report, dropped)
-    printUncovered(week, readWeek(week).bank)
+    printUncovered(week, withMix(week, readWeek(week).bank))
     if (printDays(pack) < PACK_DAYS && !process.env.KID_SHORT) throw new Error(`题库不够 ${PACK_DAYS} 天，没有导出。按上面的提示补模板再 bank 一次（实在要导出，命令前加 KID_SHORT=1）`)
     const bad = checkPack(pack); if (bad.length) throw new Error('题库包检查没过：' + bad.join('；'))
     fs.mkdirSync(DIRS.kid, { recursive: true }); fs.writeFileSync(packFile(week), JSON.stringify(pack))
@@ -255,7 +275,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   } else if (cmd === 'push') {
     const { pack, report, dropped } = makePack(week)
     printReport(report, dropped)
-    printUncovered(week, readWeek(week).bank)
+    printUncovered(week, withMix(week, readWeek(week).bank))
     if (printDays(pack) < PACK_DAYS && !process.env.KID_SHORT) throw new Error(`题库不够 ${PACK_DAYS} 天，没有推送。按上面的提示补模板再 bank 一次（实在要推，命令前加 KID_SHORT=1）`)
     const r = await sync('PUT', '/pack', pack)
     if (!process.env.KID_URL) saveSettings({ kidLastPush: week })     // 推到 dev（临时 KID_URL）不算

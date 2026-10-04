@@ -255,8 +255,28 @@ export { sameNums }
  * 没写就按逗号、句号、问号切开：带数的句子和问句算关键词，其他的不算错也不算对。
  */
 function segsOf(t, text, v) {
-  if (Array.isArray(t.segs)) return t.segs.map(s => ({ t: fill(s.t, v), ...(s.k ? { k: 1 } : {}), ...(s.n ? { n: 1 } : {}) }))
-  return (String(text).match(/[^，。？！；,.?!;]+[，。？！；,.?!;]?/g) || [text]).map(x => ({ t: x, ...(/[\d一二两三四五六七八九十百千半倍]|？|\?/.test(x) ? { k: 1 } : {}) }))
+  const big = Array.isArray(t.segs) ? t.segs.map(s => ({ t: fill(s.t, v), ...(s.k ? { k: 1 } : {}), ...(s.n ? { n: 1 } : {}) }))
+    : (String(text).match(/[^，。？！；,.?!;]+[，。？！；,.?!;]?/g) || [text]).map(x => ({ t: x, ...(/[\d一二两三四五六七八九十百千半倍]|？|\?/.test(x) ? { k: 1 } : {}) }))
+  return big.flatMap(fineSegs)
+}
+// 关键词要圈到词，不是整句：「数 + 单位」和做题的提示词各自单独一段，只有它们算关键词；同一句里别的字可以点，不算对也不算错
+const UNITS = '千米|厘米|分米|毫米|千克|小时|分钟|平方米|元|角|分|米|克|吨|时|秒|天|周|月|年|岁|人|个|只|本|支|盒|箱|袋|瓶|张|辆|台|棵|朵|块|件|页|道|题|次|倍|名|位|条|头|双|套|层|排|行|组|份|杯|包|把|根|枝|颗|场|节|段|间|座|架|筐|捆|束|堆|圈|步|下|岁'
+const CUES = '平均分|平均|一共|总共|共有|一半|还剩|剩下|还差|还要|每隔|每|几倍|倍|超过|不少于|不到|少于|至少|最多|最少|比(?!赛|较|如)'
+const PIECE = new RegExp(`(\\d+(?:[.:：]\\d+)?\\s*(?:${UNITS})?|[二两三四五六七八九十百千][一二两三四五六七八九十百千]*(?:${UNITS})|第\\s*\\S{1,3}?\\s*次|(?:多少|几)(?:${UNITS})?|${CUES})`, 'g')
+export function fineSegs(seg) {
+  const out = []
+  let last = 0
+  for (const m of seg.t.matchAll(PIECE)) {
+    if (m.index > last) out.push({ t: seg.t.slice(last, m.index) })
+    out.push({ t: m[0], hit: 1 }); last = m.index + m[0].length
+  }
+  if (last < seg.t.length) out.push({ t: seg.t.slice(last) })
+  // 标点、空白并到前一段，不单独成一段
+  const merged = []
+  for (const x of out) { if (merged.length && /^[\s，。？！；、,.?!;：:“”"']+$/.test(x.t)) merged.at(-1).t += x.t; else merged.push({ ...x }) }
+  if (!merged.some(x => x.hit)) return [{ t: seg.t, ...(seg.n ? { n: 1 } : {}) }]     // 没有数也没有提示词的句子不算关键词
+  if (merged.length < 2) return [{ t: seg.t, ...(seg.k ? { k: 1 } : {}), ...(seg.n ? { n: 1 } : {}) }]
+  return merged.map(x => ({ t: x.t, ...(x.hit && seg.k ? { k: 1 } : {}), ...(seg.n ? { n: 1 } : {}) }))     // 噪音句整句都算用不上
 }
 /**
  * 把一个模板实例化成多道题。返回 { items, problems }，problems 是出不来题的原因（给 Claude 看着改模板）。
@@ -403,7 +423,7 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
       if (t.format === 'plan') {
         item.text = fill(t.text, v); item.segs = segsOf(t, item.text, v); item.goals = t.goals.map(g => ({ t: fill(g.t, v), ...(g.ok ? { ok: 1 } : {}) }))
         if (item.goals.filter(g => g.ok).length !== 1) { bad('goals 里必须正好一个 ok'); continue }
-      } else item.segs = t.segs.map(s => ({ t: fill(s.t, v), ...(s.k ? { k: 1 } : {}), ...(s.n ? { n: 1 } : {}) }))
+      } else item.segs = segsOf(t, '', v)
       item.choices = t.choices.map(c => ({ t: pretty(fill(c.e, v)), v: evalExpr(fill(c.e, v)), ...(c.ok ? { ok: 1 } : {}), trap: c.trap || t.error_type, say: fill(c.say, v) }))
       const ok = item.choices.filter(c => c.ok)
       if (ok.length !== 1) { bad('choices 里必须正好一个 ok'); continue }
@@ -470,7 +490,7 @@ export function checkPack(pack) {
   return bad
 }
 export function packDays(pack) {
-  return pack.groups.map(g => ({ id: g.id, name: g.name, days: Math.floor(pack.items.filter(it => it.group === g.id).length / dailyOf(g)) }))
+  return pack.groups.filter(g => !g.mix).map(g => ({ id: g.id, name: g.name, days: Math.floor(pack.items.filter(it => it.group === g.id).length / dailyOf(g)) }))
 }
 
 /** 由周 md 里的「题库」（{ groups, templates, tuning }）生成题库包。 */
