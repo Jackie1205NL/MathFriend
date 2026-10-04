@@ -110,6 +110,7 @@ h3{font:400 22px var(--kid);margin:0}
 .seg.flat{border-color:transparent;background:none;padding:0 1px;margin:0;cursor:default}.seg.flat.on{border-color:#e8a33d;background:#ffe08a}
 .seg.key{border:2px solid var(--leaf);background:var(--ok)}
 .seg.miss{border:2px dashed var(--coin);background:var(--miss)}
+.seg.miss.must{border:3px dashed var(--berry);background:#fde8ee}
 .seg.noise{border:2px solid #b9bfb2;background:#f1f1ec;text-decoration:line-through;text-decoration-color:#9aa197}
 .seg.fixed{cursor:default}
 .legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:17px;color:var(--dim)}

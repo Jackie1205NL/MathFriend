@@ -255,7 +255,7 @@ export { sameNums }
  * 没写就按逗号、句号、问号切开：带数的句子和问句算关键词，其他的不算错也不算对。
  */
 function segsOf(t, text, v) {
-  const big = Array.isArray(t.segs) ? t.segs.map(s => ({ t: fill(s.t, v), ...(s.k ? { k: 1 } : {}), ...(s.n ? { n: 1 } : {}) }))
+  const big = Array.isArray(t.segs) ? t.segs.map(s => ({ t: fill(s.t, v), ...(s.k ? { k: s.k === 2 ? 2 : 1 } : {}), ...(s.n ? { n: 1 } : {}) }))     // k: 2 必圈，k: 1 帮助理解
     : (String(text).match(/[^，。？！；,.?!;]+[，。？！；,.?!;]?/g) || [text]).map(x => ({ t: x, ...(/[\d一二两三四五六七八九十百千半倍]|？|\?/.test(x) ? { k: 1 } : {}) }))
   return Array.isArray(t.segs) ? big : big.flatMap(midSegs)      // 模板按短语写好的 segs 原样用；没写的才由程序切
 }

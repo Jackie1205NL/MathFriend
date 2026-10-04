@@ -234,9 +234,11 @@ export function createApi(base, env) {
   function judgeCircle(it, a) {
     const sel = new Set((Array.isArray(a?.sel) ? a.sel : []).map(Number)), keys = it.segs.flatMap((s, j) => s.k ? [j] : []), noise = it.segs.flatMap((s, j) => s.n ? [j] : [])
     // 圈关键词要圈、要点评，但扣分要轻：要紧的圈到大部分（每 4 处可以漏 1 处）、没圈用不上的那句，就算圈得好
-    const missed = keys.filter(j => !sel.has(j)).length, extra = noise.filter(j => sel.has(j)).length, allow = Math.max(1, Math.floor(keys.length / 4))
-    const kw = missed <= allow && !extra && keys.length - missed >= 1 ? 2 : missed * 2 <= keys.length ? 1 : 0
-    return { kw, good: kw === 2 ? 'y' : 'h', cat: kw === 2 ? '' : '审题', msg: kw === 2 ? (missed ? `关键词圈得很好，还漏了 ${missed} 处` : '关键词圈得刚刚好') : missed ? `漏圈了 ${missed} 处要紧的地方${extra ? `，多圈了 ${extra} 处用不上的` : ''}。${it.why || '带数的话和问题都要圈。'}` : `要紧的都圈到了，还多圈了 ${extra} 处用不上的。${it.why || ''}` }
+    // 必圈的（k: 2，列式要用的数、决定怎么算的词、问的是什么）一个都不能漏；帮助理解的（k: 1）可以宽一点
+    const missed = keys.filter(j => !sel.has(j)).length, must = keys.filter(j => it.segs[j].k === 2 && !sel.has(j)).length
+    const extra = noise.filter(j => sel.has(j)).length, allow = Math.max(1, Math.floor(keys.length / 4))
+    const kw = !must && missed <= allow && !extra && keys.length - missed >= 1 ? 2 : missed * 2 <= keys.length ? 1 : 0
+    return { kw, good: kw === 2 ? 'y' : 'h', cat: kw === 2 ? '' : '审题', msg: kw === 2 ? (missed ? `关键词圈得很好，还漏了 ${missed} 处` : '关键词圈得刚刚好') : missed ? `漏圈了 ${missed} 处要紧的地方${must ? `（${must} 处是最要紧的）` : ''}${extra ? `，多圈了 ${extra} 处用不上的` : ''}。${it.why || '带数的话和问题都要圈。'}` : `要紧的都圈到了，还多圈了 ${extra} 处用不上的。${it.why || ''}` }
   }
   /** 统计表：先填表，再答几个小问。后面的小问照孩子自己填的数往下走，按小问判分 */
   function judgeStat(it, steps) {
@@ -716,7 +718,7 @@ export function createApi(base, env) {
       r.circle ||= [...new Set((Array.isArray(b.sel) ? b.sel : []).map(Number).filter(i => Number.isInteger(i) && i >= 0 && i < it.segs.length))]
       const c = judgeCircle(it, { sel: r.circle }), sel = new Set(r.circle)
       const keys = it.segs.flatMap((x, j) => x.k ? [j] : []), noise = it.segs.flatMap((x, j) => x.n ? [j] : [])
-      return { circle: { sel: r.circle, keys, noise, kw: c.kw, missed: keys.filter(j => !sel.has(j)).map(j => it.segs[j].t), extra: noise.filter(j => sel.has(j)).map(j => it.segs[j].t), why: it.why || '' } }
+      return { circle: { sel: r.circle, keys, noise, kw: c.kw, missed: keys.filter(j => !sel.has(j)).map(j => it.segs[j].t), must: keys.filter(j => it.segs[j].k === 2 && !sel.has(j)).map(j => it.segs[j].t), mustIdx: keys.filter(j => it.segs[j].k === 2), extra: noise.filter(j => sel.has(j)).map(j => it.segs[j].t), why: it.why || '' } }
     }
     if (b.kind === 'greet') { s.greet = date; return { msg: `${kid}，我们今天也一起慢慢来！`, act: 'wag' } }
     if (b.kind === 'buy') {

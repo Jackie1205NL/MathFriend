@@ -209,8 +209,8 @@ document.addEventListener('pointerdown', () => { try { actx ||= new (window.Audi
 function cfbMsg(fb) {
   const q0 = a => a.map(t => `「${t.replace(/[，。,.]$/, '').trim()}」`).join('')
   if (fb.kw === 2) return fb.missed.length ? `圈得很好！${q0(fb.missed)}也可以圈上。${fb.why || ''}` : `要紧的地方都圈到了，没有多圈。${fb.why || ''}`
-  const q = q0
-  return [fb.missed.length ? `${q(fb.missed)}也很要紧，要圈上。` : '', fb.extra.length ? `${q(fb.extra)}和算数没关系，不用圈。` : '', fb.why].filter(Boolean).join('')
+  const must = fb.must || [], rest = fb.missed.filter(t => !must.includes(t))
+  return [must.length ? `${q0(must)}是解这道题最要紧的，一定要圈上！` : '', rest.length ? `${q0(rest)}也可以圈上。` : '', fb.extra.length ? `${q0(fb.extra)}和算数没关系，不用圈。` : '', fb.why].filter(Boolean).join('')
 }
 const house = n => n ? `${n}的小屋` : '小柴犬的家'
 const greyed = i => [Q.fx.grey ?? []].flat().includes(i)
@@ -320,7 +320,7 @@ function qText(mode) {
       let c = mode === 'pick' ? 'seg' : 'seg flat'
       const fb = Q.rec[ci]?.cfb
       if (mode === 'pick') { if (Q.sel.has(i)) c += ' on'; if (greyed(i)) c += ' grey' }
-      else if (mode === 'review' && fb) c = 'seg fixed ' + (fb.keys.includes(i) ? (circ.has(i) ? 'key' : 'miss') : fb.noise.includes(i) && circ.has(i) ? 'noise' : circ.has(i) ? 'on' : '')
+      else if (mode === 'review' && fb) c = 'seg fixed ' + (fb.keys.includes(i) ? (circ.has(i) ? 'key' : fb.mustIdx?.includes(i) ? 'miss must' : 'miss') : fb.noise.includes(i) && circ.has(i) ? 'noise' : circ.has(i) ? 'on' : '')
       else if (circ.has(i)) c += ' on'
       if (Q.fx.trail && i === last) c += ' trail'
       return `<span class="${c}" ${mode === 'pick' && !greyed(i) ? `role="button" tabindex="0" data-a="seg" data-v="${i}"` : ''}>${esc(s.t)}</span>`
@@ -373,7 +373,7 @@ function vStep() {
     // 圈完马上点评：绿色是圈对的，橙色虚线是漏圈的，灰色划掉的是不用圈的。点评过就定下来了，回到这一步只能看
     const fb = Q.rec[Q.i].cfb
     return `${qText('review')}<div class="review ${fb.kw === 2 ? 'good' : ''}"><img src="/pet/s${stage() || 1}-face-${fb.kw === 2 ? "proud" : "thinking"}.webp" alt=""><div><b>${name()}说：</b>${esc(cfbMsg(fb))}</div></div>
-      <p class="dim">绿色是圈对的${fb.missed.length ? '，橙色虚线是漏圈的' : ''}${fb.extra.length ? '，灰色划掉的是和算数没关系的' : ''}。</p><button class="btn" data-a="stepgo">知道了，${Q.flow[Q.i + 1]?.type === 'build' ? '去列式' : '下一步'}</button>`
+      <p class="dim">绿色是圈对的${fb.must?.length ? '，红色虚线是漏掉的最要紧的' : ''}${fb.missed.length > (fb.must?.length || 0) ? '，橙色虚线是还可以圈的' : ''}${fb.extra.length ? '，灰色划掉的是和算数没关系的' : ''}。</p><button class="btn" data-a="stepgo">知道了，${Q.flow[Q.i + 1]?.type === 'build' ? '去列式' : '下一步'}</button>`
   }
   if (b.type === 'circle') return `${qText('pick')}<p class="dim">可以点好几处，再点一下取消。圈完不会马上对答案，整道题做完再一起看。</p><button class="btn" data-a="stepgo" ${Q.sel.size ? '' : 'disabled'}>圈好了，${Q.flow[Q.i + 1]?.type === 'build' ? '去列式' : '下一步'}</button>`
   if (b.type === 'goal') return `${qText()}<div class="opts">${b.opts.map((o, i) => `<button class="${i === Q.fx.strike ? 'struck' : ''}" data-a="pickgo" data-v="${i}" ${i === Q.fx.strike ? 'disabled' : ''}>${esc(o)}</button>`).join('')}</div>`
@@ -605,7 +605,7 @@ const QA = {
       return run(async () => {
         const r = await api('/act', { kind: 'circle', item: Q.id, sel: [...Q.sel] })
         if (!r.circle) { save({ sel: [...Q.sel] }); return next() }
-        save({ sel: r.circle.sel, cfb: r.circle }); Q.mood = r.circle.kw === 2 ? 'hop' : 'think'; sayPet(r.circle.kw === 2 ? '圈得真准！' : '看看我标出来的地方。'); sfx(r.circle.kw === 2 ? 'happy' : 'chirp')
+        save({ sel: r.circle.sel, cfb: r.circle }); Q.mood = r.circle.kw === 2 ? 'hop' : 'think'; sayPet(r.circle.kw === 2 ? (r.circle.missed.length ? '圈得不错！' : '圈得真准！') : r.circle.must?.length ? '有最要紧的没圈到，看看我标出来的地方。' : '看看我标出来的地方。'); sfx(r.circle.kw === 2 ? 'happy' : 'chirp')
       })
     }
     if (b.type === 'build') { const t = Q.expr.map(e => e.x); if (!validExpr(t)) return sayPet('算式还没写完整：数和符号要一个隔一个，括号要成对。'); save({ expr: t, chips: Q.expr.map(e => e.chip) }); return next() }
