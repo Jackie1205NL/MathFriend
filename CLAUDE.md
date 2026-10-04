@@ -26,6 +26,7 @@ npm run kid:dev                # 孩子端本地开发 http://localhost:5175（�
 npm run kid:build              # 孩子端构建到 dist-kid（Netlify 用）
 npm run kid bank <周> <json>   # 模板入库并逐题验算
 npm run kid export <周>        # 导出孩子端题库文件 孩子端题库/pack-周.json（每周固定做法，管理员导入）
+# 出孩子端题库：在 Claude Code 里运行 /weekly kid，照 .claude/skills/weekly/rules.md 第 9 节「出题流程」五步做
 npm run kid pull [周|文件]     # 读入答题记录：默认读 孩子端题库/ 里最新的 log-周-账号.json
 npm run kid push <周>          # 设过孩子端地址时也可以直接在线推送（npm run kid check 看连不连得上）
 npm run lint && npx tsc --noEmit -p .
