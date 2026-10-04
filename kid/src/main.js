@@ -175,7 +175,7 @@ function vQuests() {
   return `<div class="top"><h1>今天的任务</h1>${coin(S().coins)}</div><div class="body">${gs.map(g => {
     const left = g.items.filter(it => !it.done).length, top = Math.max(...g.items.map(it => it.max)), mx = g.extra ? Math.ceil(top / 2) : top, lock = g.boss && !open && left > 0
     const tag = g.bucket === '本周重点' && !g.boss ? '<span class="tagx">本周重点</span>' : g.bucket === '往周未过关' ? '<span class="tagx old">以前的</span>' : g.extra ? '<span class="tagx old">金币减半</span>' : ''
-    return `<button class="card quest ${left ? '' : 'done'} ${lock ? 'lock' : ''}" ${lock || !left ? 'disabled' : ''} data-a="group" data-v="${g.id}"><b>${esc(g.name)}${tag}</b>${coin((g.items.every(it => it.format === 'oral') ? '每题 ' : '最高 ') + mx)}<span class="dim">${lock ? '做完上面几组后解锁' : `${esc(g.sub || '')} · ${left ? `还有 ${left} 题` : '做完了'}`}</span></button>`
+    return `<button class="card quest ${left ? '' : 'done'} ${lock ? 'lock' : ''}" ${lock || !left ? 'disabled' : ''} data-a="group" data-v="${g.id}"><b>${esc(g.name)}${tag}</b>${coin((g.items.every(it => it.format === 'oral') ? '每题 ' : '最高 ') + mx)}<span class="dim">${lock ? '做完上面几组后解锁' : `${esc(g.sub || '')} · ${left ? `还有 ${left} 题${(n => n ? `（跳过了 ${n} 题，待会儿回来做）` : '')(g.items.filter(x => !x.done && skips().includes(x.id)).length)}` : '做完了'}`}</span></button>`
   }).join('')}<p class="dim">金币多的题，是你这周最需要练的题。</p></div>`
 }
 
@@ -212,6 +212,15 @@ function cfbMsg(fb) {
   const must = fb.must || [], rest = fb.missed.filter(t => !must.includes(t))
   return [must.length ? `${q0(must)}是解这道题最要紧的，一定要圈上！` : '', rest.length ? `${q0(rest)}也可以圈上。` : '', fb.extra.length ? `${q0(fb.extra)}和算数没关系，不用圈。` : '', fb.why].filter(Boolean).join('')
 }
+// 跳过的题（当天有效，按跳过的先后排）和做到一半的草稿（每题一份）
+const skips = () => { const k = ls.get('kid-skip', null); return k?.date === V.date ? k.ids : [] }
+const setSkip = ids => ls.set('kid-skip', { date: V.date, ids })
+const drafts = () => { const d = ls.get('kid-draft', null); return d?.date === V.date && d.all ? d.all : {} }
+/** 这一组下一道：先做没跳过的，都做完了再按跳过的先后回来做 */
+function nextItem(g) {
+  const left = g.items.filter(x => !x.done), sk = skips()
+  return left.find(x => !sk.includes(x.id)) || sk.map(id => left.find(x => x.id === id)).find(Boolean) || left[0]
+}
 const house = n => n ? `${n}的小屋` : '小柴犬的家'
 const greyed = i => [Q.fx.grey ?? []].flat().includes(i)
 const curItem = () => Q.demo || groups().find(x => x.id === Q.gid).items.find(x => x.id === Q.id)
@@ -234,8 +243,9 @@ const TIPS = { fill: '算好了填进去。', first: '点一下你觉得要先�
   spot: '这是小狗做的题，有一步算错了。点出最先出错的那一行。', blanks: '点一个空再填数。每个空都要填。', circle: '你觉得哪些地方最要紧，就点哪里，可以点好几处。', goal: '这道题一步算不出来。要先求出什么？', build: '点下面的数和符号，自己拼出算式。', say: '把答句写完整。' }
 function startQ(g, it) {
   Q = { gid: g.id, id: it.id, flow: it.flow, i: 0, rec: [], t0: Date.now(), say: '', sk: '', menu: null, fire: null, fin: null, catch: null, cover: false, mood: '', guard: it.guard, caught: it.caught }
-  const d = ls.get('kid-draft', null)       // 刷新页面前做到一半的，接着做
-  if (d?.id === it.id && d.date === V.date && d.i < it.flow.length) Object.assign(Q, { rec: d.rec || [], i: d.i })
+  const d = drafts()[it.id]       // 刷新页面前、或者跳过之前做到一半的，接着做
+  if (d && d.i < it.flow.length) Object.assign(Q, { rec: d.rec || [], i: d.i })
+  setSkip(skips().filter(x => x !== it.id))
   enter()
   if (S().slow > 0 && S().slowFrom !== it.id) {      // 「慢慢来」：先盖住 3 秒，剩几题由服务器记
     Q.cover = true
@@ -520,7 +530,7 @@ function vQ() {
   // 做过的步骤可以点回去改，不扣分；回去改完再往后走，后面填过的还在
   const live = !Q.fin && !Q.catch && !Q.walk && !Q.cover
   const bar = Q.flow.length > 1 ? `<div class="stepbar">${live && Q.i > 0 ? '<button class="pill" data-a="backto" data-v="">‹ 上一步</button>' : ''}<div class="steps" style="grid-template-columns:repeat(${Q.flow.length},1fr)">${Q.flow.map((t, i) => live && i < Q.i ? `<button class="done" data-a="backto" data-v="${i}">${STEP_NAME[t.type]}</button>` : `<span class="${Q.fin || i < Q.i ? 'done' : i === Q.i ? 'now' : ''}">${STEP_NAME[t.type]}</span>`).join('')}</div></div>` : ''
-  return `<div class="top"><button class="back" data-a="go" data-v="quests" aria-label="回到任务">‹</button><h1>${esc(g.name)} ${idx}/${g.items.length}</h1><button class="pill scr" data-a="scratch">草稿</button>${coin('最高 ' + (g.extra ? Math.ceil(it.max / 2) : it.max))}</div>
+  return `<div class="top"><button class="back" data-a="go" data-v="quests" aria-label="回到任务">‹</button><h1>${esc(g.name)} ${idx}/${g.items.length}</h1>${!Q.demo && !Q.fin && !Q.catch && !Q.walk ? '<button class="pill scr" data-a="skip">跳过</button>' : ''}<button class="pill scr" data-a="scratch">草稿</button>${coin('最高 ' + (g.extra ? Math.ceil(it.max / 2) : it.max))}</div>
   <div class="body qbody">${Q.cover ? `<div class="cover"><img src="${face('thinking')}" alt=""><b style="font:400 30px var(--kid)">慢慢来</b><span>${name()}在帮你把题目再读一遍……</span></div>` : ''}${bar}${Q.walk ? vWalk() : Q.fin ? (it.segs || it.format === 'stat' ? qText() : '') + vQResult(g) : vStep()}</div>
   ${vDock()}${Q.menu ? vMenu() : ''}${Q.scratch ? '<div class="scratch"><canvas id="scratch"></canvas><div class="duo"><button class="btn alt" data-a="sclear">擦干净</button><button class="btn" data-a="scratch">关上</button></div></div>' : ''}${Q.catch ? vCatch() : ''}${Q.fire ? `<div class="toast fire"><img src="/pet/badge-${SKILLS.find(x => x.k === Q.fire.k).badge}.webp" alt="">${esc(Q.fire.text)}</div>` : ''}`
 }
@@ -571,7 +581,7 @@ const QA = {
     })
   },
   adminmode() { adminMode = !adminMode; pin = ''; loginErr = '' },
-  logout() { return run(async () => { await api('/logout', {}).catch(() => {}); V = null; Q = null; page = 'login'; loginName = ''; ls.set('kid-user', ''); ls.set('kid-pet', ''); ls.set('kid-draft', null); pin = '' }) },
+  logout() { return run(async () => { await api('/logout', {}).catch(() => {}); V = null; Q = null; page = 'login'; loginName = ''; ls.set('kid-user', ''); ls.set('kid-pet', ''); ls.set('kid-draft', null); ls.set('kid-skip', null); pin = '' }) },
   admout() { return run(async () => { await api('/admin/logout', {}).catch(() => {}); ADM = null; adminMode = false; page = 'login' }) },
   admadd() { const name = document.getElementById('adm-name')?.value, p2 = document.getElementById('adm-pin')?.value; return run(async () => { try { const r = await api('/admin/users', { name, pin: p2 }); admMsg = `建好了：${r.user.name}`; await loadAdmin() } catch (e) { admMsg = e.message } }) },
   admedit(v) { const [id, k] = v.split(':'); admEdit = { id, k } },
@@ -648,8 +658,16 @@ const QA = {
   shut() { Q.menu = null },
   use(v) { const [k, L] = v.split(':'); return run(() => useSkill(k, +L)) },
   fix() { const c = Q.catch; Q.catch = null; Q.caught = c; Q.rec = Q.rec.slice(0, c.step + 1); Q.i = c.step; enter(); sayPet(`${c.n}接住了：${c.msg}。改好再交。`, 'skill'); Q.t0 = Date.now() },
-  next() { const g = groups().find(x => x.id === Q.gid), it = g.items.find(x => !x.done); if (it) return startQ(g, it); Q = null; page = V.allDone ? 'result' : 'quests'; if (V.allDone) chat('after_practice') },
-  group(id) { const g = groups().find(x => x.id === id), it = g?.items.find(x => !x.done); if (it) startQ(g, it) },
+  next() { const g = groups().find(x => x.id === Q.gid), it = nextItem(g); if (it) return startQ(g, it); Q = null; page = V.allDone ? 'result' : 'quests'; if (V.allDone) chat('after_practice') },
+  group(id) { const g = groups().find(x => x.id === id), it = g && nextItem(g); if (it) startQ(g, it) },
+  skip() {
+    // 跳过：这题先放到这一组最后，做了一半的留着，回来接着做
+    if (!Q || Q.demo || Q.fin || Q.catch) return
+    const g = groups().find(x => x.id === Q.gid), left = g.items.filter(x => !x.done && x.id !== Q.id)
+    if (!left.length) { showToast('这一组只剩这一题了。可以先去做别的组，待会儿再回来。'); Q = null; page = 'quests'; return }
+    setSkip([...skips().filter(x => x !== Q.id), Q.id]); sfx('chirp')
+    startQ(g, nextItem(g)); showToast('先跳过，待会儿再回来做这题。')
+  },
 }
 
 function vResult() {
@@ -926,7 +944,7 @@ function render() {
     + (toast ? `<div class="toast" role="status">${esc(toast)}</div>` : '')
   if (page !== lastPage) { if (page === 'map') document.getElementById('now')?.scrollIntoView({ block: 'center' }); else if (page !== 'q') window.scrollTo(0, 0) }
   lastPage = page
-  if (page === 'q' && Q && !Q.demo) ls.set('kid-draft', Q.fin ? null : { id: Q.id, date: V.date, i: Q.i, rec: Q.rec })
+  if (page === 'q' && Q && !Q.demo) { const all = drafts(); if (Q.fin) delete all[Q.id]; else all[Q.id] = { i: Q.i, rec: Q.rec }; ls.set('kid-draft', { date: V.date, all }) }
   if (Q?.scratch) initScratch()
   if (!pose) act = ''
   cere = null; if (Q) { Q.mood = ''; Q.fire = null }
