@@ -255,8 +255,34 @@ export { sameNums }
  * 没写就按逗号、句号、问号切开：带数的句子和问句算关键词，其他的不算错也不算对。
  */
 function segsOf(t, text, v) {
-  if (Array.isArray(t.segs)) return t.segs.map(s => ({ t: fill(s.t, v), ...(s.k ? { k: 1 } : {}), ...(s.n ? { n: 1 } : {}) }))
-  return (String(text).match(/[^，。？！；,.?!;]+[，。？！；,.?!;]?/g) || [text]).map(x => ({ t: x, ...(/[\d一二两三四五六七八九十百千半倍]|？|\?/.test(x) ? { k: 1 } : {}) }))
+  const big = Array.isArray(t.segs) ? t.segs.map(s => ({ t: fill(s.t, v), ...(s.k ? { k: 1 } : {}), ...(s.n ? { n: 1 } : {}) }))
+    : (String(text).match(/[^，。？！；,.?!;]+[，。？！；,.?!;]?/g) || [text]).map(x => ({ t: x, ...(/[\d一二两三四五六七八九十百千半倍]|？|\?/.test(x) ? { k: 1 } : {}) }))
+  return Array.isArray(t.segs) ? big : big.flatMap(midSegs)      // 模板按短语写好的 segs 原样用；没写的才由程序切
+}
+// 圈关键词的切法：整句太粗（句句都是关键词，圈了等于没圈），切到词又太细（容易漏圈白扣分）。
+// 折中：每句在「数 + 单位」或提示词前断开，前面的铺垫成一段、关键的成一段（一直到下一个关键处或句末）；
+// 挨着的关键处合成一段（「每隔 3 小时」）；问句只分「铺垫 | 问的部分」两段。铺垫段能点，不算对也不算错
+const UNITS = '千米|厘米|分米|毫米|千克|小时|分钟|元|角|分|米|克|吨|时|秒|天|周|月|年|岁|人|个|只|本|支|盒|箱|袋|瓶|张|辆|台|棵|朵|块|件|页|道|题|次|倍|名|位|条|头|双|套|层|排|行|组|份|杯|包|把|根|枝|颗|场|节|段|间|座|架|筐|捆|束|堆|圈|步'
+const CUES = '平均分|平均|一共|总共|一半|还剩|剩下|还差|还要|每隔|每|几倍|超过|不少于|不到|少于|至少|最多|最少|比(?!赛|较|如)'
+const HIT = new RegExp(`\\d+(?:[.:：]\\d+)?\\s*(?:${UNITS})?|[二两三四五六七八九十百千][一二两三四五六七八九十百千]*(?:${UNITS})|第\\s*\\S{1,3}?\\s*次|(?:多少|几)(?:${UNITS})?|${CUES}`, 'g')
+export function midSegs(seg) {
+  const hits = [...seg.t.matchAll(HIT)].map(m => [m.index, m.index + m[0].length])
+  if (!hits.length || seg.n) return [seg]      // 噪音句整句一段
+  const ask = /[？?]\s*$/.test(seg.t), starts = []
+  for (const [a, e] of hits) if (!starts.length || /[，。,.；;]/.test(seg.t.slice(starts.at(-1).e, a)) || seg.t.slice(starts.at(-1).e, a).replace(/\s/g, '').length > 2) starts.push({ a, e }); else starts.at(-1).e = e     // 隔得很近的并成一段
+  const keys = ask ? [{ a: starts[0].a, e: seg.t.length }] : starts, out = []
+  let at = 0
+  keys.forEach((x, i) => {
+    // 关键段从这个关键处到句中的标点为止（标点归它），后面到下一个关键处之间的字是下一段的铺垫
+    const stop = Math.min(keys[i + 1]?.a ?? seg.t.length, (() => { const m = seg.t.slice(x.e).search(/[，。,.；;？?！!]/); return m < 0 ? seg.t.length : x.e + m + 1 })())
+    let pre = seg.t.slice(at, x.a)
+    if (pre && pre.replace(/[\s，。,.]/g, '').length < 2) { x = { ...x, a: at }; pre = '' }     // 铺垫太短（一两个字）就并进关键段
+    if (pre) out.push({ t: pre, key: false })
+    out.push({ t: seg.t.slice(x.a, stop), key: true }); at = stop
+  })
+  if (at < seg.t.length) out.push({ t: seg.t.slice(at), key: false })
+  if (out.length < 2) return [seg]
+  return out.map(x => ({ t: x.t, ...(seg.k && x.key ? { k: 1 } : {}), ...(seg.n ? { n: 1 } : {}) }))
 }
 /**
  * 把一个模板实例化成多道题。返回 { items, problems }，problems 是出不来题的原因（给 Claude 看着改模板）。

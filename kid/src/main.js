@@ -207,16 +207,17 @@ function sfx(k) {
 document.addEventListener('pointerdown', () => { try { actx ||= new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume() } catch { /* 不支持声音 */ } })
 /** 圈关键词的点评：圈对了夸一句；漏圈的、多圈的分别点出来 */
 function cfbMsg(fb) {
-  if (fb.kw === 2) return `要紧的地方都圈到了，没有多圈。${fb.why ? fb.why : ''}`
-  const q = a => a.map(t => `「${t.replace(/[，。,.]$/, '')}」`).join('')
+  const q0 = a => a.map(t => `「${t.replace(/[，。,.]$/, '').trim()}」`).join('')
+  if (fb.kw === 2) return fb.missed.length ? `圈得很好！${q0(fb.missed)}也可以圈上。${fb.why || ''}` : `要紧的地方都圈到了，没有多圈。${fb.why || ''}`
+  const q = q0
   return [fb.missed.length ? `${q(fb.missed)}也很要紧，要圈上。` : '', fb.extra.length ? `${q(fb.extra)}和算数没关系，不用圈。` : '', fb.why].filter(Boolean).join('')
 }
 const house = n => n ? `${n}的小屋` : '小柴犬的家'
 const greyed = i => [Q.fx.grey ?? []].flat().includes(i)
 const curItem = () => Q.demo || groups().find(x => x.id === Q.gid).items.find(x => x.id === Q.id)
 // 「试一试」用的示范题：学会新等级后停在这个本领用得上的那一步，菜单直接打开，不扣次数、不计分
-const DEMO_WORD = { id: 'demo', format: 'word', max: 0, segs: [{ t: '妈妈带了 100 元' }, { t: '去文具店，' }, { t: '店门口趴着 2 只小猫。' }, { t: '一盒彩笔 12 元，' }, { t: '买了 3 盒，' }, { t: '应找回多少元？' }],
-  flow: [{ type: 'circle' }, { type: 'build', tier: 1, chips: [{ v: 100, seg: 0 }, { v: 12, seg: 3 }, { v: 3, seg: 4 }] }, { type: 'chain' }, { type: 'say', ask: '答：应找回', units: ['元', '盒', '支'], tail: '' }], hide: { grey: [2], digits: 2 } }
+const DEMO_WORD = { id: 'demo', format: 'word', max: 0, segs: [{ t: '妈妈' }, { t: '带了 100 元，' }, { t: '去文具店。' }, { t: '店门口趴着 2 只小猫。' }, { t: '一盒彩笔' }, { t: ' 12 元，' }, { t: '买了' }, { t: ' 3 盒，' }, { t: '应找回' }, { t: '多少元？' }],
+  flow: [{ type: 'circle' }, { type: 'build', tier: 1, chips: [{ v: 100, seg: 1 }, { v: 12, seg: 5 }, { v: 3, seg: 7 }] }, { type: 'chain' }, { type: 'say', ask: '答：应找回', units: ['元', '盒', '支'], tail: '' }], hide: { grey: [3], digits: 2 } }
 const DEMO_PLAN = { id: 'demo', format: 'plan', max: 0, text: '图书馆上午借出 45 本书，下午借出的是上午的 2 倍。这一天一共借出多少本书？',
   flow: [{ type: 'goal', opts: ['下午借出多少本', '一共借出多少本', '上午比下午少借多少本'] }, { type: 'build', tier: 0, choices: ['45 + 45 × 2', '45 × 2', '45 + 2'] }, { type: 'chain' }, { type: 'say', ask: '答：这一天一共借出', units: ['本', '倍'], tail: '' }], hide: { strike: 2, digits: 3 } }
 function startDemo(k) {

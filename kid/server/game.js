@@ -233,8 +233,10 @@ export function createApi(base, env) {
   /** 圈关键词：关键词全中、多圈了几处用不上的。只提醒，不算错 */
   function judgeCircle(it, a) {
     const sel = new Set((Array.isArray(a?.sel) ? a.sel : []).map(Number)), keys = it.segs.flatMap((s, j) => s.k ? [j] : []), noise = it.segs.flatMap((s, j) => s.n ? [j] : [])
-    const missed = keys.filter(j => !sel.has(j)).length, extra = noise.filter(j => sel.has(j)).length, kw = missed ? 0 : extra ? 1 : 2
-    return { kw, good: kw === 2 ? 'y' : 'h', cat: kw === 2 ? '' : '审题', msg: kw === 2 ? '关键词圈得刚刚好' : missed ? `漏圈了 ${missed} 处要紧的地方。${it.why || '带数的话和问题都要圈。'}` : `要紧的都圈到了，还多圈了 ${extra} 处用不上的。${it.why || ''}` }
+    // 圈关键词要圈、要点评，但扣分要轻：要紧的圈到大部分（每 4 处可以漏 1 处）、没圈用不上的那句，就算圈得好
+    const missed = keys.filter(j => !sel.has(j)).length, extra = noise.filter(j => sel.has(j)).length, allow = Math.max(1, Math.floor(keys.length / 4))
+    const kw = missed <= allow && !extra && keys.length - missed >= 1 ? 2 : missed * 2 <= keys.length ? 1 : 0
+    return { kw, good: kw === 2 ? 'y' : 'h', cat: kw === 2 ? '' : '审题', msg: kw === 2 ? (missed ? `关键词圈得很好，还漏了 ${missed} 处` : '关键词圈得刚刚好') : missed ? `漏圈了 ${missed} 处要紧的地方${extra ? `，多圈了 ${extra} 处用不上的` : ''}。${it.why || '带数的话和问题都要圈。'}` : `要紧的都圈到了，还多圈了 ${extra} 处用不上的。${it.why || ''}` }
   }
   /** 统计表：先填表，再答几个小问。后面的小问照孩子自己填的数往下走，按小问判分 */
   function judgeStat(it, steps) {
