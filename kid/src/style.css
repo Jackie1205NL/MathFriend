@@ -454,4 +454,16 @@ h2 .hb{width:44px;height:44px;border-radius:50%;vertical-align:-10px;margin-righ
 .review.good{background:var(--ok);border-color:var(--leaf)}
 .review img{width:76px;height:76px;flex:none}
 @keyframes popin{0%{transform:scale(.6) translateY(30px);opacity:0}100%{transform:none;opacity:1}}
+/* 管理员看板 */
+.stat4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:10px 0}
+.stat4 div{background:var(--bg);border-radius:14px;padding:8px 12px}.stat4 small{display:block;color:var(--dim);font-size:14px}.stat4 b{font-size:26px}
+.nrow{display:grid;grid-template-columns:3em 1fr 2.5em;gap:10px;align-items:center;font-size:16px;margin:4px 0}.nrow b{text-align:right}
+.hbar{height:8px;border-radius:4px;background:var(--line);overflow:hidden}.hbar i{display:block;height:100%;border-radius:4px}
+.dashcard{min-width:0}.tscroll{overflow-x:auto;margin-top:8px;max-width:100%}
+table.dash{width:100%;border-collapse:collapse;font-size:15px;white-space:nowrap}
+table.dash th{color:var(--dim);font-weight:600;text-align:left;padding:6px 6px;border-bottom:2px solid var(--line)}
+table.dash td{padding:6px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+table.dash td .hbar{width:60px;margin-top:3px}
+table.dash tr.idle td{color:#a5ad9f}
+@media (max-width:500px){.stat4{grid-template-columns:repeat(2,1fr)}}
 

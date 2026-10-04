@@ -132,9 +132,9 @@ function vLogin() {
     <button class="link" data-a="adminmode">${adminMode ? '‹ 回到孩子登录' : '管理员登录'}</button></div>`
 }
 function vAdmin() {
-  const us = ADM || [], row = u => `<div class="card urow ${u.off ? 'off' : ''}"><div><b>${esc(u.name)}</b>${u.off ? ' <span class="tagx">停用</span>' : ''}<small>${u.kid ? `孩子「${esc(u.kid)}」· ` : ''}${u.pet ? `小狗「${esc(u.pet)}」· ` : ''}陪伴 ${u.days} 天 · ${u.seen ? `最近来过 ${md(u.seen)}` : '还没来过'}</small></div>
+  const us = ADM || [], row = u => `<div class="card urow ${u.off ? 'off' : ''}"><div><b>${esc(u.name)}</b>${u.off ? ' <span class="tagx">停用</span>' : ''}<small>${u.today?.q ? `今天做了 ${u.today.q} 题、错 ${u.today.wrong} 题、做题 ${mins(u.today.ms)} · ` : ''}${u.kid ? `孩子「${esc(u.kid)}」· ` : ''}${u.pet ? `小狗「${esc(u.pet)}」· ` : ''}陪伴 ${u.days} 天 · ${u.seen ? `最近来过 ${md(u.seen)}` : '还没来过'}</small></div>
     ${admEdit?.id === u.id ? `<div class="field"><input id="adm-v" ${{ pin: 'inputmode="numeric" maxlength="4" placeholder="新的 4 位密码"', name: 'maxlength="12" placeholder="新的用户名"', kid: `maxlength="6" placeholder="孩子的名字" value="${esc(u.kid)}"`, pet: `maxlength="6" placeholder="小狗的名字" value="${esc(u.pet)}"` }[admEdit.k]} aria-label="新值"><button class="btn" data-a="admsave">保存</button><button class="btn alt" data-a="admcancel">取消</button></div>`
-      : `<div class="ubtns"><button class="buy" data-a="admedit" data-v="${u.id}:pin">重置密码</button><button class="buy" data-a="admedit" data-v="${u.id}:name">改用户名</button><button class="buy" data-a="admedit" data-v="${u.id}:kid">改孩子名字</button><button class="buy" data-a="admedit" data-v="${u.id}:pet">改小狗名字</button><button class="buy" data-a="admoff" data-v="${u.id}">${u.off ? '启用' : '停用'}</button></div>`}</div>`
+      : `<div class="ubtns"><button class="buy" data-a="admstats" data-v="${u.id}">看板</button><button class="buy" data-a="admedit" data-v="${u.id}:pin">重置密码</button><button class="buy" data-a="admedit" data-v="${u.id}:name">改用户名</button><button class="buy" data-a="admedit" data-v="${u.id}:kid">改孩子名字</button><button class="buy" data-a="admedit" data-v="${u.id}:pet">改小狗名字</button><button class="buy" data-a="admoff" data-v="${u.id}">${u.off ? '启用' : '停用'}</button></div>`}</div>`
   return `<div class="top"><h1>账号管理</h1><button class="pill scr" data-a="admout">退出</button></div><div class="body">
     ${admMsg ? `<div class="bubble plain">${esc(admMsg)}</div>` : ''}
     <div class="card"><b>新建孩子账号</b><p class="dim">每个账号有自己的小狗和存档，题目大家共用。用户名最多 12 个字，密码是 4 位数字。</p>
@@ -145,6 +145,28 @@ function vAdmin() {
     <div class="card"><b>导出答题记录</b><p class="dim">每周归集前导出，放进家长端的「孩子端题库」文件夹，家长端会读入，用来决定哪些题要再练。</p>
       <div class="field"><select id="adm-lu" aria-label="账号">${us.map(u => `<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select><select id="adm-lw" aria-label="哪一周的题库">${[...ADMW].reverse().map(w => `<option>${esc(w)}</option>`).join('')}</select><button class="btn" data-a="admlog" ${us.length && ADMW.length ? '' : 'disabled'}>导出</button></div></div>
     <p class="dim">管理员只管账号、题库和答题记录文件，网页上不显示孩子的答题。停用的账号登录不了，存档还在，启用后接着玩。</p></div>`
+}
+// ---------- 管理员看板：一个账号最近 14 天每天的使用情况 + 小狗现在的样子 ----------
+let ADS = null
+const mins = ms => ms >= 60000 ? `${Math.round(ms / 60000)} 分钟` : ms ? '不到 1 分钟' : '—'
+const hm = t => t == null ? '' : new Date(t + 8 * 3600000).toISOString().slice(11, 16)
+const pct = (a, b) => b ? `${Math.round(a / b * 100)}%` : '—'
+function vAdmStats() {
+  const { user, pet, days } = ADS, week = days.slice(0, 7), sum = k => week.reduce((n, d) => n + d[k], 0), used = week.filter(d => d.q || d.first)
+  const top = Math.max(1, ...days.map(d => d.q)), bar = (v, c) => `<div class="hbar"><i style="width:${Math.round(v / top * 100)}%;background:${c}"></i></div>`
+  const need = (n, v, c) => `<div class="nrow"><span>${n}</span><div class="hbar"><i style="width:${v}%;background:${c}"></i></div><b>${v}</b></div>`
+  const petCard = pet ? `<div class="card"><b>小狗「${esc(pet.name || '还没起名')}」${pet.stageName ? ` · ${esc(pet.stageName)}` : ''}${pet.graduated ? ' · 已毕业' : ''}</b>
+      <p class="dim">孩子「${esc(pet.kid || '还没写')}」· 陪伴 ${pet.days || 0} 天 · 一共做了 ${pet.qn} 题 · 最多连对 ${pet.best} 题</p>
+      <div class="stat4"><div><small>现在的金币</small><b>${pet.coins}</b></div><div><small>一共赚过</small><b>${pet.grow}</b></div><div><small>储蓄罐</small><b>${pet.jar}</b></div><div><small>明信片 / 故事</small><b>${pet.cards} / ${pet.story}</b></div></div>
+      ${need('饱食', pet.needs.full, 'var(--leaf)')}${need('心情', pet.needs.mood, 'var(--berry)')}${need('清洁', pet.needs.clean, 'var(--sky)')}
+      <p class="dim">本领：${SKILLS.map(x => `${x.n} ${pet.skill?.[x.k] || 0} 级`).join('、')}${pet.own.length ? `；买过的东西：${pet.own.map(k => esc(GOODS.find(g => g.k === k)?.n || k)).join('、')}` : ''}</p></div>` : '<div class="card"><p class="dim">这个账号还没进过小屋。</p></div>'
+  const rows = days.map(d => `<tr class="${d.q || d.first ? '' : 'idle'}"><td>${md(d.date)} 周${'日一二三四五六'[new Date(d.date + 'T00:00:00Z').getUTCDay()]}</td><td>${d.first ? `${hm(d.first)}–${hm(d.last)}` : '没来'}</td><td>${mins(d.ms)}</td><td>${d.q || ''}${d.q ? bar(d.q, 'var(--leaf)') : ''}</td><td>${d.q ? pct(d.ok, d.q) : ''}</td><td>${d.q ? pct(d.wrong, d.q) : ''}</td><td>${d.earn || ''}</td><td>${d.spend || ''}</td></tr>`).join('')
+  return `<div class="top"><button class="back" data-a="admback" aria-label="回到账号管理">‹</button><h1>${esc(user.name)} 的看板</h1></div><div class="body">
+    <div class="card"><b>最近 7 天</b><div class="stat4"><div><small>来了几天</small><b>${used.length}</b></div><div><small>做了几题</small><b>${sum('q')}</b></div><div><small>错误率</small><b>${pct(sum('wrong'), sum('q'))}</b></div><div><small>做题用时</small><b>${mins(sum('ms'))}</b></div></div>
+      <p class="dim">第一次就对 ${pct(sum('ok'), sum('q'))} · 赚了 ${sum('earn')} 金币 · 花了 ${sum('spend')} 金币</p></div>
+    ${petCard}
+    <div class="card dashcard"><b>每天的情况</b><div class="tscroll"><table class="dash"><tr><th>日期</th><th>在线</th><th>做题用时</th><th>题数</th><th>第一次就对</th><th>错误率</th><th>赚</th><th>花</th></tr>${rows}</table></div>
+      <p class="dim">错误率：没全对的题占几成（部分做对也算错）。第一次就对：第一次交卷就全对、没被守护接住。做题用时每题最多算 5 分钟。屏幕上的成绩只做参考，不并入纸面错误率。</p></div></div>`
 }
 async function loadAdmin() { const r = await api('/admin/users'); ADM = r.users; ADMP = r.pack; ADMW = r.weeks || []; page = 'admin' }
 function vHome() {
@@ -582,10 +604,12 @@ const QA = {
   },
   adminmode() { adminMode = !adminMode; pin = ''; loginErr = '' },
   logout() { return run(async () => { await api('/logout', {}).catch(() => {}); V = null; Q = null; page = 'login'; loginName = ''; ls.set('kid-user', ''); ls.set('kid-pet', ''); ls.set('kid-draft', null); ls.set('kid-skip', null); pin = '' }) },
-  admout() { return run(async () => { await api('/admin/logout', {}).catch(() => {}); ADM = null; adminMode = false; page = 'login' }) },
+  admout() { return run(async () => { await api('/admin/logout', {}).catch(() => {}); ADM = null; ADS = null; adminMode = false; page = 'login' }) },
   admadd() { const name = document.getElementById('adm-name')?.value, p2 = document.getElementById('adm-pin')?.value; return run(async () => { try { const r = await api('/admin/users', { name, pin: p2 }); admMsg = `建好了：${r.user.name}`; await loadAdmin() } catch (e) { admMsg = e.message } }) },
   admedit(v) { const [id, k] = v.split(':'); admEdit = { id, k } },
   admcancel() { admEdit = null },
+  admstats(id) { return run(async () => { try { ADS = await api('/admin/stats?user=' + encodeURIComponent(id)); window.scrollTo(0, 0) } catch (e) { admMsg = e.message } }) },
+  admback() { ADS = null },
   admsave() { const v = document.getElementById('adm-v')?.value, e = admEdit; return run(async () => { try { const r = await api('/admin/users/' + e.id, { [e.k]: v }); admMsg = { pin: `「${r.user.name}」的密码改好了，告诉孩子新密码。`, name: `用户名改成了：${r.user.name}`, kid: `「${r.user.name}」里孩子的名字改好了。`, pet: `「${r.user.name}」的小狗改名了，小屋的名字也跟着变。` }[e.k]; admEdit = null; await loadAdmin() } catch (er) { admMsg = er.message } }) },
   admpack() {
     const f = document.getElementById('adm-pack')?.files?.[0]
@@ -932,7 +956,7 @@ const NAV = [['home', '小屋'], ['map', '地图'], ['quests', '任务'], ['skil
 const NAV_OF = { result: 'home', story: 'home', diary: 'home', book: 'home', place: 'map' }
 let lastPage = ''
 function render() {
-  if (page === 'admin' && ADM) { app.innerHTML = vAdmin(); return }
+  if (page === 'admin' && ADM) { app.innerHTML = ADS ? vAdmStats() : vAdmin(); return }
   // 小屋的名字跟着小狗的名字走（浏览器标签和登录页也是，这台设备记住上一次的）
   if (V?.state?.name && ls.get('kid-pet', '') !== V.state.name) ls.set('kid-pet', V.state.name)
   document.title = house(page === 'login' || !V ? ls.get('kid-pet', '') : V.state?.name)

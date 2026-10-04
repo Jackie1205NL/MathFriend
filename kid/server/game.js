@@ -25,6 +25,12 @@ const freshState = () => ({ name: '', kid: '', hatched: false, coins: 60, grow: 
   uses: {}, tiers: {}, ptDay: {} })
 
 /** 需求按时间慢慢下降，读的时候再算，不需要定时任务。 */
+/** 管理员看板用的每日记录：在线时段、做题用时、题数、第一次就对、答错、赚和花的金币。只留最近 60 天 */
+function dayStat(s, date) {
+  const D = s.daily ||= {}
+  if (!D[date]) { D[date] = { q: 0, ok: 0, wrong: 0, ms: 0, earn: 0, spend: 0, first: null, last: null }; Object.keys(D).sort().slice(0, -60).forEach(k => delete D[k]) }
+  return D[date]
+}
 function decay(s, now = Date.now()) {
   const days = Math.max(0, (now - s.needs.at) / DAY)
   for (const k of Object.keys(DECAY)) if (s.needs[k] > NEED_FLOOR) s.needs[k] = Math.max(NEED_FLOOR, Math.round((s.needs[k] - DECAY[k] * days) * 10) / 10)
@@ -184,7 +190,7 @@ export function createApi(base, env) {
     let day = await S.get(`day:${date}`)
     const ids = new Set(pack?.items.map(it => it.id))   // 家长重新推送后题号对不上，就重抽今天的题
     if (pack && (!day || day.week !== pack.week || day.groups.some(g => g.items.some(id => !ids.has(id))))) { day = { date, week: pack.week, groups: pickToday(pack, log, date, state.ladder), items: {}, flash: 0, done: false }; await S.set(`day:${date}`, day) }
-    return { S, pack, state, date, log, day, now }
+    return { S, pack, state, date, log, day, now, c0: raw?.coins ?? state.coins }      // c0：这次请求开始时的金币，存档时算出赚了还是花了
   }
   /** 记得你：小狗说话时能用上的几件事 */
   function facts({ pack, state, date, log }) {
@@ -213,7 +219,11 @@ export function createApi(base, env) {
       boss: pack ? { day: Number(pack.tuning?.boss_day ?? 5), groups: pack.groups.filter(g => g.bucket === '本周重点' && !g.boss).map(g => g.name) } : null,
     }
   }
-  const save = async ctx => { await ctx.S.set('state', ctx.state); if (ctx.day) await ctx.S.set(`day:${ctx.date}`, ctx.day); if (ctx.pack) await ctx.S.set(`log:${ctx.pack.week}`, ctx.log) }
+  const save = async ctx => {
+    const D = dayStat(ctx.state, ctx.date), dc = ctx.state.coins - ctx.c0
+    if (dc > 0) D.earn += dc; else D.spend -= dc
+    D.first ??= ctx.now; D.last = ctx.now; ctx.c0 = ctx.state.coins
+    await ctx.S.set('state', ctx.state); if (ctx.day) await ctx.S.set(`day:${ctx.date}`, ctx.day); if (ctx.pack) await ctx.S.set(`log:${ctx.pack.week}`, ctx.log) }
   /** 给一张明信片：优先给 k 这个地方，没有就给开放了的最新地方里还没集齐的。 */
   function giveCard(s, date, k) {
     const st = stageOf(s, date), open = PLACES.filter(p => POSTCARDS[p.k] && placeOpen(p, st, date)).reverse()
@@ -603,6 +613,7 @@ export function createApi(base, env) {
     }
     if (!s.hatched) { s.hatched = true; s.st = 1; s.gift = { date: ctx.date, what: null }; mark(s, ctx.date, `从小窝里醒来了，${s.kid || '小主人'}给我起名叫${s.name || '小狗'}`) }
     s.coins += c; s.grow += c                            // grow 只是「一共赚过多少金币」，和长大无关
+    { const D = dayStat(s, ctx.date); D.q++; if (firstOk) D.ok++; if (!ok) D.wrong++ }
     s.qn++; const ym = ctx.date.slice(0, 7), M = s.months[ym] ||= [0, 0]; M[0]++; if (firstOk) M[1]++
     if (ok && ['word', 'plan'].includes(it.format)) s.lastSay = `${it.ask} ${it.answer}${it.unit || ''}${it.tail || ''}`
     if (s.slow > 0 && s.slowFrom !== it.id) s.slow--
@@ -662,6 +673,7 @@ export function createApi(base, env) {
     const ms = Math.min(Number(body.ms) || 0, 600000)
     rec.ms = (rec.ms || 0) + ms
     ctx.day.ms = (ctx.day.ms || 0) + Math.min(ms, 300000)      // 今天做题用了多久（一道题最多算 5 分钟）
+    dayStat(ctx.state, ctx.date).ms += Math.min(ms, 300000)
     const steps = Array.isArray(body.steps) ? [...body.steps] : [], ci = flowOf(it).indexOf('circle')
     if (rec.circle && ci >= 0) steps[ci] = { sel: rec.circle }      // 圈关键词按点评时定下来的算
     const J = judge(it, steps)
@@ -847,14 +859,29 @@ export function createApi(base, env) {
 
   // ---------- 账号管理（管理员） ----------
   async function admin(req, p, body) {
+    if (env.DEV || env.CLOCK) offset = (await store.get('dev-clock')) ?? 0      // dev 站拨过日期时，看板的「今天」跟着走
     let list = await users()
     const pub = u => ({ id: u.id, name: u.name, off: !!u.off, created: u.created, seen: u.seen || null })
     if (p === '/admin/users' && req.method === 'GET') {
       // 顺便带上每个孩子的小狗名字和陪伴天数，方便认人（不带答题记录）
       const out = []
-      for (const u of list) { const st = await scoped(store, u.id).get('state'); out.push({ ...pub(u), pet: st?.name || '', kid: st?.kid || '', days: st?.days || 0 }) }
+      for (const u of list) { const st = await scoped(store, u.id).get('state'); out.push({ ...pub(u), pet: st?.name || '', kid: st?.kid || '', days: st?.days || 0, today: st?.daily?.[today(new Date(nowMs()))] || null }) }
       const pack = await store.get('pack'), days = pack && packDays(pack).filter(g => pack.items.some(it => it.group === g.id))
       return json({ users: out, weeks: (await store.get('pack-weeks')) || (pack ? [pack.week] : []), pack: pack ? { week: pack.week, created: pack.created, items: pack.items.length, days: Math.min(...days.map(g => g.days)), groups: days } : null })
+    }
+    // 看板：一个账号的小狗现在的样子 + 最近 14 天每天的使用情况
+    if (p === '/admin/stats' && req.method === 'GET') {
+      const u = list.find(x => x.id === new URL(req.url).searchParams.get('user'))
+      if (!u) return json({ error: '没有这个账号' }, 404)
+      const raw = await scoped(store, u.id).get('state')
+      if (!raw) return json({ user: pub(u), pet: null, days: [] })
+      const st = { ...freshState(), ...structuredClone(raw) }, now = nowMs(), date = today(new Date(now))
+      decay(st, now)
+      const days = [...Array(14).keys()].map(k => addDays(date, -k)).map(d => ({ date: d, ...(st.daily?.[d] || { q: 0, ok: 0, wrong: 0, ms: 0, earn: 0, spend: 0, first: null, last: null }) }))
+      const stage = stageOf(st, date)
+      return json({ user: pub(u), days, pet: { name: st.name, kid: st.kid, stage, stageName: STAGES[stage]?.n || '', days: st.days, coins: st.coins, grow: st.grow, jar: st.jar || 0,
+        needs: { full: Math.round(st.needs.full), mood: Math.round(st.needs.mood), clean: Math.round(st.needs.clean) }, skill: st.skill, cards: st.cards?.length || 0, story: st.story || 0,
+        own: Object.keys(st.own || {}).filter(k => st.own[k]), graduated: !!st.graduated, best: st.best || 0, qn: st.qn || 0 } })
     }
     // 导出答题记录（文件，家长端 npm run kid pull 读入）。答题记录按题库包的周存
     if (p === '/admin/log' && req.method === 'GET') {
