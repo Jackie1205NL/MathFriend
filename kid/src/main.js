@@ -205,12 +205,18 @@ function sfx(k) {
 }
 // iPad 上声音要在点屏幕的那一下启动；喂食之类的声音要等服务器回来才响，所以每次点屏幕都先把声音叫醒
 document.addEventListener('pointerdown', () => { try { actx ||= new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume() } catch { /* 不支持声音 */ } })
+/** 圈关键词的点评：圈对了夸一句；漏圈的、多圈的分别点出来 */
+function cfbMsg(fb) {
+  if (fb.kw === 2) return `要紧的地方都圈到了，没有多圈。${fb.why ? fb.why : ''}`
+  const q = a => a.map(t => `「${t.replace(/[，。,.]$/, '')}」`).join('')
+  return [fb.missed.length ? `${q(fb.missed)}也很要紧，要圈上。` : '', fb.extra.length ? `${q(fb.extra)}和算数没关系，不用圈。` : '', fb.why].filter(Boolean).join('')
+}
 const house = n => n ? `${n}的小屋` : '小柴犬的家'
 const greyed = i => [Q.fx.grey ?? []].flat().includes(i)
 const curItem = () => Q.demo || groups().find(x => x.id === Q.gid).items.find(x => x.id === Q.id)
 // 「试一试」用的示范题：学会新等级后停在这个本领用得上的那一步，菜单直接打开，不扣次数、不计分
-const DEMO_WORD = { id: 'demo', format: 'word', max: 0, segs: [{ t: '妈妈带了 ' }, { t: '100 元，' }, { t: '去文具店。' }, { t: '店门口趴着 ' }, { t: '2 只' }, { t: '小猫。' }, { t: '一盒彩笔 ' }, { t: '12 元，' }, { t: '买了 ' }, { t: '3 盒，' }, { t: '应找回' }, { t: '多少元？' }],
-  flow: [{ type: 'circle' }, { type: 'build', tier: 1, chips: [{ v: 100, seg: 1 }, { v: 12, seg: 7 }, { v: 3, seg: 9 }] }, { type: 'chain' }, { type: 'say', ask: '答：应找回', units: ['元', '盒', '支'], tail: '' }], hide: { grey: [3, 4, 5], digits: 2 } }
+const DEMO_WORD = { id: 'demo', format: 'word', max: 0, segs: [{ t: '妈妈带了 100 元' }, { t: '去文具店，' }, { t: '店门口趴着 2 只小猫。' }, { t: '一盒彩笔 12 元，' }, { t: '买了 3 盒，' }, { t: '应找回多少元？' }],
+  flow: [{ type: 'circle' }, { type: 'build', tier: 1, chips: [{ v: 100, seg: 0 }, { v: 12, seg: 3 }, { v: 3, seg: 4 }] }, { type: 'chain' }, { type: 'say', ask: '答：应找回', units: ['元', '盒', '支'], tail: '' }], hide: { grey: [2], digits: 2 } }
 const DEMO_PLAN = { id: 'demo', format: 'plan', max: 0, text: '图书馆上午借出 45 本书，下午借出的是上午的 2 倍。这一天一共借出多少本书？',
   flow: [{ type: 'goal', opts: ['下午借出多少本', '一共借出多少本', '上午比下午少借多少本'] }, { type: 'build', tier: 0, choices: ['45 + 45 × 2', '45 × 2', '45 + 2'] }, { type: 'chain' }, { type: 'say', ask: '答：这一天一共借出', units: ['本', '倍'], tail: '' }], hide: { strike: 2, digits: 3 } }
 function startDemo(k) {
@@ -311,7 +317,10 @@ function qText(mode) {
     const ci = fi('circle'), circ = new Set(Q.rec[ci]?.sel || []), last = it.segs.length - 1
     return `<div class="card q">${speaker()}${it.segs.map((s, i) => {
       let c = mode === 'pick' ? 'seg' : 'seg flat'
-      if (mode === 'pick') { if (Q.sel.has(i)) c += ' on'; if (greyed(i)) c += ' grey' } else if (circ.has(i)) c += ' on'
+      const fb = Q.rec[ci]?.cfb
+      if (mode === 'pick') { if (Q.sel.has(i)) c += ' on'; if (greyed(i)) c += ' grey' }
+      else if (mode === 'review' && fb) c = 'seg fixed ' + (fb.keys.includes(i) ? (circ.has(i) ? 'key' : 'miss') : fb.noise.includes(i) && circ.has(i) ? 'noise' : circ.has(i) ? 'on' : '')
+      else if (circ.has(i)) c += ' on'
       if (Q.fx.trail && i === last) c += ' trail'
       return `<span class="${c}" ${mode === 'pick' && !greyed(i) ? `role="button" tabindex="0" data-a="seg" data-v="${i}"` : ''}>${esc(s.t)}</span>`
     }).join('')}</div>`
@@ -359,13 +368,19 @@ function vStep() {
       return `<div class="mrow ${Q.cur >= start && Q.cur < g ? 'cur' : ''}">${parts.map((x, j) => esc(x) + (j < parts.length - 1 ? `<button class="bx ${Q.fx.flash && Q.vals[start + j] === '' ? 'bad' : ''}" data-a="blank" data-v="${start + j}">${box(Q.vals[start + j], Q.cur === start + j)}</button>` : '')).join('')}</div>` }).join('')
     return `${it.text ? `<p class="dim">${esc(it.text)}</p>` : ''}<div class="card multi">${rows}</div><p class="dim">点一个空再填数。每个空都要填。</p>${pad(null, go, 'stepgo')}`
   }
-  if (b.type === 'circle') return `${qText('pick')}<p class="dim">点题目里要紧的数和词，点一下圈上，再点一下取消。圈完不会马上对答案，整道题做完再一起看。</p><button class="btn" data-a="stepgo" ${Q.sel.size ? '' : 'disabled'}>圈好了，${Q.flow[Q.i + 1]?.type === 'build' ? '去列式' : '下一步'}</button>`
+  if (b.type === 'circle' && Q.rec[Q.i]?.cfb) {
+    // 圈完马上点评：绿色是圈对的，橙色虚线是漏圈的，灰色划掉的是不用圈的。点评过就定下来了，回到这一步只能看
+    const fb = Q.rec[Q.i].cfb
+    return `${qText('review')}<div class="review ${fb.kw === 2 ? 'good' : ''}"><img src="/pet/s${stage() || 1}-face-${fb.kw === 2 ? "proud" : "thinking"}.webp" alt=""><div><b>${name()}说：</b>${esc(cfbMsg(fb))}</div></div>
+      <p class="dim">绿色是圈对的${fb.missed.length ? '，橙色虚线是漏圈的' : ''}${fb.extra.length ? '，灰色划掉的是和算数没关系的' : ''}。</p><button class="btn" data-a="stepgo">知道了，${Q.flow[Q.i + 1]?.type === 'build' ? '去列式' : '下一步'}</button>`
+  }
+  if (b.type === 'circle') return `${qText('pick')}<p class="dim">可以点好几处，再点一下取消。圈完不会马上对答案，整道题做完再一起看。</p><button class="btn" data-a="stepgo" ${Q.sel.size ? '' : 'disabled'}>圈好了，${Q.flow[Q.i + 1]?.type === 'build' ? '去列式' : '下一步'}</button>`
   if (b.type === 'goal') return `${qText()}<div class="opts">${b.opts.map((o, i) => `<button class="${i === Q.fx.strike ? 'struck' : ''}" data-a="pickgo" data-v="${i}" ${i === Q.fx.strike ? 'disabled' : ''}>${esc(o)}</button>`).join('')}</div>`
   if (b.type === 'build') {
     const gi = fi('goal'), head = b.head ? `<div class="bubble plain good">${esc(b.head)}</div>` : gi >= 0 ? `<div class="bubble plain good">先求：${esc(it.flow[gi].opts[Q.rec[gi]?.i] ?? '')}</div>` : ''
     if (b.tier === 0) return `${qText()}${head}<p class="dim">选一个算式。选了直接进下一步，交卷后再看对不对。</p><div class="opts">${b.choices.map((o, i) => `<button data-a="pickgo" data-v="${i}">${esc(o)}</button>`).join('')}</div>`
-    const circ = new Set(Q.rec[fi('circle')]?.sel || [])
-    const chips = b.chips.map((c, i) => `<button class="chip ${c.seg >= 0 && circ.has(c.seg) ? 'circ' : ''} ${c.from != null ? 'new' : ''}" data-a="chip" data-v="${i}" ${Q.expr.some(e => e.chip === i) ? 'disabled' : ''}>${b.stat || c.from != null ? esc(Number.isFinite(chipVal(b, i)) ? chipVal(b, i) : '？') : c.v}<small>${b.stat ? esc(c.l) : c.from != null ? `第${'一二三'[c.from]}步` : c.seg >= 0 && circ.has(c.seg) ? '圈过的' : '&nbsp;'}</small></button>`).join('')
+    // 数字卡只写数，不注明是哪一类、哪一步、有没有圈过：每个数的意思让孩子自己记住
+    const chips = b.chips.map((c, i) => `<button class="chip" data-a="chip" data-v="${i}" ${Q.expr.some(e => e.chip === i) ? 'disabled' : ''}>${b.stat || c.from != null ? esc(Number.isFinite(chipVal(b, i)) ? chipVal(b, i) : '？') : c.v}</button>`).join('')
     return `${qText()}${head}<div class="card"><div class="expr">${Q.expr.length ? esc(showExpr(Q.expr.map(e => e.x))) : '<span class="ph">点下面的数和符号拼算式</span>'}</div></div>
       <div class="chips">${chips}</div>
       <div class="ops">${['+', '−', '×', '÷', '(', ')'].map(o => `<button data-a="op" data-v="${o}">${o}</button>`).join('')}<button data-a="del" aria-label="退一格">⌫</button><button data-a="clr">清空</button></div>
@@ -583,7 +598,15 @@ const QA = {
     if (b.type === 'first') { save({ i: Q.pick }); return next() }
     if (b.type === 'clock') { save({ zone: Q.zone }); return next() }
     if (b.type === 'blanks') { const empty = Q.vals.filter(v => v === '').length; if (empty && V.tuning.blank_hint) return sayPet(`还有 ${empty} 个空没填，填完再交卷。`); save({ vals: Q.vals }); return next() }
-    if (b.type === 'circle') { save({ sel: [...Q.sel] }); return next() }
+    if (b.type === 'circle') {
+      if (Q.rec[Q.i]?.cfb || Q.demo) { if (!Q.rec[Q.i]?.cfb) save({ sel: [...Q.sel] }); return next() }
+      // 先让小狗点评一下圈得对不对，再去列式
+      return run(async () => {
+        const r = await api('/act', { kind: 'circle', item: Q.id, sel: [...Q.sel] })
+        if (!r.circle) { save({ sel: [...Q.sel] }); return next() }
+        save({ sel: r.circle.sel, cfb: r.circle }); Q.mood = r.circle.kw === 2 ? 'hop' : 'think'; sayPet(r.circle.kw === 2 ? '圈得真准！' : '看看我标出来的地方。'); sfx(r.circle.kw === 2 ? 'happy' : 'chirp')
+      })
+    }
     if (b.type === 'build') { const t = Q.expr.map(e => e.x); if (!validExpr(t)) return sayPet('算式还没写完整：数和符号要一个隔一个，括号要成对。'); save({ expr: t, chips: Q.expr.map(e => e.chip) }); return next() }
     if (b.type === 'chain') {
       if (!Q.input) return sayPet('还没填得数呢。')

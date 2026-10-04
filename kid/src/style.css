@@ -447,3 +447,9 @@ h2 .hb{width:44px;height:44px;border-radius:50%;vertical-align:-10px;margin-righ
   .toast{font-size:15px;bottom:80px}
   .dog{width:60px;height:60px}.say{font-size:15px}.badge{width:56px;font-size:11px}.badge img{width:42px;height:42px}.chip{font-size:20px;min-width:56px;min-height:52px}.ops button{font-size:20px;min-height:48px}.items{font-size:15px}.right{font-size:16px}.verdict b{font-size:24px}.qbody{padding-bottom:110px}
 }
+/* 圈关键词后小狗跳出来点评 */
+.review{display:flex;gap:14px;align-items:center;background:#fff7e6;border:3px solid var(--coin);border-radius:20px;padding:12px 16px;font-size:20px;line-height:1.5;animation:popin .45s cubic-bezier(.3,1.6,.5,1)}
+.review.good{background:var(--ok);border-color:var(--leaf)}
+.review img{width:76px;height:76px;flex:none}
+@keyframes popin{0%{transform:scale(.6) translateY(30px);opacity:0}100%{transform:none;opacity:1}}
+

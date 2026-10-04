@@ -234,7 +234,7 @@ export function createApi(base, env) {
   function judgeCircle(it, a) {
     const sel = new Set((Array.isArray(a?.sel) ? a.sel : []).map(Number)), keys = it.segs.flatMap((s, j) => s.k ? [j] : []), noise = it.segs.flatMap((s, j) => s.n ? [j] : [])
     const missed = keys.filter(j => !sel.has(j)).length, extra = noise.filter(j => sel.has(j)).length, kw = missed ? 0 : extra ? 1 : 2
-    return { kw, good: kw === 2 ? 'y' : 'h', cat: kw === 2 ? '' : '审题', msg: kw === 2 ? '关键词圈得刚刚好' : missed ? `漏圈了 ${missed} 处要紧的地方。${it.why || '带单位的数、「每」「一共」「还剩」这样的词、问的是多少，都要圈。'}` : `要紧的都圈到了，还多圈了 ${extra} 处用不上的。${it.why || ''}` }
+    return { kw, good: kw === 2 ? 'y' : 'h', cat: kw === 2 ? '' : '审题', msg: kw === 2 ? '关键词圈得刚刚好' : missed ? `漏圈了 ${missed} 处要紧的地方。${it.why || '带数的话和问题都要圈。'}` : `要紧的都圈到了，还多圈了 ${extra} 处用不上的。${it.why || ''}` }
   }
   /** 统计表：先填表，再答几个小问。后面的小问照孩子自己填的数往下走，按小问判分 */
   function judgeStat(it, steps) {
@@ -266,11 +266,13 @@ export function createApi(base, env) {
         const cats = new Set(chipsCat), want = [q.use[0], q.use[2]], v = expr ? exprValue(expr) : NaN
         const should = own[want[0]] != null && own[want[1]] != null ? calcOp(own[want[0]], q.use[1], own[want[1]]) : null
         if (!expr) { partsOk[P] = false; return add(i, 'n', `${tag}算式没写完整`, '漏题') }
-        const right = cats.size === 2 && want.every(c => cats.has(c)) && expr.filter(x => typeof x === 'number').length === 2 && expr.includes(q.use[1])
+        // 数字卡不再注明类别：两类的数一样时点了哪张都算对，只看用的数对不对
+        const nums = expr ? expr.filter(x => typeof x === 'number') : [], sameVals = JSON.stringify([...nums].sort((x, y) => x - y)) === JSON.stringify([own[want[0]], own[want[1]]].sort((x, y) => x - y))
+        const right = (cats.size === 2 && want.every(c => cats.has(c)) || sameVals) && nums.length === 2 && expr.includes(q.use[1])
         if (right && v === should) return add(i, 'y', `${tag}列式 ${showExpr(t)}，方法对`)
         partsOk[P] = false
         if (right && q.use[1] === '−' && Number.isNaN(v)) return add(i, 'n', `${tag}相差要用大数减小数`, '概念不清')
-        if (cats.size === 2 && want.every(c => cats.has(c))) return add(i, 'n', `${tag}列式 ${showExpr(t)}：${q.use[1] === '−' ? '「多多少」要用减法' : '「一共」要用加法'}`, '审题')
+        if ((cats.size === 2 && want.every(c => cats.has(c))) || sameVals) return add(i, 'n', `${tag}列式 ${showExpr(t)}：${q.use[1] === '−' ? '「多多少」要用减法' : '「一共」要用加法'}`, '审题')
         add(i, 'n', `${tag}列式 ${showExpr(t)}：比的不是题目问的两类，要用${it.cats[want[0]]}和${it.cats[want[1]]}`, '审题')
       } else if (type === 'say') {
         const v = a.v === '' || a.v == null ? null : Number(a.v), unit = a.unit || '', fin = expr ? exprValue(expr) : null
@@ -645,9 +647,11 @@ export function createApi(base, env) {
     const ms = Math.min(Number(body.ms) || 0, 600000)
     rec.ms = (rec.ms || 0) + ms
     ctx.day.ms = (ctx.day.ms || 0) + Math.min(ms, 300000)      // 今天做题用了多久（一道题最多算 5 分钟）
-    const J = judge(it, Array.isArray(body.steps) ? body.steps : [])
+    const steps = Array.isArray(body.steps) ? [...body.steps] : [], ci = flowOf(it).indexOf('circle')
+    if (rec.circle && ci >= 0) steps[ci] = { sel: rec.circle }      // 圈关键词按点评时定下来的算
+    const J = judge(it, steps)
     // 3 级守护：错在它管的地方，先拦下来，回去改那一步再交（这次不算首答正确）
-    const first = J.items.find(x => x.good === 'n')
+    const first = J.items.find(x => x.good === 'n' && !(rec.circle && x.i === ci))     // 圈关键词已经点评过、改不了，守护不拦它
     if (!J.ok && rec.guard && first && first.cat === rec.guard) {
       const k = rec.guard; rec.guard = null
       rec.caught = { k, n: SKILLS.find(x => x.k === k).n, msg: first.msg, step: first.i }
@@ -701,6 +705,17 @@ export function createApi(base, env) {
     if (b.kind === 'name') { const n = cleanName(b.name); if (!n) return { msg: '先给它起个名字吧。' }; if (!s.name) mark(s, date, `给小狗起名叫${n}`); s.name = n; return { msg: `我叫${n}！那你叫什么名字？` } }
     if (b.kind === 'kidname') { const n = cleanName(b.name); if (!n) return { msg: `写上你的名字，${s.name || '小狗'}才知道怎么叫你。` }; if (!s.kid) s.greet = date; s.kid = n; return { msg: `${n}，你好！` } }      // 第一次认识就算今天打过招呼了
     if (b.kind === 'skill') return useSkill(ctx, b)
+    if (b.kind === 'circle') {
+      // 圈完关键词马上点评一次：第一次圈的就定下来（判分用这个），之后回到这一步只能看，不能改了再判
+      const it = ctx.pack?.items.find(x => x.id === b.item)
+      if (!it?.segs || !ctx.day.groups.some(g => g.items.includes(it.id)) || !flowOf(it).includes('circle')) return { msg: '这道题没有圈关键词。' }
+      const r = ctx.day.items[it.id] ||= {}
+      if (r.fin) return { msg: '这道题已经做完了。' }
+      r.circle ||= [...new Set((Array.isArray(b.sel) ? b.sel : []).map(Number).filter(i => Number.isInteger(i) && i >= 0 && i < it.segs.length))]
+      const c = judgeCircle(it, { sel: r.circle }), sel = new Set(r.circle)
+      const keys = it.segs.flatMap((x, j) => x.k ? [j] : []), noise = it.segs.flatMap((x, j) => x.n ? [j] : [])
+      return { circle: { sel: r.circle, keys, noise, kw: c.kw, missed: keys.filter(j => !sel.has(j)).map(j => it.segs[j].t), extra: noise.filter(j => sel.has(j)).map(j => it.segs[j].t), why: it.why || '' } }
+    }
     if (b.kind === 'greet') { s.greet = date; return { msg: `${kid}，我们今天也一起慢慢来！`, act: 'wag' } }
     if (b.kind === 'buy') {
       const x = GOODS.find(g => g.k === b.k); if (!x) return { msg: '没有这个东西。' }
