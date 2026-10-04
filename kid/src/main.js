@@ -312,7 +312,7 @@ function submitQ() {
     V = res.view; Q.t0 = Date.now()
     if (res.caught) { Q.catch = res.caught; Q.guard = null; Q.mood = 'think'; return }
     const d = res.fin
-    Q.fin = d; Q.menu = null; Q.mood = d.ok ? 'hop' : 'think'; sayPet(''); sfx(d.ok ? 'happy' : 'sad')
+    Q.fin = d; Q.menu = null; Q.mood = d.ok ? 'hop' : 'think'; sayPet(''); sfx(d.ok ? 'happy' : d.c ? 'chirp' : 'sad')
     if (d.points?.length) cere = d.points.join('」「')
   })
 }
@@ -428,7 +428,7 @@ function vDock() {
     const lv = S().skill[x.k], any = [1, 2, 3].some(L => L <= lv && canUse(x.k, L, b) === '')
     return `<button class="badge ${any ? 'can' : 'used'} ${Q.guard === x.k ? 'guard' : ''} ${Q.fire?.k === x.k ? 'fire' : ''}" data-a="menu" data-v="${x.k}" aria-label="${x.n} ${lv} 级"><img src="/pet/badge-${x.badge}.webp" alt=""><b>${x.n}</b><span class="dots">${[1, 2, 3].map(i => `<i class="${i <= lv ? 'f' : ''}"></i>`).join('')}</span>${Q.guard === x.k ? '<span class="shield">守护中</span>' : ''}</button>`
   }).join('')
-  const said = Q.say || (Q.fin ? (Q.fin.ok ? '做对啦！' : '没关系，看看正确做法。') : '我陪着你。')
+  const said = Q.say || (Q.fin ? (Q.fin.ok ? '做对啦！' : Q.fin.c ? '大部分都做对了，就差一点！看看哪里不一样。' : '没关系，看看正确做法。') : '我陪着你。')
   return `<div class="dock"><span class="dog ${Q.mood ? 'a-' + (Q.mood === 'think' ? 'think' : 'hop') : ''}"><img src="${face(f)}" alt=""></span><div class="say ${Q.sk}">${esc(said)}</div><div class="badges">${badges}</div></div>${it ? '' : ''}`
 }
 const LV = ['', '提醒', '帮忙', '守护']
@@ -503,11 +503,11 @@ function vQResult(g) {
   const extra = [...(d.help || []).map(h => `<div class="h"><i>★</i><span>本领帮了你 · ${esc(h)}</span></div>`),
     ...(d.caught ? [`<div class="h"><i>◆</i><span>被${esc(d.caught.n)}接住了一次（不算第一次就做对，金币照给）</span></div>`] : []),
     ...(d.refund ? [`<div class="y"><i>↺</i><span>${esc(d.refund)}守着这题，没用上，这周的守护次数退回去了</span></div>`] : [])].join('')
-  return `<div class="verdict"><b>${d.ok ? '做对了！' : '这题没做对，一起看看'}</b>${d.ok ? `<span class="sum"><i class="ico coin"></i>＋${d.c}</span>` : ''}</div>
+  return `<div class="verdict"><b>${d.ok ? '做对了！' : d.c ? '差一点点！做对的部分有金币' : '这题没做对，一起看看'}</b>${d.ok || d.c ? `<span class="sum"><i class="ico coin"></i>＋${d.c}</span>` : ''}</div>
     ${habits ? `<div class="conds">${habits}</div>` : ''}
     <div class="card items">${(d.items || []).map(x => `<div class="${x.good}"><i>${mark[x.good]}</i><span>${esc(x.msg)}${x.good !== 'y' ? sk(x.cat) : ''}</span></div>`).join('')}${extra}</div>
     ${d.ok ? '' : `<div class="right"><b>正确做法</b><br>${d.lines.map(esc).join('<br>')}${d.explain ? `<br><span class="dim">${esc(d.explain)}</span>` : ''}</div>`}
-    <p class="dim">${d.ok ? [d.bonus ? '连续 5 题第一次就对，再加 5。' : '', d.l2 ? '用了 2 级帮忙，这题没有过程奖。' : d.pb ? `过程奖 ＋${d.pb} 已算在里面。` : '', d.patrol ? '今天没有急着答错的题，得到 1 个「巡逻」技能点。' : '', d.extra ? '加练的题金币减半。' : ''].join('') : (d.flash ? '太快啦，还没看清题。接下来几题我们慢慢来。' : '答错的题不给金币。过两天它会换个样子再来。')}</p>
+    <p class="dim">${d.ok ? [d.bonus ? '连续 5 题第一次就对，再加 5。' : '', d.l2 ? '用了 2 级帮忙，这题没有过程奖。' : d.pb ? `过程奖 ＋${d.pb} 已算在里面。` : '', d.patrol ? '今天没有急着答错的题，得到 1 个「巡逻」技能点。' : '', d.extra ? '加练的题金币减半。' : ''].join('') : (d.flash ? '太快啦，还没看清题。接下来几题我们慢慢来。' : (d.c ? `做对的部分给了 ${d.c} 金币，错的那一处看看正确做法。过两天它会换个样子再来。` : '这题没有做对的部分，所以没有金币。过两天它会换个样子再来。'))}</p>
     ${d.day ? `<div class="bubble plain">今天的任务做完了，${name()}已经陪你 ${d.day} 天。</div>` : ''}
     ${d.grew ? `<div class="bubble plain">${name()}长大了，现在是${STAGES[d.grew].n}！${PLACES.find(p => p.st === d.grew) ? `${PLACES.find(p => p.st === d.grew).n}开放了，` : ''}回小屋看看。</div>` : ''}
     ${d.wish ? `<div class="bubble plain">这周来满啦！可以去找爸爸妈妈兑换心愿：${esc(d.wish)}。</div>` : ''}

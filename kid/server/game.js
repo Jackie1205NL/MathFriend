@@ -336,7 +336,11 @@ export function createApi(base, env) {
       else { rowsOk = false; add('h', `第 ${k + 1} 行应该是 ${r.v}${r.kind === 'prod' ? '（商 × 除数）' : '（减下来再落下一位）'}，你写了 ${w ?? '空'}`, '计算失误') }
     })
     if (ok) { add('y', `${it.text} = ${it.answer}${it.rem ? ` …… ${it.rem}` : ''}，商和余数都对`); if (rowsOk) habits.add('计算失误') }
-    return { items, ok, habits: [...habits], given: L.q.map((_, j) => got['q' + j] ?? '_').join('') + '……' + (got[`r${L.rows.length - 1}_0`] ?? ''), kw: 0, chainOk: ok && rowsOk }
+    // 部分得分：商的每一位和最后的余数，写对几个占几成
+    const qs = L.q.map((x, j) => [x, num(got['q' + j])]).filter(([x]) => x != null), lastRow = L.rows.at(-1), lenR = String(lastRow?.v ?? '').length
+    const remOk = !lastRow || num([...Array(lenR).keys()].map(p => got[`r${L.rows.length - 1}_${p}`] ?? '').join('')) === lastRow.v
+    const part = (qs.filter(([x, w]) => x === w).length + (remOk ? 1 : 0)) / (qs.length + 1)
+    return { items, ok, part, habits: [...habits], given: L.q.map((_, j) => got['q' + j] ?? '_').join('') + '……' + (got[`r${L.rows.length - 1}_0`] ?? ''), kw: 0, chainOk: ok && rowsOk }
   }
   /** 验算：除法用乘法验，加减用逆运算，乘法估一估。只算过程，对了给过程奖 */
   function judgeCheck(it, a, i, J) {
@@ -364,7 +368,9 @@ export function createApi(base, env) {
     const top = Math.max(...it.cells.filter(c => c.kind === 'digit').map(c => c.col))
     for (const k of Object.keys(got)) if (k[0] === 'd' && +k.slice(1) > top && num(got[k])) { ok = false; add('n', `${NAME[+k.slice(1)]}不用写，得数只有 ${top + 1} 位`, '计算失误') }
     if (ok) { add('y', `${it.text} = ${it.answer}，每一位都对`); if (carryOk) habits.add('计算失误') }
-    return { items, ok, habits: [...habits], given: it.cells.filter(c => c.kind === 'digit').map(c => got[`d${c.col}`] ?? '_').reverse().join(''), kw: 0, chainOk: ok && carryOk }
+    // 部分得分按得数里写对的位数算（进位小格不算）
+    const digits = it.cells.filter(c => c.kind === 'digit'), part = digits.filter(c => num(got[`d${c.col}`]) === c.v).length / digits.length
+    return { items, ok, part, habits: [...habits], given: digits.map(c => got[`d${c.col}`] ?? '_').reverse().join(''), kw: 0, chainOk: ok && carryOk }
   }
   /** 分步应用题：每一步列式和得数都照孩子自己上一步的得数往下走 */
   function judgeMulti(it, steps) {
@@ -579,8 +585,13 @@ export function createApi(base, env) {
     const s = ctx.state, ok = J.ok, firstOk = ok && !rec.caught
     const pb = rec.l2 ? 0 : { word: J.kw, steps: J.chainOk ? 2 : 0, estimate: J.rangeOk ? 2 : 0, multi: J.blankMiss ? 0 : 2, plan: J.goalOk ? 2 : 0, column: J.chainOk ? 2 : 0, multistep: (it.goals ? J.goalOk : J.habits.includes('格式规范')) ? 2 : 0 }[it.format] || 0
     const extra = ctx.day.groups.find(g => g.id === 'extra')?.items.includes(it.id)
-    // 统计表按小问给金币：答对几问拿几份（每问一样多），答错的那问不给
-    const frac = J.partsOk ? J.partsOk.filter(Boolean).length / J.partsOk.length : ok ? 1 : 0
+    // 部分得分：一个细节错了不至于前功尽弃。统计表按小问；其他题按做对的步骤 / 空格占比给金币（圈关键词不算，它只管过程奖）。
+    // 没全对的题仍然算错：不算第一次就对、过两天换个样子再来，也没有过程奖
+    // 方法错了（应用题列式、先求什么选错）不给：部分得分只给方法对了、细节出错（算错一个数、忘写单位、一个空、一位数）
+    const graded = (J.items || []).filter(x => x.good !== 'h' && flowOf(it)[x.i] !== 'circle')
+    const wrongWay = ['word', 'plan'].includes(it.format) && graded.some(x => x.good === 'n' && ['build', 'goal'].includes(flowOf(it)[x.i]))
+    const share = !graded.length || wrongWay ? 0 : graded.filter(x => x.good === 'y').length / graded.length
+    const frac = ok ? 1 : J.partsOk ? J.partsOk.filter(Boolean).length / J.partsOk.length : J.part ?? share      // 竖式按写对的位数
     let { c, core } = coinsFor(it.price, frac, ok ? pb : 0), bonus = false
     if (extra) c = Math.ceil(c / 2)                      // 加练的题金币减半
     if (firstOk) { s.combo++; s.best = Math.max(s.best, s.combo); if (s.combo % 5 === 0) { c += 5; bonus = true } } else if (!rec.caught) s.combo = 0   // 被守护接住的，连击不断
@@ -609,7 +620,7 @@ export function createApi(base, env) {
     // 3 级守护没用上：这周的次数退回
     let refund = ''
     if (rec.guard) { const U = s.uses?.[rec.guard]; if (U && U.w3 > 0) U.w3--; refund = SKILLS.find(x => x.k === rec.guard).n; rec.guard = null }
-    rec.fin = { c, core, ok, partsOk: J.partsOk || null, pb, bonus, points, point: points[0] || '', extra: !!extra, grew: 0, items: J.items, habits: J.habits, caught: rec.caught || null, help: rec.help || [], refund, l2: !!rec.l2, ...solution(it), walk: ok ? null : walk(it) }
+    rec.fin = { c, core, ok, part: ok ? 1 : Math.round(frac * 100) / 100, partsOk: J.partsOk || null, pb, bonus, points, point: points[0] || '', extra: !!extra, grew: 0, items: J.items, habits: J.habits, caught: rec.caught || null, help: rec.help || [], refund, l2: !!rec.l2, ...solution(it), walk: ok ? null : walk(it) }
     ctx.log.push(row(ctx, it, { try: rec.caught ? 2 : 1, correct: ok, given: J.given, coins: c, trap_error_type: ok ? null : J.items.find(x => x.good === 'n')?.cat || it.err,
       step_failed: ok ? null : J.unitMiss && J.items.filter(x => x.good === 'n').length === 1 ? '忘写单位' : STEP_NAME[flowOf(it)[J.items.find(x => x.good === 'n')?.i]] || null,
       ms: rec.ms, help: rec.help?.length ? rec.help : null, steps: flowOf(it).map((_, i) => J.items.filter(x => x.i === i).every(x => x.good === 'y') ? 1 : 0).join('') }))
