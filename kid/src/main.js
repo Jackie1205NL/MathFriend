@@ -120,7 +120,7 @@ function growCard() {
 }
 
 // ---------- 登录和账号管理 ----------
-let loginName = ls.get('kid-user', ''), adminMode = false, ADM = null, ADMP = null, ADMW = [], admMsg = '', admEdit = null
+let loginName = ls.get('kid-user', ''), adminMode = false, ADM = null, ADMP = null, ADMW = [], ADMS = {}, admMsg = '', admEdit = null
 function vLogin() {
   const n = adminMode ? 8 : 4
   return `<div class="top"><h1>${adminMode ? '管理员登录' : house(ls.get('kid-pet', ''))}</h1></div><div class="body login">
@@ -132,14 +132,16 @@ function vLogin() {
     <button class="link" data-a="adminmode">${adminMode ? '‹ 回到孩子登录' : '管理员登录'}</button></div>`
 }
 function vAdmin() {
-  const us = ADM || [], row = u => `<div class="card urow ${u.off ? 'off' : ''}"><div><b>${esc(u.name)}</b>${u.off ? ' <span class="tagx">停用</span>' : ''}<small>${u.today?.q ? `今天做了 ${u.today.q} 题、错 ${u.today.wrong} 题、做题 ${mins(u.today.ms)} · ` : ''}${u.kid ? `孩子「${esc(u.kid)}」· ` : ''}${u.pet ? `小狗「${esc(u.pet)}」· ` : ''}陪伴 ${u.days} 天 · ${u.seen ? `最近来过 ${md(u.seen)}` : '还没来过'}</small></div>
+  const us = ADM || [], row = u => `<div class="card urow ${u.off ? 'off' : ''}"><div><b>${esc(u.name)}</b>${u.off ? ' <span class="tagx">停用</span>' : ''}<small>${u.test ? `<span class="tagx">测试账号${u.clockDate ? ` · 日期拨到 ${md(u.clockDate)}` : ''}</span> ` : ''}${u.today?.q ? `今天做了 ${u.today.q} 题、错 ${u.today.wrong} 题、做题 ${mins(u.today.ms)} · ` : ''}${u.kid ? `孩子「${esc(u.kid)}」· ` : ''}${u.pet ? `小狗「${esc(u.pet)}」· ` : ''}陪伴 ${u.days} 天 · ${u.seen ? `最近来过 ${md(u.seen)}` : '还没来过'}</small></div>
     ${admEdit?.id === u.id ? `<div class="field"><input id="adm-v" ${{ pin: 'inputmode="numeric" maxlength="4" placeholder="新的 4 位密码"', name: 'maxlength="12" placeholder="新的用户名"', kid: `maxlength="6" placeholder="孩子的名字" value="${esc(u.kid)}"`, pet: `maxlength="6" placeholder="小狗的名字" value="${esc(u.pet)}"` }[admEdit.k]} aria-label="新值"><button class="btn" data-a="admsave">保存</button><button class="btn alt" data-a="admcancel">取消</button></div>`
-      : `<div class="ubtns"><button class="buy" data-a="admstats" data-v="${u.id}">看板</button><button class="buy" data-a="admedit" data-v="${u.id}:pin">重置密码</button><button class="buy" data-a="admedit" data-v="${u.id}:name">改用户名</button><button class="buy" data-a="admedit" data-v="${u.id}:kid">改孩子名字</button><button class="buy" data-a="admedit" data-v="${u.id}:pet">改小狗名字</button><button class="buy" data-a="admoff" data-v="${u.id}">${u.off ? '启用' : '停用'}</button></div>`}</div>`
+      : `<div class="ubtns"><button class="buy" data-a="admstats" data-v="${u.id}">看板</button>${u.test ? `<button class="buy" data-a="admtest" data-v="${u.id}">测试工具</button>` : ''}<button class="buy" data-a="admedit" data-v="${u.id}:pin">重置密码</button><button class="buy" data-a="admedit" data-v="${u.id}:name">改用户名</button><button class="buy" data-a="admedit" data-v="${u.id}:kid">改孩子名字</button><button class="buy" data-a="admedit" data-v="${u.id}:pet">改小狗名字</button><button class="buy" data-a="admoff" data-v="${u.id}">${u.off ? '启用' : '停用'}</button><button class="buy" data-a="admflag" data-v="${u.id}">${u.test ? '取消测试账号' : '设为测试账号'}</button></div>`}${ADT?.user.id === u.id ? vAdmTest() : ''}</div>`
   return `<div class="top"><h1>账号管理</h1><button class="pill scr" data-a="admout">退出</button></div><div class="body">
     ${admMsg ? `<div class="bubble plain">${esc(admMsg)}</div>` : ''}
     <div class="card"><b>新建孩子账号</b><p class="dim">每个账号有自己的小狗和存档，题目大家共用。用户名最多 12 个字，密码是 4 位数字。</p>
       <div class="field"><input id="adm-name" maxlength="12" placeholder="用户名" aria-label="用户名"><input id="adm-pin" inputmode="numeric" maxlength="4" placeholder="4 位密码" aria-label="密码"><button class="btn" data-a="admadd">新建</button></div></div>
     ${us.map(row).join('') || '<p class="dim">还没有账号。</p>'}
+    <div class="card"><b>每天题量</b><p class="dim">所有账号每天做几题（题型一组不少，按比例分，每组至少 1 题；周五闯关题也跟着少）。现在是 ${ADMS.daily ?? 12} 题。改了以后，今天还没开始做的马上按新题量，已经开始做的明天生效。</p>
+      <div class="field"><input id="adm-daily" type="number" inputmode="numeric" min="5" max="40" value="${ADMS.daily ?? 12}" aria-label="每天题量"><button class="btn" data-a="admdaily">保存</button></div></div>
     <div class="card"><b>导入题库</b><p class="dim">${ADMP ? `现在是 ${esc(ADMP.week)} 的题库（${ADMP.created ? md(ADMP.created.slice(0, 10)) + ' ' : ''}生成），${ADMP.items} 道题，按每天都来做够 ${ADMP.days} 天${ADMP.days < 14 ? '（不够两周）' : ''}。` : '还没有题库，孩子进来会看到「还没有题」。'}每周家长端归集完，会在数据文件夹的「孩子端题库」里生成 <code>pack-周.json</code>，选它导入。导入新的就换掉旧的，孩子的存档不受影响。</p>
       <div class="field"><input id="adm-pack" type="file" accept=".json,application/json" aria-label="题库文件"><button class="btn" data-a="admpack">导入</button></div></div>
     <div class="card"><b>导出答题记录</b><p class="dim">每周归集前导出，放进家长端的「孩子端题库」文件夹，家长端会读入，用来决定哪些题要再练。</p>
@@ -152,7 +154,8 @@ const mins = ms => ms >= 60000 ? `${Math.round(ms / 60000)} 分钟` : ms ? '不�
 const hm = t => t == null ? '' : new Date(t + 8 * 3600000).toISOString().slice(11, 16)
 const pct = (a, b) => b ? `${Math.round(a / b * 100)}%` : '—'
 function vAdmStats() {
-  const { user, pet, days } = ADS, week = days.slice(0, 7), sum = k => week.reduce((n, d) => n + d[k], 0), used = week.filter(d => d.q || d.first)
+  const { user, pet, days } = ADS, week = days.slice(0, 7), sum = k => week.reduce((n, d) => n + (d[k] || 0), 0), used = week.filter(d => d.q || d.first)
+  const by = k => { const o = {}; week.forEach(d => Object.entries(d[k] || {}).forEach(([n, v]) => { o[n] = (o[n] || 0) + v })); return Object.entries(o).sort((a, b) => b[1] - a[1]).map(([n, v]) => `${esc(n)} ${v}`).join('、') || '—' }
   const top = Math.max(1, ...days.map(d => d.q)), bar = (v, c) => `<div class="hbar"><i style="width:${Math.round(v / top * 100)}%;background:${c}"></i></div>`
   const need = (n, v, c) => `<div class="nrow"><span>${n}</span><div class="hbar"><i style="width:${v}%;background:${c}"></i></div><b>${v}</b></div>`
   const petCard = pet ? `<div class="card"><b>小狗「${esc(pet.name || '还没起名')}」${pet.stageName ? ` · ${esc(pet.stageName)}` : ''}${pet.graduated ? ' · 已毕业' : ''}</b>
@@ -160,15 +163,28 @@ function vAdmStats() {
       <div class="stat4"><div><small>现在的金币</small><b>${pet.coins}</b></div><div><small>一共赚过</small><b>${pet.grow}</b></div><div><small>储蓄罐</small><b>${pet.jar}</b></div><div><small>明信片 / 故事</small><b>${pet.cards} / ${pet.story}</b></div></div>
       ${need('饱食', pet.needs.full, 'var(--leaf)')}${need('心情', pet.needs.mood, 'var(--berry)')}${need('清洁', pet.needs.clean, 'var(--sky)')}
       <p class="dim">本领：${SKILLS.map(x => `${x.n} ${pet.skill?.[x.k] || 0} 级`).join('、')}${pet.own.length ? `；买过的东西：${pet.own.map(k => esc(GOODS.find(g => g.k === k)?.n || k)).join('、')}` : ''}</p></div>` : '<div class="card"><p class="dim">这个账号还没进过小屋。</p></div>'
-  const rows = days.map(d => `<tr class="${d.q || d.first ? '' : 'idle'}"><td>${md(d.date)} 周${'日一二三四五六'[new Date(d.date + 'T00:00:00Z').getUTCDay()]}</td><td>${d.first ? `${hm(d.first)}–${hm(d.last)}` : '没来'}</td><td>${mins(d.ms)}</td><td>${d.q || ''}${d.q ? bar(d.q, 'var(--leaf)') : ''}</td><td>${d.q ? pct(d.ok, d.q) : ''}</td><td>${d.q ? pct(d.wrong, d.q) : ''}</td><td>${d.earn || ''}</td><td>${d.spend || ''}</td></tr>`).join('')
+  const rows = days.map(d => `<tr class="${d.q || d.first ? '' : 'idle'}"><td>${md(d.date)} 周${'日一二三四五六'[new Date(d.date + 'T00:00:00Z').getUTCDay()]}</td><td>${d.first ? `${hm(d.first)}–${hm(d.last)}` : '没来'}</td><td>${mins(d.ms)}</td><td>${d.q || ''}${d.q ? bar(d.q, 'var(--leaf)') : ''}</td><td>${d.q ? pct(d.ok, d.q) : ''}</td><td>${d.q ? `${d.near || 0} 题` : ''}</td><td>${d.q ? pct(d.wrong, d.q) : ''}</td><td>${d.earn || ''}</td><td>${d.spend || ''}</td></tr>`).join('')
   return `<div class="top"><button class="back" data-a="admback" aria-label="回到账号管理">‹</button><h1>${esc(user.name)} 的看板</h1></div><div class="body">
     <div class="card"><b>最近 7 天</b><div class="stat4"><div><small>来了几天</small><b>${used.length}</b></div><div><small>做了几题</small><b>${sum('q')}</b></div><div><small>错误率</small><b>${pct(sum('wrong'), sum('q'))}</b></div><div><small>做题用时</small><b>${mins(sum('ms'))}</b></div></div>
-      <p class="dim">第一次就对 ${pct(sum('ok'), sum('q'))} · 赚了 ${sum('earn')} 金币 · 花了 ${sum('spend')} 金币</p></div>
+      <p class="dim">第一次就对 ${pct(sum('ok'), sum('q'))} · 差一点（没全对但拿到 6 成以上金币）${sum('near')} 题 · 赚了 ${sum('earn')} 金币 · 花了 ${sum('spend')} 金币</p>
+      <p class="dim">金币从哪来：${by('earnBy')}<br>花到哪去：${by('spendBy')}</p></div>
     ${petCard}
-    <div class="card dashcard"><b>每天的情况</b><div class="tscroll"><table class="dash"><tr><th>日期</th><th>在线</th><th>做题用时</th><th>题数</th><th>第一次就对</th><th>错误率</th><th>赚</th><th>花</th></tr>${rows}</table></div>
-      <p class="dim">错误率：没全对的题占几成（部分做对也算错）。第一次就对：第一次交卷就全对、没被守护接住。做题用时每题最多算 5 分钟。屏幕上的成绩只做参考，不并入纸面错误率。</p></div></div>`
+    <div class="card dashcard"><b>每天的情况</b><div class="tscroll"><table class="dash"><tr><th>日期</th><th>在线</th><th>做题用时</th><th>题数</th><th>第一次就对</th><th>差一点</th><th>错误率</th><th>赚</th><th>花</th></tr>${rows}</table></div>
+      <p class="dim">第一次就对 + 错误率 = 100%（被守护接住、改好再交的除外）。差一点：没全对、但拿到 6 成以上金币的题（多半是忘写单位、算错一个数、错一个空这类小问题），算在错误率里面。做题用时每题最多算 5 分钟。屏幕上的成绩只做参考，不并入纸面错误率。</p></div></div>`
 }
-async function loadAdmin() { const r = await api('/admin/users'); ADM = r.users; ADMP = r.pack; ADMW = r.weeks || []; page = 'admin' }
+// 测试工具（只给测试账号）：拨日期、改小狗参数、清空存档
+let ADT = null
+function vAdmTest() {
+  const { user, pet } = ADT, P = pet || { coins: 60, days: 0, jar: 0, needs: { full: 70, mood: 70, clean: 70 }, skill: {} }, num = (id, label, v) => `<label class="tf"><span>${label}</span><input id="${id}" type="number" inputmode="numeric" value="${v ?? ''}"></label>`
+  return `<div class="testbox"><b>测试工具</b>
+    <p class="dim">日期：拨到某一天的下午 4 点（只影响这个测试账号），看长大、周五闯关、毕业典礼。${user.clockDate ? `现在拨到 ${esc(user.clockDate)}。` : '现在是真实的今天。'}</p>
+    <div class="field"><input id="adt-date" type="date" value="${esc(user.clockDate || '')}" aria-label="日期"><button class="btn" data-a="admclock">拨到这天</button><button class="btn alt" data-a="admclock" data-v="reset">回到今天</button></div>
+    <p class="dim">小狗参数（空着的不改）：</p>
+    <div class="tgrid">${num('adt-coins', '金币', P.coins)}${num('adt-days', '陪伴天数', P.days)}${num('adt-jar', '储蓄罐', P.jar)}${num('adt-full', '饱食', P.needs.full)}${num('adt-mood', '心情', P.needs.mood)}${num('adt-clean', '清洁', P.needs.clean)}${num('adt-pts', '每个本领的技能点', '')}</div>
+    <div class="duo"><button class="btn" data-a="admpet">保存参数</button><button class="btn alt" data-a="admwipe">清空存档</button></div>
+    <button class="link" data-a="admtest" data-v="">收起</button></div>`
+}
+async function loadAdmin() { const r = await api('/admin/users'); ADM = r.users; ADMP = r.pack; ADMW = r.weeks || []; ADMS = r.settings || {}; page = 'admin' }
 function vHome() {
   const s = S(), n = s.needs, st = stage(), bag = kind => GOODS.filter(g => g.kind === kind).reduce((a, g) => a + (s.bag[g.k] || 0), 0)
   const pats = s.pats.date === D() ? s.pats.n : 0, tricks = TRICKS.filter(t => s.skill[t.k] >= 1).length
@@ -186,7 +202,7 @@ function vHome() {
     <div class="bubble">${esc(say) || (st ? `嗨，${kid()}！今天也一起加油吧。` : '它还在小窝里睡觉。做完第一道题，它就会醒来。')}</div>
     ${room()}
     <div class="duo">${growCard()}<div class="card bars">${bar('饱食', n.full, '')}${bar('心情', n.mood, 'b')}${bar('清洁', n.clean, 'c')}</div></div>
-    <div class="acts"><button data-a="care" data-v="food">喂食<small>${bag('food')} 份</small></button><button data-a="care" data-v="soap">洗澡<small>${bag('soap')} 块</small></button><button class="new" data-a="sheet" data-v="play" ${st ? '' : 'disabled'}>陪玩<small>三选一</small></button><button data-a="care" data-v="pat">摸摸<small>今天 ${Math.max(0, 3 - pats)} 次</small></button><button data-a="sheet" data-v="tricks" ${st ? '' : 'disabled'}>把戏<small>会 ${tricks} 个</small></button></div>
+    <div class="acts"><button data-a="sheet" data-v="food">喂食<small>${bag('food')} 份</small></button><button data-a="care" data-v="soap">洗澡<small>${bag('soap')} 块</small></button><button class="new" data-a="sheet" data-v="play" ${st ? '' : 'disabled'}>陪玩<small>三选一</small></button><button data-a="care" data-v="pat">摸摸<small>今天 ${Math.max(0, 3 - pats)} 次</small></button><button data-a="sheet" data-v="tricks" ${st ? '' : 'disabled'}>把戏<small>会 ${tricks} 个</small></button></div>
     ${cta}
     ${V.wish ? `<p class="dim">心愿单：${esc(V.wish.text)} · 这周做完任务 ${V.wish.got} / ${V.wish.need} 天</p>` : ''}
     ${s.hatched ? `<div class="tri"><button class="card quest" data-a="story" data-v=""><b>故事书</b><span class="pill">${s.story} / ${STORY_PAGES}</span></button><button class="card quest" data-a="go" data-v="diary"><b>日记</b><span class="pill">${s.album.length} 件事</span></button><button class="card quest" data-a="go" data-v="book"><b>纪念册</b><span class="pill">${s.cards.length} / 12</span></button></div>` : ''}
@@ -604,10 +620,19 @@ const QA = {
   },
   adminmode() { adminMode = !adminMode; pin = ''; loginErr = '' },
   logout() { return run(async () => { await api('/logout', {}).catch(() => {}); V = null; Q = null; page = 'login'; loginName = ''; ls.set('kid-user', ''); ls.set('kid-pet', ''); ls.set('kid-draft', null); ls.set('kid-skip', null); pin = '' }) },
-  admout() { return run(async () => { await api('/admin/logout', {}).catch(() => {}); ADM = null; ADS = null; adminMode = false; page = 'login' }) },
+  admout() { return run(async () => { await api('/admin/logout', {}).catch(() => {}); ADM = null; ADS = null; ADT = null; adminMode = false; page = 'login' }) },
   admadd() { const name = document.getElementById('adm-name')?.value, p2 = document.getElementById('adm-pin')?.value; return run(async () => { try { const r = await api('/admin/users', { name, pin: p2 }); admMsg = `建好了：${r.user.name}`; await loadAdmin() } catch (e) { admMsg = e.message } }) },
   admedit(v) { const [id, k] = v.split(':'); admEdit = { id, k } },
   admcancel() { admEdit = null },
+  admtest(id) { if (!id || ADT?.user.id === id) { ADT = null; return } return run(async () => { try { ADT = await api('/admin/stats?user=' + encodeURIComponent(id)) } catch (e) { admMsg = e.message } }) },
+  admflag(id) { const u = ADM.find(x => x.id === id); return run(async () => { try { await api('/admin/users/' + id, { test: !u.test }); admMsg = `「${u.name}」${u.test ? '不再是' : '设成了'}测试账号。`; if (u.test) ADT = null; await loadAdmin() } catch (e) { admMsg = e.message } }) },
+  admclock(v) { const id = ADT.user.id, d = v === 'reset' ? null : document.getElementById('adt-date')?.value; if (v !== 'reset' && !d) { admMsg = '先选一个日期。'; return } return run(async () => { try { await api('/admin/users/' + id, { clock: d }); admMsg = d ? `「${ADT.user.name}」的日期拨到了 ${d}。重新登录这个账号就能看到。` : `「${ADT.user.name}」回到真实的今天了。`; await loadAdmin(); ADT = await api('/admin/stats?user=' + id) } catch (e) { admMsg = e.message } }) },
+  admpet() {
+    const id = ADT.user.id, g = k => document.getElementById('adt-' + k)?.value ?? ''
+    return run(async () => { try { await api('/admin/users/' + id, { tune: { coins: g('coins'), days: g('days'), jar: g('jar'), full: g('full'), mood: g('mood'), clean: g('clean'), pts: g('pts') } }); admMsg = `「${ADT.user.name}」的小狗参数改好了。`; ADT = await api('/admin/stats?user=' + id); await loadAdmin() } catch (e) { admMsg = e.message } })
+  },
+  admwipe() { const id = ADT.user.id; if (!confirm(`清空「${ADT.user.name}」的存档？小狗、金币、记录都会重来。`)) return; return run(async () => { try { await api('/admin/users/' + id, { wipe: true }); admMsg = `「${ADT.user.name}」的存档清空了，下次登录重新认识小狗。`; ADT = await api('/admin/stats?user=' + id); await loadAdmin() } catch (e) { admMsg = e.message } }) },
+  admdaily() { const n = document.getElementById('adm-daily')?.value; return run(async () => { try { const r = await api('/admin/settings', { daily: n }); admMsg = `每天题量改成 ${r.settings.daily} 题了。`; await loadAdmin() } catch (e) { admMsg = e.message } }) },
   admstats(id) { return run(async () => { try { ADS = await api('/admin/stats?user=' + encodeURIComponent(id)); window.scrollTo(0, 0) } catch (e) { admMsg = e.message } }) },
   admback() { ADS = null },
   admsave() { const v = document.getElementById('adm-v')?.value, e = admEdit; return run(async () => { try { const r = await api('/admin/users/' + e.id, { [e.k]: v }); admMsg = { pin: `「${r.user.name}」的密码改好了，告诉孩子新密码。`, name: `用户名改成了：${r.user.name}`, kid: `「${r.user.name}」里孩子的名字改好了。`, pet: `「${r.user.name}」的小狗改名了，小屋的名字也跟着变。` }[e.k]; admEdit = null; await loadAdmin() } catch (er) { admMsg = er.message } }) },
@@ -915,10 +940,18 @@ function vSheet() {
       <button class="btn" data-a="greet">${gift ? '收下，' : ''}进小屋</button></div></div>`
   }
   if (sheet === 'card' && card) return `<div class="sheet" data-a="close"><div><h2>带回来一张明信片！</h2>${cardHtml(card)}<p class="dim">已经放进纪念册。下一张要过一两天才会出现。</p><button class="btn" data-a="close">收好啦</button></div></div>`
+  // 喂什么、玩什么：背包里有的都列出来，孩子自己挑（不替他选）
+  if (sheet === 'food' || sheet === 'toy') {
+    const food = sheet === 'food', have = GOODS.filter(g => g.kind === sheet && (food ? S().bag[g.k] : S().toy[g.k]) > 0)
+    const opt = g => `<button class="opt" data-a="${food ? 'feed' : 'ball'}" data-v="${g.k}"><img class="ii" src="/pet/item-${g.k}.webp" alt=""><span><b>${esc(g.n)}</b><small>${food ? `背包里还有 ${S().bag[g.k]} 份` : `还能玩 ${S().toy[g.k]} 次`}</small></span><span class="r">${food ? `饱食 ＋${g.full}${g.mood ? `，心情 ＋${g.mood}` : ''}` : `心情 ＋${g.mood}`}</span></button>`
+    return `<div class="sheet" data-a="close"><div><h2>${food ? `给${name()}吃什么？` : `和${name()}玩什么？`}</h2>
+      ${have.length ? have.map(opt).join('') : `<p class="dim">${food ? '背包里没有吃的了。' : '没有玩具了。'}去小卖部买一点吧。</p><button class="btn" data-a="go" data-v="shop">去小卖部</button>`}
+      <button class="btn alt" data-a="close">算了</button></div></div>`
+  }
   if (sheet === 'play') {
     const H = V.hide, toys = Object.values(S().toy).reduce((a, b) => a + b, 0)
     return `<div class="sheet" data-a="close"><div><h2>陪${name()}玩什么？</h2>
-      <button class="opt" data-a="ball"><span class="ic" style="background:#3b8fd6">球</span><span><b>捡球</b><small>${toys ? `扔出去，它叼回来。用掉 1 次玩具，还剩 ${toys} 次。` : '没有玩具了，小卖部有小球和飞盘。'}</small></span><span class="r">心情 ＋15</span></button>
+      <button class="opt" data-a="sheet" data-v="toy"><span class="ic" style="background:#3b8fd6">球</span><span><b>玩玩具</b><small>${toys ? `挑一个玩具和它玩。背包里的玩具还能玩 ${toys} 次。` : '没有玩具了，小卖部有小球和飞盘。'}</small></span><span class="r">›</span></button>
       <button class="opt" data-a="hidestart" ${H?.win ? 'disabled' : ''}><span class="ic" style="background:#e9a23b">骨</span><span><b>藏骨头</b><small>${H?.win ? '今天找到过了，明天再藏。' : '看线索，猜骨头在哪只杯子下面。不计时。'}</small></span><span class="r">心情 ＋20</span></button>
       <button class="opt" data-a="go" data-v="map"><span class="ic" style="background:#3f9c5f">走</span><span><b>去散步</b><small>${V.walked ? '今天散过步了。' : '打开学期地图，去开放了的地方。有时会带回明信片。'}</small></span><span class="r">›</span></button>
       <button class="btn alt" data-a="close">算了</button></div></div>`
@@ -995,7 +1028,8 @@ const A = {
   sound() { ls.set('kid-sound', !ls.get('kid-sound', true)); sfx('chirp') },
   close() { sheet = null; card = null },
   event() { return run(async () => { const r = await api('/act', { kind: 'event' }); V = r.view; say = r.msg; strike('hop'); sfx('chirp') }) },
-  ball() { sheet = null; return A.care('toy') },
+  ball(k) { sheet = null; return run(async () => { const r = await api('/act', { kind: 'toy', k }); V = r.view; say = r.msg; if (r.act) { strike(r.act); sfx('bounce') } }) },
+  feed(k) { sheet = null; return run(async () => { const r = await api('/act', { kind: 'food', k }); V = r.view; say = r.msg; if (r.act) { strike(r.act); sfx('eat') } }) },
   hidestart() { return run(async () => { const r = await api('/act', { kind: 'hide' }); V = r.view; if (V.hide) sheet = 'hide'; else showToast(r.msg) }) },
   hard() { return run(async () => { const r = await api('/act', { kind: 'hide', hard: !V.hide.hard }); V = r.view }) },
   cup(i) { return run(async () => { const r = await api('/act', { kind: 'cup', i: +i }); V = r.view; if (V.hide?.win) { say = r.msg; strike('hop'); sfx('win') } else sfx('no') }) },

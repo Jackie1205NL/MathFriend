@@ -179,14 +179,28 @@ function latestLog(w) {
     .filter(f => { if (!process.env.KID_USER) return true; try { return JSON.parse(fs.readFileSync(f, 'utf8')).user === process.env.KID_USER } catch { return false } })
   return files.sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0] || null
 }
+/** 使用情况（孩子端每天的记录）：每天一行，再汇总金币从哪来、花到哪去。调金币用，不写进周 md */
+function printUsage(usage) {
+  const days = (usage || []).filter(d => d.q || d.first)
+  if (!days.length) return
+  const hm = t => t == null ? '' : new Date(t + 8 * 3600000).toISOString().slice(11, 16), pct = (a, b) => b ? `${Math.round(a / b * 100)}%` : '—', sum = k => days.reduce((n, d) => n + (d[k] || 0), 0)
+  console.log(`\n使用情况（最近 ${days.length} 天有记录）：`)
+  for (const d of days) console.log(`  ${d.date} 在线 ${hm(d.first)}–${hm(d.last)}，做题 ${Math.round((d.ms || 0) / 60000)} 分钟，${d.q} 题：第一次就对 ${pct(d.ok, d.q)}，差一点（≥6 成金币）${d.near || 0} 题，错误率 ${pct(d.wrong, d.q)}；赚 ${d.earn} 花 ${d.spend}`)
+  const add = (k, o) => Object.entries(o || {}).forEach(([n, v]) => { k[n] = (k[n] || 0) + v }), earn = {}, spend = {}
+  for (const d of days) { add(earn, d.earnBy); add(spend, d.spendBy) }
+  const line = o => Object.entries(o).sort((a, b) => b[1] - a[1]).map(([n, v]) => `${n} ${v}`).join('，') || '—'
+  console.log(`  合计：${sum('q')} 题，第一次就对 ${pct(sum('ok'), sum('q'))}，差一点 ${sum('near')} 题，错误率 ${pct(sum('wrong'), sum('q'))}，做题 ${Math.round(sum('ms') / 60000)} 分钟`)
+  console.log(`  金币：赚 ${sum('earn')}（${line(earn)}）；花 ${sum('spend')}（${line(spend)}）`)
+}
 /** 答题记录（在线取回或文件）汇总进周 md 的「答题」段 */
-function savePull({ week, log, state }) {
+function savePull({ week, log, state, usage }) {
   const data = readWeek(week); data.screen = summarize(log || [], state?.ladder); writeWeek(data)
   const items = data.screen.reduce((n, r) => n + r.items, 0), ok = data.screen.reduce((n, r) => n + r.first_ok, 0), days = new Set((log || []).map(r => r.day)).size
   console.log(`${week}：来了 ${days} 天，做了 ${items} 题，第一次就对 ${items ? Math.round(ok / items * 100) : 0}%，忘写单位 ${data.screen.reduce((n, r) => n + r.forgot_unit, 0)} 次。已写入「答题」段。`)
   if (state) console.log(`小狗：${state.name || '还没起名'}（孩子：${state.kid || '还没写名字'}），已陪伴 ${state.days ?? 0} 天，金币 ${state.coins}，一共赚过 ${state.grow}，储蓄罐 ${state.jar || 0}，明信片 ${state.cards?.length || 0} 张`)
   if (state) console.log(`故事书 ${state.story || 0} 页${state.att?.week === week ? `，这周做完任务 ${state.att.days.length} 天` : ''}`)
   for (const r of data.screen) console.log(`  ${r.knowledge_point} ${r.error_type}：${r.first_ok}/${r.items}${r.forgot_unit ? `，忘写单位 ${r.forgot_unit}` : ''}${r.caught ? `，被接住 ${r.caught}` : ''}${r.help ? `，用了本领 ${r.help} 题` : ''}${r.level ? `，难度档 ${r.level}` : ''}${r.moved?.dir === 'down' ? '（刚降了一档，需要家长讲一讲）' : r.moved?.dir === 'up' ? '（刚升了一档）' : ''}`)
+  printUsage(usage)
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) try {
   if (cmd === 'link') { saveSettings({ kidUrl: week, kidToken: arg }); console.log(`已保存孩子端地址 ${week}`) }

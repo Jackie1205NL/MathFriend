@@ -11,6 +11,9 @@ const digest = async s => [...new Uint8Array(await crypto.subtle.digest('SHA-256
 const cookies = req => Object.fromEntries((req.headers.get('cookie') || '').split(';').map(c => c.trim().split('=')))
 const hash = s => { let h = 7; for (const ch of s) h = (h * 31 + ch.codePointAt(0)) >>> 0; return h }
 const EXTRA = { id: 'extra', name: '再练一会儿', sub: '想多练就做，金币减半', bucket: '加练', extra: true }
+/** 测试账号：用户名以 test 开头，或者管理员标成测试的。只有测试账号能拨日期、改小狗参数 */
+const isTest = u => !!u && (u.test ?? /^test/i.test(u.name || ''))
+const DAILY_CAP = 12      // 每天题量默认值（管理员页可以改）
 const FRIDAY = { id: 'friday', name: '周五闯关', sub: `答对 ${BOSS_PASS} 题就通关，解锁一页故事`, bucket: '本周重点', boss: true, friday: true }
 /** ISO 周，如 2026-W41 */
 const isoWeek = date => { const d = new Date(date + 'T00:00:00Z'), w = d.getUTCDay() || 7; d.setUTCDate(d.getUTCDate() + 4 - w); const y = d.getUTCFullYear(); return `${y}-W${String(Math.ceil(((d - Date.UTC(y, 0, 1)) / DAY + 1) / 7)).padStart(2, '0')}` }
@@ -25,10 +28,10 @@ const freshState = () => ({ name: '', kid: '', hatched: false, coins: 60, grow: 
   uses: {}, tiers: {}, ptDay: {} })
 
 /** 需求按时间慢慢下降，读的时候再算，不需要定时任务。 */
-/** 管理员看板用的每日记录：在线时段、做题用时、题数、第一次就对、答错、赚和花的金币。只留最近 60 天 */
+/** 管理员看板和导出用的每日记录：在线时段、做题用时、题数、第一次就对、差一点（没全对但拿到 6 成以上金币）、答错、赚和花的金币（按来源分）。只留最近 60 天 */
 function dayStat(s, date) {
   const D = s.daily ||= {}
-  if (!D[date]) { D[date] = { q: 0, ok: 0, wrong: 0, ms: 0, earn: 0, spend: 0, first: null, last: null }; Object.keys(D).sort().slice(0, -60).forEach(k => delete D[k]) }
+  if (!D[date]) { D[date] = { q: 0, ok: 0, near: 0, wrong: 0, ms: 0, earn: 0, spend: 0, earnBy: {}, spendBy: {}, first: null, last: null }; Object.keys(D).sort().slice(0, -60).forEach(k => delete D[k]) }
   return D[date]
 }
 function decay(s, now = Date.now()) {
@@ -87,7 +90,20 @@ function makeHide(date, hard) {
  * 今天的题：每组按 daily 抽，避开本周已经做过的题；前几天答错过的模板，优先出它的新变式。
  * 三种难度按该「知识点 × 错因」的难度档位加权抽。周五（tuning.boss_day）各组减半，另加 8 道最难的闯关题。
  */
-function pickToday(pack, log, date, ladder) {
+/**
+ * 每组今天出几题：题型（组）一个不少，总数压到 cap 以内（管理员页设的「每天题量」）。按各组 daily 的比例分，每组至少 1 题。
+ * 返回 { 组 id: 题数 } 和缩放比例（周五闯关的题数也按这个比例缩）
+ */
+export function shareDaily(groups, cap, friday) {
+  const want = Object.fromEntries(groups.map(g => [g.id, friday ? Math.ceil(dailyOf(g) / 2) : dailyOf(g)])), total = Object.values(want).reduce((a, b) => a + b, 0)
+  if (!cap || total <= cap) return { want, k: 1 }
+  const k = cap / total, out = Object.fromEntries(groups.map(g => [g.id, Math.max(1, Math.floor(want[g.id] * k))]))
+  // 剩下的名额按小数部分大的先给
+  const rest = groups.map(g => [g.id, want[g.id] * k - Math.floor(want[g.id] * k)]).sort((a, b) => b[1] - a[1])
+  for (const [id] of rest) { if (Object.values(out).reduce((a, b) => a + b, 0) >= cap) break; if (out[id] < want[id]) out[id]++ }
+  return { want: out, k }
+}
+function pickToday(pack, log, date, ladder, cap) {
   const seen = new Set(log.map(r => r.item)), redo = new Set(log.filter(r => !r.correct && r.day !== date).map(r => r.tpl))
   const items = pack.items.filter(it => FORMATS.includes(it.format))
   const friday = Number(pack.tuning?.boss_day) === (new Date(date + 'T12:00:00Z').getUTCDay() || 7)
@@ -95,10 +111,11 @@ function pickToday(pack, log, date, ladder) {
   const order = a => a.map(it => [-Math.log((hash(date + it.id) % 99991 + 1) / 99992) / weight(it), it]).sort((p, q) => p[0] - q[0]).map(p => p[1])
   // 每组的题型和顺序不变；约三分之一换成别的组、往周（综合复习题池 mix 组）里同题型的题，同一模板尽量平均出，不让一组题翻来覆去一个样
   const taken = new Set()
-  const groups = pack.groups.filter(g => !(friday && g.boss) && !g.mix).map(g => {
+  const shown = pack.groups.filter(g => !(friday && g.boss) && !g.mix), share = shareDaily(shown, cap, friday)
+  const groups = shown.map(g => {
     const pool = items.filter(it => it.group === g.id), fresh = pool.filter(it => !seen.has(it.id))
     const ordered = [...order(fresh.filter(it => redo.has(it.tpl))), ...order(fresh.filter(it => !redo.has(it.tpl))), ...order(pool.filter(it => seen.has(it.id)))]
-    const daily = dailyOf(g), want = friday ? Math.ceil(daily / 2) : daily, out = [], perTpl = {}
+    const want = share.want[g.id], out = [], perTpl = {}
     const fmts = new Set(pool.map(it => it.format)), boss = pack.groups.filter(x => x.boss).map(x => x.id)
     const others = g.boss ? [] : order(items.filter(it => it.group !== g.id && !boss.includes(it.group) && fmts.has(it.format) && !seen.has(it.id)))
     const nMix = Math.min(Math.floor(want / 3), new Set(others.map(it => it.tpl)).size)
@@ -117,8 +134,9 @@ function pickToday(pack, log, date, ladder) {
     groups.flatMap(g => g.items).forEach(id => taken.add(id))
     const cand = items.filter(it => !seen.has(it.id) && !taken.has(it.id)).sort((p, q) => LEVELS.indexOf(q.level) - LEVELS.indexOf(p.level) || hash(date + p.id) - hash(date + q.id))
     const out = [], perTpl = {}
-    for (const round of [1, 2]) for (const it of cand) { if (out.length >= BOSS_SIZE) break; if ((perTpl[it.tpl] || 0) >= round || out.includes(it.id)) continue; perTpl[it.tpl] = (perTpl[it.tpl] || 0) + 1; out.push(it.id) }
-    if (out.length) groups.push({ id: 'friday', items: out })
+    const size = Math.max(4, Math.min(BOSS_SIZE, Math.round(BOSS_SIZE * share.k)))     // 每天题量调少了，闯关题也同比例少（至少 4 题）
+    for (const round of [1, 2]) for (const it of cand) { if (out.length >= size) break; if ((perTpl[it.tpl] || 0) >= round || out.includes(it.id)) continue; perTpl[it.tpl] = (perTpl[it.tpl] || 0) + 1; out.push(it.id) }
+    if (out.length) groups.push({ id: 'friday', items: out, pass: Math.round(out.length * BOSS_PASS / BOSS_SIZE) })     // 通关线按比例：8 题对 6 题，7 题对 5 题，4 题对 3 题
   }
   return groups
 }
@@ -127,7 +145,7 @@ function pickToday(pack, log, date, ladder) {
  * 账号：每个孩子账号有自己的小狗、存档、每天的题和答题流水，题库大家共用。
  * 第一个孩子账号 id 是 main，用不带前缀的老键（以前的存档不用搬）；其他账号的键前面加 u:<id>:。
  */
-const SHARED = k => k === 'pack' || k === 'pack-weeks' || k === 'dev-clock' || k === 'users' || k.startsWith('fail:')
+const SHARED = k => k === 'pack' || k === 'pack-weeks' || k === 'settings' || k === 'dev-clock' || k === 'users' || k.startsWith('fail:')
 const scoped = (base, id) => { const pre = id === 'main' ? '' : `u:${id}:`, key = k => SHARED(k) ? k : pre + k; return { get: k => base.get(key(k)), set: (k, v) => base.set(key(k), v) } }
 const pinOk = pin => /^\d{4}$/.test(String(pin ?? ''))
 const userName = v => [...String(v ?? '').replace(/[\u0000-\u001f<>&"'`\s]/g, '')].slice(0, 12).join('')
@@ -163,9 +181,9 @@ export function createApi(base, env) {
   let offset = 0
   const nowMs = () => Date.now() + offset
 
-  async function context(S) {
+  async function context(S, user) {
     const load = async (k, d) => (await S.get(k)) ?? d
-    if (env.DEV || env.CLOCK) offset = await load('dev-clock', 0)
+    offset = (env.DEV || env.CLOCK ? await load('dev-clock', 0) : 0) + (isTest(user) ? user.clock || 0 : 0)     // 测试账号可以由管理员拨到任意日期
     const pack = await S.get('pack')
     const now = nowMs(), date = today(new Date(now))
     const raw = await S.get('state')
@@ -181,7 +199,7 @@ export function createApi(base, env) {
       const ok = ['full', 'mood', 'clean'].every(k => (at >= bed || s.needs[k] <= NEED_FLOOR ? s.needs[k] : s.needs[k] - DECAY[k] * (bed - at) / DAY) >= 60)
       const what = !ok ? null : hash(date) % 2 ? 'cookie' : 'coins'
       if (what === 'cookie') s.bag.cookie = (s.bag.cookie || 0) + 1
-      if (what === 'coins') s.coins += 10
+      if (what === 'coins') { s.coins += 10; const D = dayStat(s, date); D.earn += 10; D.earnBy ||= {}; D.earnBy['早安礼物'] = (D.earnBy['早安礼物'] || 0) + 10 }
       s.gift = { date, what }
     }
     decay(s, now)
@@ -189,8 +207,11 @@ export function createApi(base, env) {
     const log = pack ? await load(`log:${pack.week}`, []) : []
     let day = await S.get(`day:${date}`)
     const ids = new Set(pack?.items.map(it => it.id))   // 家长重新推送后题号对不上，就重抽今天的题
-    if (pack && (!day || day.week !== pack.week || day.groups.some(g => g.items.some(id => !ids.has(id))))) { day = { date, week: pack.week, groups: pickToday(pack, log, date, state.ladder), items: {}, flash: 0, done: false }; await S.set(`day:${date}`, day) }
-    return { S, pack, state, date, log, day, now, c0: raw?.coins ?? state.coins }      // c0：这次请求开始时的金币，存档时算出赚了还是花了
+    // 每天题量：管理员页设的优先，其次题库包的 tuning.daily_total，默认 12。改了以后，今天还没开始做的会按新题量重抽
+    const cap = Number((await load('settings', {})).daily) || Number(pack?.tuning?.daily_total) || DAILY_CAP
+    const fresh = day && !Object.values(day.items).some(r => r.fin) && day.cap !== cap
+    if (pack && (!day || fresh || day.week !== pack.week || day.groups.some(g => g.items.some(id => !ids.has(id))))) { day = { date, week: pack.week, cap, groups: pickToday(pack, log, date, state.ladder, cap), items: {}, flash: 0, done: false }; await S.set(`day:${date}`, day) }
+    return { S, pack, state, date, log, day, now, c0: state.coins }      // c0：这次请求开始时的金币（早安礼物已经单独记了），存档时算出赚了还是花了
   }
   /** 记得你：小狗说话时能用上的几件事 */
   function facts({ pack, state, date, log }) {
@@ -207,7 +228,7 @@ export function createApi(base, env) {
       date, now: ctx.now,
       state: { ...s, hide: undefined, stage: st, good: good(s), finale: date >= SEASON.finale, graduated: !!s.grad, pcPending: POSTCARD_DAYS.some(d => d > (s.pcLast || '') && d <= date) },
       week: pack?.week || null, tuning: pack?.tuning || {},
-      today: day ? day.groups.map(dg => ({ ...(dg.id === 'friday' ? FRIDAY : dg.id === 'extra' ? EXTRA : pack.groups.find(g => g.id === dg.id)), items: dg.items.map(id => { const it = byId[id], r = day.items[id] || {}; return { ...publicItem(it, { tier: s.tiers?.[`${it.kp}|${it.err}`]?.lv ?? 0 }), done: r.fin || null, guard: r.guard || null, caught: r.caught || null, l2: !!r.l2, help: r.help || [] } }) })) : [],
+      today: day ? day.groups.map(dg => ({ ...(dg.id === 'friday' ? { ...FRIDAY, sub: `答对 ${dg.pass ?? BOSS_PASS} 题就通关，解锁一页故事` } : dg.id === 'extra' ? EXTRA : pack.groups.find(g => g.id === dg.id)), items: dg.items.map(id => { const it = byId[id], r = day.items[id] || {}; return { ...publicItem(it, { tier: s.tiers?.[`${it.kp}|${it.err}`]?.lv ?? 0 }), done: r.fin || null, guard: r.guard || null, caught: r.caught || null, l2: !!r.l2, help: r.help || [] } }) })) : [],
       uses: usesLeft(s, date),
       allDone: !!day?.done,
       wish: pack?.tuning?.wish ? { text: String(pack.tuning.wish), need: Number(pack.tuning.wish_days) || 4, got: s.att.week === isoWeek(date) ? s.att.days.length : 0 } : null,
@@ -220,8 +241,9 @@ export function createApi(base, env) {
     }
   }
   const save = async ctx => {
-    const D = dayStat(ctx.state, ctx.date), dc = ctx.state.coins - ctx.c0
-    if (dc > 0) D.earn += dc; else D.spend -= dc
+    const D = dayStat(ctx.state, ctx.date), dc = ctx.state.coins - ctx.c0, tag = ctx.tag || '其他'
+    D.earnBy ||= {}; D.spendBy ||= {}
+    if (dc > 0) { D.earn += dc; D.earnBy[tag] = (D.earnBy[tag] || 0) + dc } else if (dc < 0) { D.spend -= dc; D.spendBy[tag] = (D.spendBy[tag] || 0) - dc }
     D.first ??= ctx.now; D.last = ctx.now; ctx.c0 = ctx.state.coins
     await ctx.S.set('state', ctx.state); if (ctx.day) await ctx.S.set(`day:${ctx.date}`, ctx.day); if (ctx.pack) await ctx.S.set(`log:${ctx.pack.week}`, ctx.log) }
   /** 给一张明信片：优先给 k 这个地方，没有就给开放了的最新地方里还没集齐的。 */
@@ -613,7 +635,7 @@ export function createApi(base, env) {
     }
     if (!s.hatched) { s.hatched = true; s.st = 1; s.gift = { date: ctx.date, what: null }; mark(s, ctx.date, `从小窝里醒来了，${s.kid || '小主人'}给我起名叫${s.name || '小狗'}`) }
     s.coins += c; s.grow += c                            // grow 只是「一共赚过多少金币」，和长大无关
-    { const D = dayStat(s, ctx.date); D.q++; if (firstOk) D.ok++; if (!ok) D.wrong++ }
+    { const D = dayStat(s, ctx.date); D.q++; if (firstOk) D.ok++; if (!ok) { D.wrong++; if (frac >= 0.6) D.near = (D.near || 0) + 1 } }
     s.qn++; const ym = ctx.date.slice(0, 7), M = s.months[ym] ||= [0, 0]; M[0]++; if (firstOk) M[1]++
     if (ok && ['word', 'plan'].includes(it.format)) s.lastSay = `${it.ask} ${it.answer}${it.unit || ''}${it.tail || ''}`
     if (s.slow > 0 && s.slowFrom !== it.id) s.slow--
@@ -651,7 +673,7 @@ export function createApi(base, env) {
     // 周五闯关：8 题都做完时结算，答对够数就解锁一页故事（不超过小狗现在的阶段；这一章读完了就改送明信片）
     const fri = ctx.day.groups.find(g => g.id === 'friday')
     if (fri?.items.includes(it.id) && !ctx.day.boss && fri.items.every(id => ctx.day.items[id]?.fin)) {
-      const okN = fri.items.filter(id => ctx.day.items[id].fin.ok).length, pass = okN >= Math.min(BOSS_PASS, fri.items.length)
+      const okN = fri.items.filter(id => ctx.day.items[id].fin.ok).length, pass = okN >= Math.min(fri.pass ?? BOSS_PASS, fri.items.length)
       let story = 0, card = null
       if (pass) {
         s.coins += BOSS_COINS; s.grow += BOSS_COINS
@@ -729,6 +751,9 @@ export function createApi(base, env) {
   // ---------- 照顾、买东西、学本领、散步、陪玩 ----------
   function act(ctx, b) {
     const s = ctx.state, date = ctx.date, st = stageOf(s, date), kid = s.kid || '小主人'
+    // 金币的来源 / 去处（看板和导出按这个分类）
+    const good = b.kind === 'buy' && GOODS.find(g => g.k === b.k)
+    ctx.tag = good ? { food: '吃的', soap: '洗澡', toy: '玩具', keep: '装扮和摆设' }[good.kind] || '买东西' : { event: '小事件', trip: '散步', jar: '储蓄罐', extra: '做题' }[b.kind] || '其他'
     if (b.kind === 'name') { const n = cleanName(b.name); if (!n) return { msg: '先给它起个名字吧。' }; if (!s.name) mark(s, date, `给小狗起名叫${n}`); s.name = n; return { msg: `我叫${n}！那你叫什么名字？` } }
     if (b.kind === 'kidname') { const n = cleanName(b.name); if (!n) return { msg: `写上你的名字，${s.name || '小狗'}才知道怎么叫你。` }; if (!s.kid) s.greet = date; s.kid = n; return { msg: `${n}，你好！` } }      // 第一次认识就算今天打过招呼了
     if (b.kind === 'skill') return useSkill(ctx, b)
@@ -755,13 +780,14 @@ export function createApi(base, env) {
       if (x.kind === 'keep') { s.own[x.k] = true; mark(s, date, `买了${x.n}`) } else if (x.kind === 'toy') s.toy[x.k] = (s.toy[x.k] || 0) + x.uses; else s.bag[x.k] = (s.bag[x.k] || 0) + 1
       return { msg: x.kind === 'keep' ? `买到「${x.n}」了，${p ? `已经摆在${p.n}。` : '回小屋看看。'}` : `「${x.n}」放进背包了，回小屋就能用。` }
     }
+    // 喂食、玩具：孩子自己选用哪一样（b.k）；没选的老页面才按以前的办法挑
     if (b.kind === 'toy') {
-      const k = Object.keys(s.toy).find(k => s.toy[k] > 0); if (!k) return { msg: '没有玩具了。小卖部有橡胶小球和飞盘。', act: 'think' }
+      const k = b.k ? (s.toy[b.k] > 0 ? b.k : null) : Object.keys(s.toy).find(k => s.toy[k] > 0); if (!k) return { msg: b.k ? '这个玩具用完了，换一个吧。' : '没有玩具了。小卖部有橡胶小球和飞盘。', act: 'think' }
       const x = GOODS.find(g => g.k === k); s.toy[k]--; add(s, 'mood', x.mood); return { msg: `玩${x.n}真开心！心情 ＋${x.mood}。`, act: 'catch' }
     }
     if (b.kind === 'food' || b.kind === 'soap') {
-      const x = GOODS.filter(g => g.kind === b.kind && s.bag[g.k] > 0).sort((p, q) => q.p - p.p)[0]
-      if (!x) return { msg: b.kind === 'food' ? '背包里没有吃的了，去小卖部看看？' : '没有香皂了，小卖部有泡泡香皂。', act: 'think' }
+      const x = b.k ? GOODS.find(g => g.k === b.k && g.kind === b.kind && s.bag[g.k] > 0) : GOODS.filter(g => g.kind === b.kind && s.bag[g.k] > 0).sort((p, q) => q.p - p.p)[0]
+      if (!x) return { msg: b.k ? '背包里没有这个了，换一个吧。' : b.kind === 'food' ? '背包里没有吃的了，去小卖部看看？' : '没有香皂了，小卖部有泡泡香皂。', act: 'think' }
       s.bag[x.k]--
       if (b.kind === 'food') { add(s, 'full', x.full); if (x.mood) add(s, 'mood', x.mood); return { msg: `${x.n}好好吃！饱食 ＋${x.full}。`, act: 'eat' } }
       add(s, 'clean', x.clean); return { msg: '泡泡澡好舒服，香香的！', act: 'bath' }
@@ -861,13 +887,20 @@ export function createApi(base, env) {
   async function admin(req, p, body) {
     if (env.DEV || env.CLOCK) offset = (await store.get('dev-clock')) ?? 0      // dev 站拨过日期时，看板的「今天」跟着走
     let list = await users()
-    const pub = u => ({ id: u.id, name: u.name, off: !!u.off, created: u.created, seen: u.seen || null })
+    const pub = u => ({ id: u.id, name: u.name, off: !!u.off, created: u.created, seen: u.seen || null, test: isTest(u), clockDate: isTest(u) && u.clock ? u.clockDate : null })
     if (p === '/admin/users' && req.method === 'GET') {
       // 顺便带上每个孩子的小狗名字和陪伴天数，方便认人（不带答题记录）
       const out = []
-      for (const u of list) { const st = await scoped(store, u.id).get('state'); out.push({ ...pub(u), pet: st?.name || '', kid: st?.kid || '', days: st?.days || 0, today: st?.daily?.[today(new Date(nowMs()))] || null }) }
+      for (const u of list) { const st = await scoped(store, u.id).get('state'); out.push({ ...pub(u), pet: st?.name || '', kid: st?.kid || '', days: st?.days || 0, today: st?.daily?.[today(new Date(nowMs() + (isTest(u) ? u.clock || 0 : 0)))] || null }) }
       const pack = await store.get('pack'), days = pack && packDays(pack).filter(g => pack.items.some(it => it.group === g.id))
-      return json({ users: out, weeks: (await store.get('pack-weeks')) || (pack ? [pack.week] : []), pack: pack ? { week: pack.week, created: pack.created, items: pack.items.length, days: Math.min(...days.map(g => g.days)), groups: days } : null })
+      return json({ settings: { daily: DAILY_CAP, ...((await store.get('settings')) || {}) }, users: out, weeks: (await store.get('pack-weeks')) || (pack ? [pack.week] : []), pack: pack ? { week: pack.week, created: pack.created, items: pack.items.length, days: Math.min(...days.map(g => g.days)), groups: days } : null })
+    }
+    // 设置：每天题量（所有账号共用；今天还没开始做的账号马上按新题量重抽）
+    if (p === '/admin/settings' && req.method === 'POST') {
+      const n = Math.round(Number(body.daily))
+      if (!(n >= 5 && n <= 40)) return json({ error: '每天题量要在 5 到 40 之间' }, 400)
+      const cur = (await store.get('settings')) || {}; await store.set('settings', { ...cur, daily: n })
+      return json({ ok: true, settings: { ...cur, daily: n } })
     }
     // 看板：一个账号的小狗现在的样子 + 最近 14 天每天的使用情况
     if (p === '/admin/stats' && req.method === 'GET') {
@@ -875,9 +908,9 @@ export function createApi(base, env) {
       if (!u) return json({ error: '没有这个账号' }, 404)
       const raw = await scoped(store, u.id).get('state')
       if (!raw) return json({ user: pub(u), pet: null, days: [] })
-      const st = { ...freshState(), ...structuredClone(raw) }, now = nowMs(), date = today(new Date(now))
+      const st = { ...freshState(), ...structuredClone(raw) }, now = nowMs() + (isTest(u) ? u.clock || 0 : 0), date = today(new Date(now))     // 测试账号按它拨到的日期
       decay(st, now)
-      const days = [...Array(14).keys()].map(k => addDays(date, -k)).map(d => ({ date: d, ...(st.daily?.[d] || { q: 0, ok: 0, wrong: 0, ms: 0, earn: 0, spend: 0, first: null, last: null }) }))
+      const days = [...Array(14).keys()].map(k => addDays(date, -k)).map(d => ({ date: d, near: 0, earnBy: {}, spendBy: {}, ...(st.daily?.[d] || { q: 0, ok: 0, wrong: 0, ms: 0, earn: 0, spend: 0, first: null, last: null }) }))
       const stage = stageOf(st, date)
       return json({ user: pub(u), days, pet: { name: st.name, kid: st.kid, stage, stageName: STAGES[stage]?.n || '', days: st.days, coins: st.coins, grow: st.grow, jar: st.jar || 0,
         needs: { full: Math.round(st.needs.full), mood: Math.round(st.needs.mood), clean: Math.round(st.needs.clean) }, skill: st.skill, cards: st.cards?.length || 0, story: st.story || 0,
@@ -888,7 +921,10 @@ export function createApi(base, env) {
       const url = new URL(req.url), u = list.find(x => x.id === url.searchParams.get('user')), week = url.searchParams.get('week')
       if (!u || !/^\d{4}-W\d{2}$/.test(week || '')) return json({ error: '选一个账号和一周' }, 400)
       const S = scoped(store, u.id)
-      return json({ format: LOG_FORMAT, week, user: u.name, made: new Date().toISOString(), log: (await S.get(`log:${week}`)) ?? [], state: await S.get('state') })
+      const st = await S.get('state')
+      // 使用情况：最近 21 天每天的记录（在线时段、做题用时、题数、第一次就对、差一点、答错、金币赚花按来源分），调金币用
+      const usage = Object.entries(st?.daily || {}).sort().slice(-21).map(([date, d]) => ({ date, ...d }))
+      return json({ format: LOG_FORMAT, week, user: u.name, made: new Date().toISOString(), log: (await S.get(`log:${week}`)) ?? [], usage, state: st })
     }
     // 上传题库包：家长端 npm run kid pack <周> <文件> 生成的文件。命令行推不上去时（比如站点开了 Netlify 登录保护）用
     if (p === '/admin/pack' && req.method === 'POST') return savePack(body.pack, scoped(store, 'main'))
@@ -907,8 +943,30 @@ export function createApi(base, env) {
     if (body.pin != null) { if (!pinOk(body.pin)) return json({ error: '密码要是 4 位数字' }, 400); u.salt = crypto.randomUUID(); u.hash = await pinHash(u.salt, body.pin); await store.set(`fail:${u.name.toLowerCase()}`, { n: 0, until: 0 }) }
     if (body.name != null) { const name = userName(body.name); if (!name || name.toLowerCase() === 'admin' || list.some(x => x !== u && x.name.toLowerCase() === name.toLowerCase())) return json({ error: '这个用户名不能用或已经有人用了' }, 400); u.name = name }
     if (body.off != null) u.off = !!body.off
+    if (body.test != null) u.test = !!body.test
+    // 测试工具（只给测试账号）：拨日期（下午 4 点，北京时间）、回到今天、改小狗参数、清空存档
+    if ((body.clock !== undefined || body.tune || body.wipe) && !isTest(u)) return json({ error: '只有测试账号能用测试工具' }, 400)
+    if (body.clock !== undefined) {
+      if (body.clock === null || body.clock === '') { u.clock = 0; u.clockDate = null }
+      else if (/^\d{4}-\d{2}-\d{2}$/.test(body.clock)) { u.clock = Date.parse(`${body.clock}T16:00:00+08:00`) - nowMs(); u.clockDate = body.clock }     // 相对「现在」（dev 站拨过总时钟的话已经算进去）
+      else return json({ error: '日期写成 2026-11-21' }, 400)
+    }
+    if (body.tune || body.wipe) {     // tune：测试账号的小狗参数（pet 是改小狗名字，别混）
+      const S = scoped(store, u.id), date = today(new Date(nowMs() + (u.clock || 0)))
+      if (body.wipe) { await S.set('state', null); await S.set(`day:${date}`, null) }
+      else {
+        const st = { ...freshState(), ...((await S.get('state')) || {}) }, P = body.tune, n = (v, lo, hi) => v === '' || v == null || !Number.isFinite(Number(v)) ? null : Math.max(lo, Math.min(hi, Math.round(Number(v))))
+        if (n(P.coins, 0, 99999) != null) st.coins = n(P.coins, 0, 99999)
+        if (n(P.days, 0, 200) != null) { st.days = n(P.days, 0, 200); if (st.days > 0) st.hatched = true; if (!st.st) st.st = 1 }
+        for (const k of ['full', 'mood', 'clean']) if (n(P[k], 0, 100) != null) st.needs[k] = n(P[k], 0, 100)
+        st.needs.at = nowMs() + (u.clock || 0)
+        if (n(P.pts, 0, 99) != null) for (const k of Object.keys(st.pts)) st.pts[k] = n(P.pts, 0, 99)
+        if (n(P.jar, 0, 99999) != null) st.jar = n(P.jar, 0, 99999)
+        await S.set('state', st)
+      }
+    }
     // 改孩子的名字、小狗的名字：写进这个账号的存档（还没进过小屋的先建一个空存档，进来时不用再起名）
-    if (body.kid != null || body.pet != null) {
+    if (typeof body.kid === 'string' || typeof body.pet === 'string') {
       const S = scoped(store, u.id), st = (await S.get('state')) || { ...freshState(), needs: { ...freshState().needs, at: Date.now() } }, n = cleanName(body.kid ?? body.pet)
       if (!n) return json({ error: '名字不能是空的（最多 6 个字）' }, 400)
       if (body.kid != null) st.kid = n; else st.name = n
@@ -929,7 +987,7 @@ export function createApi(base, env) {
       if (who && !u) return json({ error: `没有叫「${who}」的账号` }, 404)
       const S = scoped(store, u?.id || 'main')
       if (p === '/pack' && req.method === 'PUT') return savePack(await req.json().catch(() => null), S)
-      if (p === '/log' && req.method === 'GET') return json({ format: LOG_FORMAT, week: url.searchParams.get('week'), user: u?.name || null, log: (await S.get(`log:${url.searchParams.get('week')}`)) ?? [], state: await S.get('state') })
+      if (p === '/log' && req.method === 'GET') { const st = await S.get('state'); return json({ format: LOG_FORMAT, week: url.searchParams.get('week'), user: u?.name || null, log: (await S.get(`log:${url.searchParams.get('week')}`)) ?? [], usage: Object.entries(st?.daily || {}).sort().slice(-21).map(([date, d]) => ({ date, ...d })), state: st }) }
       return json({ error: '不支持' }, 405)
     }
     // 拨时钟：本地开发随便拨；dev 分支部署（env.CLOCK）要带同步令牌；正式站没有这个接口
@@ -960,7 +1018,7 @@ export function createApi(base, env) {
     }
     if (!me.user) return json({ error: me.admin ? '管理员账号不能养小狗，换孩子的账号登录' : '请先登录' }, 401)
     const S = scoped(store, me.user.id)
-    const ctx = await context(S)
+    const ctx = await context(S, me.user)
     if (p === '/state' && req.method === 'GET') {
       if (me.user.seen !== ctx.date) { const list = await users(), u = list.find(x => x.id === me.user.id); if (u) { u.seen = ctx.date; await store.set('users', list) } }
       await save(ctx); return json({ ...view(ctx), user: me.user.name })
@@ -970,6 +1028,7 @@ export function createApi(base, env) {
     if (p === '/answer') {
       if (!ctx.pack) return json({ error: '还没有题库' }, 400)
       let res
+      ctx.tag = '做题'      // 做题、连对奖励、周五闯关奖励都记在这里
       try { res = answer(ctx, body) } catch (e) { console.error(e); return json({ error: '这道题的作答格式不对，刷新一下再做' }, 400) }
       if (res instanceof Response) return res
       await save(ctx)
