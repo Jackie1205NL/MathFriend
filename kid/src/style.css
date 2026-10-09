@@ -472,4 +472,14 @@ table.dash tr.idle td{color:#a5ad9f}
 .tgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .tf{display:grid;gap:2px;font-size:14px;color:var(--dim)}.tf input{border:2px solid var(--line);border-radius:10px;padding:6px 8px;font-size:18px;min-width:0}
 @media (max-width:500px){.tgrid{grid-template-columns:repeat(2,1fr)}}
-
+/* 本周闯关的像素怪兽 */
+.boss{display:flex;gap:16px;align-items:center;background:#2b2140;color:#fff;border-radius:20px;padding:10px 16px}
+.boss b{font:400 24px var(--kid)}.boss small{display:block;color:#d9cff0;font-size:15px}
+.boss .mon{width:84px;height:84px;flex:none;image-rendering:pixelated;animation:monbob 1.6s steps(2) infinite}
+.boss .mon.hit{animation:monhit .5s steps(4) 2}.boss .mon.dead{animation:none;transform:rotate(90deg) translateX(10px);opacity:.45;filter:grayscale(1)}
+.boss.won{background:#2f6e4a}
+.hearts{display:flex;gap:4px;margin:4px 0}.hearts i{width:16px;height:14px;background:#5a4a78;clip-path:polygon(50% 100%,0 40%,0 15%,20% 0,50% 15%,80% 0,100% 15%,100% 40%)}.hearts i.f{background:#ff5c7a}
+@keyframes monbob{50%{transform:translateY(-4px)}}
+@keyframes monhit{25%{transform:translateX(-6px);filter:brightness(2)}75%{transform:translateX(6px)}}
+.quest .mon{width:44px;height:44px;float:right;image-rendering:pixelated}
+.tbtns{display:flex;flex-wrap:wrap;gap:8px}

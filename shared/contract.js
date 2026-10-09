@@ -14,11 +14,11 @@ export const LEVELS = ['同构', '略变', '综合']
 // 难度阶梯：档位 0 / 1 / 2 时，抽题在三种难度上的比例
 export const LEVEL_MIX = [[0.6, 0.3, 0.1], [0.4, 0.4, 0.2], [0.2, 0.5, 0.3]]
 export const STORY_PAGES = 16
-export const BOSS_SIZE = 8, BOSS_PASS = 6, BOSS_COINS = 30   // 周五闯关：8 题，答对 6 题算通关
+export const BOSS_SIZE = 8, BOSS_PASS = 6, BOSS_COINS = 30   // 本周闯关（周五到周日，每周一次）：8 题，答对 6 题算通关
 export const EXTRA_STEP = 5                                   // 加练一次加几题（金币减半）
 // 每次同步的题库至少够做多少天（按孩子每天都来算）。家长偶尔没及时更新，孩子也有新题做
 export const PACK_DAYS = 14
-export const PACK_MARGIN = 1.5                                // 周五闯关和加练也从里面抽，多留五成
+export const PACK_MARGIN = 1.5                                // 本周闯关和加练也从里面抽，多留五成
 /** 每组每天抽几题：模板没写 daily 时，口算热身（已掌握保温）6 题，其他 4 题 */
 export const dailyOf = g => g.daily || (g.bucket === '已掌握保温' ? 6 : 4)
 // 围巾戴在哪：各阶段站立图里项圈的位置（占图片宽高的百分比），由 kid/public/pet/s1～s4.webp 量出来
@@ -512,7 +512,7 @@ export function buildPack(bank, week) {
     return items
   })
   report.days = packDays({ groups: bank.groups, items })
-  return { pack: { format: PACK_FORMAT, v: PACK_VERSION, week, created: new Date().toISOString(), tuning: { unit_hint: 1, blank_hint: 1, slow: 1, boss_day: 5, bedtime: '20:30', ...bank.tuning }, groups: bank.groups, items }, report }
+  return { pack: { format: PACK_FORMAT, v: PACK_VERSION, week, created: new Date().toISOString(), tuning: { unit_hint: 1, blank_hint: 1, slow: 1, bedtime: '20:30', ...bank.tuning }, groups: bank.groups, items }, report }
 }
 
 /**

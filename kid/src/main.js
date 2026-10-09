@@ -140,7 +140,7 @@ function vAdmin() {
     <div class="card"><b>新建孩子账号</b><p class="dim">每个账号有自己的小狗和存档，题目大家共用。用户名最多 12 个字，密码是 4 位数字。</p>
       <div class="field"><input id="adm-name" maxlength="12" placeholder="用户名" aria-label="用户名"><input id="adm-pin" inputmode="numeric" maxlength="4" placeholder="4 位密码" aria-label="密码"><button class="btn" data-a="admadd">新建</button></div></div>
     ${us.map(row).join('') || '<p class="dim">还没有账号。</p>'}
-    <div class="card"><b>每天题量</b><p class="dim">所有账号每天做几题（题型一组不少，按比例分，每组至少 1 题；周五闯关题也跟着少）。现在是 ${ADMS.daily ?? 12} 题。改了以后，今天还没开始做的马上按新题量，已经开始做的明天生效。</p>
+    <div class="card"><b>每天题量</b><p class="dim">所有账号每天做几题（题型一组不少，按比例分，每组至少 1 题；本周闯关题也跟着少）。现在是 ${ADMS.daily ?? 12} 题。改了以后，今天还没开始做的马上按新题量，已经开始做的明天生效。</p>
       <div class="field"><input id="adm-daily" type="number" inputmode="numeric" min="5" max="40" value="${ADMS.daily ?? 12}" aria-label="每天题量"><button class="btn" data-a="admdaily">保存</button></div></div>
     <div class="card"><b>导入题库</b><p class="dim">${ADMP ? `现在是 ${esc(ADMP.week)} 的题库（${ADMP.created ? md(ADMP.created.slice(0, 10)) + ' ' : ''}生成），${ADMP.items} 道题，按每天都来做够 ${ADMP.days} 天${ADMP.days < 14 ? '（不够两周）' : ''}。` : '还没有题库，孩子进来会看到「还没有题」。'}每周家长端归集完，会在数据文件夹的「孩子端题库」里生成 <code>pack-周.json</code>，选它导入。导入新的就换掉旧的，孩子的存档不受影响。</p>
       <div class="field"><input id="adm-pack" type="file" accept=".json,application/json" aria-label="题库文件"><button class="btn" data-a="admpack">导入</button></div></div>
@@ -177,11 +177,13 @@ let ADT = null
 function vAdmTest() {
   const { user, pet } = ADT, P = pet || { coins: 60, days: 0, jar: 0, needs: { full: 70, mood: 70, clean: 70 }, skill: {} }, num = (id, label, v) => `<label class="tf"><span>${label}</span><input id="${id}" type="number" inputmode="numeric" value="${v ?? ''}"></label>`
   return `<div class="testbox"><b>测试工具</b>
-    <p class="dim">日期：拨到某一天的下午 4 点（只影响这个测试账号），看长大、周五闯关、毕业典礼。${user.clockDate ? `现在拨到 ${esc(user.clockDate)}。` : '现在是真实的今天。'}</p>
+    <p class="dim">日期：拨到某一天的下午 4 点（只影响这个测试账号），看长大、本周闯关（周五到周日）、毕业典礼。${user.clockDate ? `现在拨到 ${esc(user.clockDate)}。` : '现在是真实的今天。'}</p>
     <div class="field"><input id="adt-date" type="date" value="${esc(user.clockDate || '')}" aria-label="日期"><button class="btn" data-a="admclock">拨到这天</button><button class="btn alt" data-a="admclock" data-v="reset">回到今天</button></div>
     <p class="dim">小狗参数（空着的不改）：</p>
     <div class="tgrid">${num('adt-coins', '金币', P.coins)}${num('adt-days', '陪伴天数', P.days)}${num('adt-jar', '储蓄罐', P.jar)}${num('adt-full', '饱食', P.needs.full)}${num('adt-mood', '心情', P.needs.mood)}${num('adt-clean', '清洁', P.needs.clean)}${num('adt-pts', '每个本领的技能点', '')}</div>
     <div class="duo"><button class="btn" data-a="admpet">保存参数</button><button class="btn alt" data-a="admwipe">清空存档</button></div>
+    <p class="dim">今天的题（按上面拨到的日期）：「全部做完」直接记成答对，可以马上看本周闯关（周五到周日才有）和做完以后的页面；「题型样板」加一组每种题型各一道，看界面和交互。</p>
+    <div class="tbtns"><button class="buy" data-a="admtoday" data-v="done">今天的题全部做完</button><button class="buy" data-a="admtoday" data-v="redeal">重新出今天的题</button><button class="buy" data-a="admtoday" data-v="sample">加一组题型样板</button><button class="buy" data-a="admtoday" data-v="chal">重置本周闯关</button></div>
     <button class="link" data-a="admtest" data-v="">收起</button></div>`
 }
 async function loadAdmin() { const r = await api('/admin/users'); ADM = r.users; ADMP = r.pack; ADMW = r.weeks || []; ADMS = r.settings || {}; page = 'admin' }
@@ -192,6 +194,7 @@ function vHome() {
   const breakTime = D() > SEASON.ceremony
   const cta = !V.week || (breakTime && !allItems().length) ? `<button class="btn" disabled>${breakTime ? '寒假没有任务' : '还没有任务'}<small>${breakTime ? `来陪${name()}玩吧` : '等爸爸妈妈发这周的题'}</small></button>`
     : late() ? `<button class="btn" disabled>${name()}睡觉了<small>明天见</small></button>`
+    : V.allDone && chalOpen() ? `<button class="btn red" data-a="go" data-v="quests">本周闯关开放了<small>打败${MONS[(groups().find(g => g.friday).monster ?? 0) % MONS.length].n}，解锁一页故事（每周一次）</small></button>`
     : V.allDone ? `<button class="btn" data-a="go" data-v="result">今天完成啦<small>看看今天的成绩</small></button>`
     : `<button class="btn" data-a="go" data-v="quests">今日任务 ${doneCount()} / ${allItems().length}<small>最多可赚 ${allItems().reduce((a, it) => a + it.max, 0)}${canLearn ? ` · 有 ${canLearn} 个本领可以学` : ''}</small></button>`
   const banner = s.graduated ? `<div class="card banner snow"><b>${breakTime ? '寒假中' : '毕业啦'}</b> ${name()}戴着学士帽住在小屋里${breakTime ? '，下学期开学那天会来一位新朋友' : ''}。</div>`
@@ -209,11 +212,11 @@ function vHome() {
   </div>`
 }
 function vQuests() {
-  const gs = groups(), open = gs.filter(g => !g.boss && !g.extra).every(g => g.items.every(it => it.done))
+  const gs = groups(), open = gs.filter(g => !g.boss && !g.extra && !g.sample).every(g => g.items.every(it => it.done))
   return `<div class="top"><h1>今天的任务</h1>${coin(S().coins)}</div><div class="body">${gs.map(g => {
     const left = g.items.filter(it => !it.done).length, top = Math.max(...g.items.map(it => it.max)), mx = g.extra ? Math.ceil(top / 2) : top, lock = g.boss && !open && left > 0
     const tag = g.bucket === '本周重点' && !g.boss ? '<span class="tagx">本周重点</span>' : g.bucket === '往周未过关' ? '<span class="tagx old">以前的</span>' : g.extra ? '<span class="tagx old">金币减半</span>' : ''
-    return `<button class="card quest ${left ? '' : 'done'} ${lock ? 'lock' : ''}" ${lock || !left ? 'disabled' : ''} data-a="group" data-v="${g.id}"><b>${esc(g.name)}${tag}</b>${coin((g.items.every(it => it.format === 'oral') ? '每题 ' : '最高 ') + mx)}<span class="dim">${lock ? '做完上面几组后解锁' : `${esc(g.sub || '')} · ${left ? `还有 ${left} 题${(n => n ? `（跳过了 ${n} 题，待会儿回来做）` : '')(g.items.filter(x => !x.done && skips().includes(x.id)).length)}` : '做完了'}`}</span></button>`
+    return `<button class="card quest ${left ? '' : 'done'} ${lock ? 'lock' : ''}" ${lock || !left ? 'disabled' : ''} data-a="group" data-v="${g.id}"><b>${esc(g.name)}${tag}</b>${coin((g.items.every(it => it.format === 'oral') ? '每题 ' : '最高 ') + mx)}${g.friday ? monSvg(g.monster ?? 0) : ''}<span class="dim">${lock ? (g.friday ? '做完今天的任务就开放，打败这只怪兽' : '做完上面几组后解锁') : `${esc(g.sub || '')} · ${left ? `还有 ${left} 题${(n => n ? `（跳过了 ${n} 题，待会儿回来做）` : '')(g.items.filter(x => !x.done && skips().includes(x.id)).length)}` : '做完了'}`}</span></button>`
   }).join('')}<p class="dim">金币多的题，是你这周最需要练的题。</p></div>`
 }
 
@@ -259,6 +262,25 @@ function nextItem(g) {
   const left = g.items.filter(x => !x.done), sk = skips()
   return left.find(x => !sk.includes(x.id)) || sk.map(id => left.find(x => x.id === id)).find(Boolean) || left[0]
 }
+// ---------- 本周闯关的像素怪兽（按周轮换，用小方块画，不用图片） ----------
+const MONS = [
+  { n: '绿泡泡怪', c: { X: '#5cb85c', W: '#fff', B: '#1d3327', M: '#2d6a2d', H: '#3e8e3e', T: '#fff' }, px: [
+    '....XXXX....', '..XXXXXXXX..', '.XXXXXXXXXX.', '.XXWWXXWWXX.', 'XXXWBXXWBXXX', 'XXXXXXXXXXXX', 'XXXXMMMMXXXX', 'XXXXXMMXXXXX', '.XXXXXXXXXX.', '..XX.XX.XX..'] },
+  { n: '紫角角怪', c: { X: '#8e5cc8', W: '#fff', B: '#1d1330', M: '#3a1d5c', H: '#e0527a', T: '#fff' }, px: [
+    'H..........H', 'HH........HH', '.HXXXXXXXXH.', '.XXXXXXXXXX.', 'XXWWXXXXWWXX', 'XXWBXXXXWBXX', 'XXXXXXXXXXXX', 'XXXMTMMTMXXX', 'XXXXMMMMXXXX', '.XXXXXXXXXX.', '..X..XX..X..', '.XX..XX..XX.'] },
+  { n: '橙眼眼怪', c: { X: '#f08a1c', W: '#fff', B: '#3b1d05', M: '#7a3d0a', H: '#ffd766', T: '#fff' }, px: [
+    '.....HH.....', '.....HH.....', '..XXXXXXXX..', '.XXXXXXXXXX.', 'XXXXWWWWXXXX', 'XXXWWBBWWXXX', 'XXXXWWWWXXXX', 'XXXXXXXXXXXX', 'XXTMTMTMTXXX', '.XXXXXXXXXX.', '.X.X.XX.X.X.'] },
+]
+const monSvg = (k, cls = '') => { const m = MONS[k % MONS.length], h = m.px.length; return `<svg class="mon ${cls}" viewBox="0 0 12 ${h}" shape-rendering="crispEdges" aria-hidden="true">${m.px.flatMap((row, y) => [...row].map((ch, x) => m.c[ch] ? `<rect x="${x}" y="${y}" width="1.02" height="1.02" fill="${m.c[ch]}"/>` : '')).join('')}</svg>` }
+/** 做本周闯关时顶上的怪兽：心是还要答对几题，答对一题打掉一颗，打完就赢 */
+function vBoss() {
+  const g = groups().find(x => x.id === 'friday'); if (!g) return ''
+  const okN = g.items.filter(it => it.done?.ok).length, left = Math.max(0, g.pass - okN), dead = !left, hit = Q.fin?.ok && Q.gid === 'friday'
+  return `<div class="boss ${dead ? 'won' : ''}">${monSvg(g.monster ?? 0, dead ? 'dead' : hit ? 'hit' : '')}<div><b>${MONS[(g.monster ?? 0) % MONS.length].n}</b>
+    <div class="hearts">${'<i class="f"></i>'.repeat(left)}${'<i></i>'.repeat(Math.min(g.pass, okN))}</div>
+    <small>${dead ? '打败它了！把剩下的题做完就结算。' : `再答对 ${left} 题就能打败它（一共 ${g.items.length} 题）`}</small></div></div>`
+}
+const chalOpen = () => groups().some(g => g.friday && g.items.some(it => !it.done))      // 本周闯关还没做完
 const house = n => n ? `${n}的小屋` : '小柴犬的家'
 const greyed = i => [Q.fx.grey ?? []].flat().includes(i)
 const curItem = () => Q.demo || groups().find(x => x.id === Q.gid).items.find(x => x.id === Q.id)
@@ -549,7 +571,7 @@ function vQResult(g) {
     ${d.day ? `<div class="bubble plain">今天的任务做完了，${name()}已经陪你 ${d.day} 天。</div>` : ''}
     ${d.grew ? `<div class="bubble plain">${name()}长大了，现在是${STAGES[d.grew].n}！${PLACES.find(p => p.st === d.grew) ? `${PLACES.find(p => p.st === d.grew).n}开放了，` : ''}回小屋看看。</div>` : ''}
     ${d.wish ? `<div class="bubble plain">这周来满啦！可以去找爸爸妈妈兑换心愿：${esc(d.wish)}。</div>` : ''}
-    ${b ? `<div class="bubble plain">${b.pass ? `闯关成功！${b.n} 题答对 ${b.okN} 题，再得 ${b.coins} 金币${b.story ? `，解锁了故事书第 ${b.story} 页` : b.card ? `。这一章的故事读完了，${name()}带回一张明信片` : ''}。` : `闯关 ${b.n} 题答对 ${b.okN} 题，差一点。下周五再来。`}</div>` : ''}
+    ${b ? `<div class="bubble plain">${b.pass ? `打败怪兽，闯关成功！${b.n} 题答对 ${b.okN} 题，再得 ${b.coins} 金币${b.story ? `，解锁了故事书第 ${b.story} 页` : b.card ? `。这一章的故事读完了，${name()}带回一张明信片` : ''}。` : `闯关 ${b.n} 题答对 ${b.okN} 题，差一点没打败它。下周五再来挑战新的怪兽。`}</div>` : ''}
     ${!d.ok && d.walk ? '<button class="btn alt" data-a="walk">跟着正确做法再做一遍<small>不计金币，亲手做对一次</small></button>' : ''}
     ${b?.pass && b.story ? `<button class="btn" data-a="story" data-v="${b.story - 1}">看新故事</button>` : `<button class="btn" data-a="next">${more ? '下一题' : V.allDone ? '看今天的成绩' : '回到任务'}</button>`}`
 }
@@ -569,7 +591,7 @@ function vQ() {
   const live = !Q.fin && !Q.catch && !Q.walk && !Q.cover
   const bar = Q.flow.length > 1 ? `<div class="stepbar">${live && Q.i > 0 ? '<button class="pill" data-a="backto" data-v="">‹ 上一步</button>' : ''}<div class="steps" style="grid-template-columns:repeat(${Q.flow.length},1fr)">${Q.flow.map((t, i) => live && i < Q.i ? `<button class="done" data-a="backto" data-v="${i}">${STEP_NAME[t.type]}</button>` : `<span class="${Q.fin || i < Q.i ? 'done' : i === Q.i ? 'now' : ''}">${STEP_NAME[t.type]}</span>`).join('')}</div></div>` : ''
   return `<div class="top"><button class="back" data-a="go" data-v="quests" aria-label="回到任务">‹</button><h1>${esc(g.name)} ${idx}/${g.items.length}</h1>${!Q.demo && !Q.fin && !Q.catch && !Q.walk ? '<button class="pill scr" data-a="skip">跳过</button>' : ''}<button class="pill scr" data-a="scratch">草稿</button>${coin('最高 ' + (g.extra ? Math.ceil(it.max / 2) : it.max))}</div>
-  <div class="body qbody">${Q.cover ? `<div class="cover"><img src="${face('thinking')}" alt=""><b style="font:400 30px var(--kid)">慢慢来</b><span>${name()}在帮你把题目再读一遍……</span></div>` : ''}${bar}${Q.walk ? vWalk() : Q.fin ? (it.segs || it.format === 'stat' ? qText() : '') + vQResult(g) : vStep()}</div>
+  <div class="body qbody">${Q.gid === 'friday' && !Q.demo ? vBoss() : ''}${Q.cover ? `<div class="cover"><img src="${face('thinking')}" alt=""><b style="font:400 30px var(--kid)">慢慢来</b><span>${name()}在帮你把题目再读一遍……</span></div>` : ''}${bar}${Q.walk ? vWalk() : Q.fin ? (it.segs || it.format === 'stat' ? qText() : '') + vQResult(g) : vStep()}</div>
   ${vDock()}${Q.menu ? vMenu() : ''}${Q.scratch ? '<div class="scratch"><canvas id="scratch"></canvas><div class="duo"><button class="btn alt" data-a="sclear">擦干净</button><button class="btn" data-a="scratch">关上</button></div></div>' : ''}${Q.catch ? vCatch() : ''}${Q.fire ? `<div class="toast fire"><img src="/pet/badge-${SKILLS.find(x => x.k === Q.fire.k).badge}.webp" alt="">${esc(Q.fire.text)}</div>` : ''}`
 }
 /** 草稿纸：随手写画，不保存、不判分 */
@@ -631,6 +653,7 @@ const QA = {
     const id = ADT.user.id, g = k => document.getElementById('adt-' + k)?.value ?? ''
     return run(async () => { try { await api('/admin/users/' + id, { tune: { coins: g('coins'), days: g('days'), jar: g('jar'), full: g('full'), mood: g('mood'), clean: g('clean'), pts: g('pts') } }); admMsg = `「${ADT.user.name}」的小狗参数改好了。`; ADT = await api('/admin/stats?user=' + id); await loadAdmin() } catch (e) { admMsg = e.message } })
   },
+  admtoday(v) { const id = ADT.user.id, say = { done: '今天的题都记成做完了', redeal: '今天的题重新出了', sample: '加了一组题型样板（每种题型一道）', chal: '本周闯关重置了，周五到周日会重新出题' }[v]; return run(async () => { try { await api('/admin/users/' + id, { today: v }); admMsg = `「${ADT.user.name}」${say}。重新登录这个账号就能看到。`; ADT = await api('/admin/stats?user=' + id); await loadAdmin() } catch (e) { admMsg = e.message } }) },
   admwipe() { const id = ADT.user.id; if (!confirm(`清空「${ADT.user.name}」的存档？小狗、金币、记录都会重来。`)) return; return run(async () => { try { await api('/admin/users/' + id, { wipe: true }); admMsg = `「${ADT.user.name}」的存档清空了，下次登录重新认识小狗。`; ADT = await api('/admin/stats?user=' + id); await loadAdmin() } catch (e) { admMsg = e.message } }) },
   admdaily() { const n = document.getElementById('adm-daily')?.value; return run(async () => { try { const r = await api('/admin/settings', { daily: n }); admMsg = `每天题量改成 ${r.settings.daily} 题了。`; await loadAdmin() } catch (e) { admMsg = e.message } }) },
   admstats(id) { return run(async () => { try { ADS = await api('/admin/stats?user=' + encodeURIComponent(id)); window.scrollTo(0, 0) } catch (e) { admMsg = e.message } }) },
@@ -724,6 +747,7 @@ function vResult() {
   return `<div class="top"><h1>今天完成啦</h1></div><div class="body">
     <div class="room"><div class="pet"><div class="a-hop"><span class="wear"><img src="${stage() ? `/pet/s${stage()}-act-wag.webp` : '/pet/s0.webp'}" alt=""></span></div></div></div><div class="sum"><i class="ico coin"></i>＋${its.reduce((a, it) => a + (it.done?.c || 0), 0)}</div>
     <div class="card rows"><span>第一次就答对</span><b>${first} 题</b>${fix ? `<span>本领接住后改对</span><b>${fix} 题</b>` : ''}<span>过两天换个样子再来</span><b>${again} 题</b><span>最长认真连击</span><b>${S().best} 题</b><span>已陪伴</span><b>${S().days} 天</b></div>
+    ${chalOpen() ? `<button class="btn red" data-a="group" data-v="friday">去本周闯关<small>打败${MONS[(groups().find(g => g.friday).monster ?? 0) % MONS.length].n}，每周一次</small></button>` : ''}
     <button class="btn" data-a="go" data-v="home">回小屋</button>
     <button class="btn alt" data-a="extra">再练一会儿<small>最多再加几题，金币减半</small></button></div>`
 }
@@ -739,7 +763,7 @@ const SKILL_PET = {
   概念不清: ['把戏「叼积木排队」', '每日小事件可能多一件「整理积木」', '项圈上多一枚徽章，纪念册单独一页'],
   计算失误: ['把戏「握手」', '藏骨头可以选「难一点」的杯子', '项圈上多一枚徽章，纪念册单独一页'],
   格式规范: ['把戏「摇尾巴转圈」', '早安时会念一遍昨天的答句', '项圈上多一枚徽章，纪念册单独一页'],
-  漏题: ['把戏「绕小屋巡逻」', '地图上提前显示周五闯关考什么', '项圈上多一枚徽章，纪念册单独一页'],
+  漏题: ['把戏「绕小屋巡逻」', '地图上提前显示本周闯关考什么', '项圈上多一枚徽章，纪念册单独一页'],
   策略缺失: ['把戏「带路」', '地图上标出下一站还差什么', '项圈上多一枚徽章，纪念册单独一页'],
 }
 function vSkills() {
@@ -793,7 +817,7 @@ function vStory() {
   const chap = [1, 2, 3, 4].map(c => `<h3 class="chap">第 ${c} 章 · ${STAGES[c].n}</h3><div class="duo">${STORY.map((pg, i) => [pg, i]).filter(([pg]) => pg.ch === c).map(([pg, i]) =>
     `<button class="card quest ${i < n ? '' : 'lock'}" ${i < n ? '' : 'disabled'} data-a="story" data-v="${i}"><b>${i < n ? esc(pg.title) : '还没解锁'}</b><span class="dim">第 ${i + 1} 页${i >= n && i >= cap ? ` · 长成${STAGES[c].n}以后` : ''}</span></button>`).join('')}</div>`).join('')
   return `<div class="top"><button class="back" data-a="go" data-v="home" aria-label="回小屋">‹</button><h1>故事书</h1><span class="pill">${n} / ${STORY_PAGES} 页</span></div><div class="body">
-    <div class="bubble plain">${n ? '' : `故事书还是空的。`}每个周五闯关成功，就多一页${name()}的故事。一章读完了，要等${name()}长大才有下一章，这时闯关成功会带回一张明信片。</div>${chap}</div>`
+    <div class="bubble plain">${n ? '' : `故事书还是空的。`}每周闯关打败怪兽，就多一页${name()}的故事。一章读完了，要等${name()}长大才有下一章，这时闯关成功会带回一张明信片。</div>${chap}</div>`
 }
 
 // ---------- 学期地图和地方 ----------
@@ -808,14 +832,14 @@ function placeCard(p, hintNext) {
   return `<button class="place ${open ? '' : 'lock'}" data-a="${open ? 'place' : 'nope'}" data-v="${p.k}"><span class="th">${scene(p.k, { thumb: true })}</span><span class="t"><b>${p.n}</b><small>${open ? p.sub : lock}</small>${miss}${open ? `<span class="go">${p.k === 'home' ? '回小屋 ›' : '去看看 ›'}</span>` : ''}</span></button>`
 }
 function vMap() {
-  const now = weekOf(D()), s = S(), bossDay = V.boss?.day || 5, at = {}
+  const now = weekOf(D()), s = S(), at = {}
   PLACES.forEach(p => { (at[Math.max(0, weekOf(openDate(p)))] ||= []).push(p) })
   const next = PLACES.find(p => !placeOpen(p, stage(), D()))
   let rows = ''
   for (let w = 0; w < WEEKS; w++) {
     for (const p of at[w] || []) rows += placeCard(p, s.skill['策略缺失'] >= 2 && p === next)
-    const mon = addDays(SEASON.start, w * 7), fri = addDays(mon, (bossDay || 5) - 1)
-    const tags = `${w === WEEKS - 1 ? `<span class="flag">${md(SEASON.ceremony)} 毕业典礼</span>` : bossDay ? `<span class="flag">${md(fri)} 闯关</span>` : ''}${mon <= `${mon.slice(0, 4)}-12-31` && addDays(mon, 6) >= `${+mon.slice(0, 4) + 1}-01-01` ? '<span class="hol">1/1 元旦</span>' : ''}`
+    const mon = addDays(SEASON.start, w * 7), fri = addDays(mon, 4)
+    const tags = `${w === WEEKS - 1 ? `<span class="flag">${md(SEASON.ceremony)} 毕业典礼</span>` : `<span class="flag">${md(fri)}–${md(addDays(mon, 6))} 本周闯关</span>`}${mon <= `${mon.slice(0, 4)}-12-31` && addDays(mon, 6) >= `${+mon.slice(0, 4) + 1}-01-01` ? '<span class="hol">1/1 元旦</span>' : ''}`
     const peek = w === now && s.skill['漏题'] >= 2 && V.boss?.groups.length ? `<span class="hint">这周闯关考：${V.boss.groups.map(esc).join('、')}</span>` : ''
     rows += `<div class="wk ${w < now ? 'past' : w === now ? 'now' : ''}" ${w === now ? 'id="now"' : ''}>${w === now ? me() : ''}第 ${w + 1} 周 · ${md(mon)}–${md(addDays(mon, 6))} ${tags}${peek}</div>`
   }
