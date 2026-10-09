@@ -14,7 +14,7 @@ export const LEVELS = ['同构', '略变', '综合']
 // 难度阶梯：档位 0 / 1 / 2 时，抽题在三种难度上的比例
 export const LEVEL_MIX = [[0.6, 0.3, 0.1], [0.4, 0.4, 0.2], [0.2, 0.5, 0.3]]
 export const STORY_PAGES = 16
-export const BOSS_SIZE = 8, BOSS_PASS = 6, BOSS_COINS = 30   // 本周闯关（周五到周日，每周一次）：8 题，答对 6 题算通关
+export const BOSS_SIZE = 8, BOSS_PASS = 6, BOSS_COINS = 30, BOSS_ITEM = 5   // 本周闯关（周五到周日，每周一次）：8 题，答对 6 题算通关；每题只给 5 金币（没有过程奖），打败怪兽另加 30
 export const EXTRA_STEP = 5                                   // 加练一次加几题（金币减半）
 // 每次同步的题库至少够做多少天（按孩子每天都来算）。家长偶尔没及时更新，孩子也有新题做
 export const PACK_DAYS = 14

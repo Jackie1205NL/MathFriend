@@ -275,10 +275,15 @@ const monSvg = (k, cls = '') => { const m = MONS[k % MONS.length], h = m.px.leng
 /** 做本周闯关时顶上的怪兽：心是还要答对几题，答对一题打掉一颗，打完就赢 */
 function vBoss() {
   const g = groups().find(x => x.id === 'friday'); if (!g) return ''
-  const okN = g.items.filter(it => it.done?.ok).length, left = Math.max(0, g.pass - okN), dead = !left, hit = Q.fin?.ok && Q.gid === 'friday'
-  return `<div class="boss ${dead ? 'won' : ''}">${monSvg(g.monster ?? 0, dead ? 'dead' : hit ? 'hit' : '')}<div><b>${MONS[(g.monster ?? 0) % MONS.length].n}</b>
+  // 怪兽的血 = 要答对几题；下面一排是每道题的结果，让孩子看懂「一共 5 题、4 滴血、可以错 1 题」
+  const okN = g.items.filter(it => it.done?.ok).length, badN = g.items.filter(it => it.done && !it.done.ok).length, spare = g.items.length - g.pass - badN
+  const left = Math.max(0, g.pass - okN), dead = !left, lost = !dead && spare < 0, hit = Q.fin?.ok && Q.gid === 'friday'
+  const dots = g.items.map(it => `<i class="${it.done ? it.done.ok ? 'y' : 'n' : ''}">${it.done ? it.done.ok ? '✓' : '✗' : ''}</i>`).join('')
+  const say = dead ? '打败它了！把剩下的题做完就结算。' : lost ? '这次打不败它了，把题做完，下周再来。' : `答对 1 题打掉 1 滴血，还要答对 ${left} 题。${spare > 0 ? `还能错 ${spare} 题。` : '一题都不能错了！'}`
+  return `<div class="boss ${dead ? 'won' : ''}">${monSvg(g.monster ?? 0, dead || lost ? 'dead' : hit ? 'hit' : '')}<div><b>${MONS[(g.monster ?? 0) % MONS.length].n}</b> <span class="hp">${g.pass} 滴血</span>
     <div class="hearts">${'<i class="f"></i>'.repeat(left)}${'<i></i>'.repeat(Math.min(g.pass, okN))}</div>
-    <small>${dead ? '打败它了！把剩下的题做完就结算。' : `再答对 ${left} 题就能打败它（一共 ${g.items.length} 题）`}</small></div></div>`
+    <div class="bdots"><span>${g.items.length} 道题</span>${dots}</div>
+    <small>${say}</small></div></div>`
 }
 const chalOpen = () => groups().some(g => g.friday && g.items.some(it => !it.done))      // 本周闯关还没做完
 const house = n => n ? `${n}的小屋` : '小柴犬的家'
