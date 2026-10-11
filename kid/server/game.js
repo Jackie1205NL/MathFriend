@@ -1,6 +1,6 @@
 // 孩子端后端：判分、金币、照顾、存档都在这里，页面拿不到答案。
 // 存储只要有 get(key) / set(key, value) 两个方法：线上是 Netlify Blobs（kid/functions/kid.mjs），本地开发是文件（kid/vite.config.js）。
-import { FORMATS, MIN_SECONDS, SKILLS, SKILL_COST, GOODS, DECAY, NEED_FLOOR, PATS_PER_DAY, LEVELS, LEVEL_MIX, STORY_PAGES, BOSS_SIZE, BOSS_PASS, BOSS_COINS, BOSS_RATE, EXTRA_STEP, STAGES,
+import { FORMATS, needsRest, petRest, bedtimeMinutes, MIN_SECONDS, SKILLS, SKILL_COST, GOODS, DECAY, NEED_FLOOR, PATS_PER_DAY, LEVELS, LEVEL_MIX, STORY_PAGES, BOSS_SIZE, BOSS_PASS, BOSS_COINS, BOSS_RATE, EXTRA_STEP, STAGES,
   SEASON, PLACES, POSTCARDS, POSTCARD_DAYS, JAR, TRIP_MOOD, EVENT_COINS, coinsFor, maxCoins, publicItem, stageOf, placeOpen, eventOf, cleanName, addDays,
   SKILL_EVERY, SKILL_USES, SKILL_AT, SKILL_L2, FLOWS, STEP_NAME, flowOf, dailyOf, packDays, checkPack, LOG_FORMAT, toTokens, showExpr, validExpr, exprValue, exprSteps, sameNums, stripParens, nextOp, canTap, calcOp, reduceAt } from '../../shared/contract.js'
 
@@ -201,7 +201,7 @@ export function createApi(base, env) {
     const s = state
     // 早安小礼物：前一天睡前三项需求都 ≥60，今天第一次打开时叼来一样东西
     if (s.hatched && s.gift?.date !== date) {
-      const [h, m] = String(pack?.tuning?.bedtime || '20:30').split(':').map(Number)
+      const minutes = bedtimeMinutes(addDays(date, -1), user.id), h = Math.floor(minutes / 60), m = minutes % 60
       const bed = Date.parse(`${addDays(date, -1)}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00+08:00`), at = s.needs.at
       const ok = ['full', 'mood', 'clean'].every(k => (at >= bed || s.needs[k] <= NEED_FLOOR ? s.needs[k] : s.needs[k] - DECAY[k] * (bed - at) / DAY) >= 60)
       const what = !ok ? null : hash(date) % 2 ? 'cookie' : 'coins'
@@ -224,7 +224,7 @@ export function createApi(base, env) {
       if (state.chal?.week !== wk || state.chal.items.some(id => !ids.has(id))) state.chal = { week: wk, ...pickChallenge(pack, log, date, day.groups.flatMap(g => g.items)), recs: {}, done: false }
       if (!state.chal.done && state.chal.items.length) { day.groups.push({ id: 'friday', items: state.chal.items, pass: state.chal.pass }); await S.set(`day:${date}`, day) }
     }
-    return { S, pack, state, date, log, day, now, c0: state.coins }      // c0：这次请求开始时的金币（早安礼物已经单独记了），存档时算出赚了还是花了
+    return { S, pack, state, date, log, day, now, rest: petRest(now, user.id), c0: state.coins }      // c0：这次请求开始时的金币（早安礼物已经单独记了），存档时算出赚了还是花了
   }
   /** 记得你：小狗说话时能用上的几件事 */
   function facts({ pack, state, date, log }) {
@@ -238,7 +238,7 @@ export function createApi(base, env) {
     const st = stageOf(s, date), ev = s.hatched && s.event !== date ? eventOf(date, s.skill['概念不清'] >= 2) : null
     const H = s.hide?.date === date ? s.hide : null
     return {
-      date, now: ctx.now,
+      date, now: ctx.now, rest: ctx.rest,
       state: { ...s, hide: undefined, stage: st, good: good(s), finale: date >= SEASON.finale, graduated: !!s.grad, pcPending: POSTCARD_DAYS.some(d => d > (s.pcLast || '') && d <= date) },
       week: pack?.week || null, tuning: pack?.tuning || {},
       today: day ? day.groups.map(dg => ({ ...(dg.id === 'friday' ? { ...FRIDAY, pass: dg.pass ?? BOSS_PASS, monster: hash(isoWeek(date)) % MONSTERS, sub: `周五到周日开放，每周一次。答对 ${dg.pass ?? BOSS_PASS} 题打败怪兽，解锁一页故事` } : dg.id === 'extra' ? EXTRA : dg.id === 'sample' ? SAMPLE : pack.groups.find(g => g.id === dg.id)), items: dg.items.map(id => { const it = byId[id], r = day.items[id] || {}; return { ...publicItem(it, { tier: s.tiers?.[`${it.kp}|${it.err}`]?.lv ?? 0 }), ...(dg.id === 'friday' ? { max: Math.round(maxCoins(it) * BOSS_RATE) } : {}), done: r.fin || (dg.id === 'friday' && s.chal?.recs?.[id]) || null, guard: r.guard || null, caught: r.caught || null, l2: !!r.l2, help: r.help || [] } }) })) : [],
@@ -768,7 +768,26 @@ export function createApi(base, env) {
 
   // ---------- 照顾、买东西、学本领、散步、陪玩 ----------
   function act(ctx, b) {
-    const s = ctx.state, date = ctx.date, st = stageOf(s, date), kid = s.kid || '小主人'
+    const s = ctx.state, date = ctx.date, st = stageOf(s, date), kid = s.kid || '小主人', low = needsRest(s.needs)
+    if (b.kind === 'quiet' || (ctx.rest.sleeping && b.kind === 'pat')) {
+      if (!s.hatched) return { msg: '小狗还在小窝里，先和它认识一下吧。' }
+      if (!ctx.rest.sleeping) return { msg: '我睡醒啦！现在可以摸摸我，或一起玩。' }
+      const k = b.kind === 'pat' ? 'pat' : b.k
+      const lines = { blanket: '被角掖好啦，小狗把鼻尖藏进暖暖的毯子里。', pat: '你轻轻摸了摸它，小狗在梦里把爪子靠近了一点。', hum: '你轻轻哼着晚安曲，小狗的呼吸慢慢悠悠。' }
+      if (!lines[k]) return { msg: '选一种安静的陪伴吧。' }
+      if (s.nightCare?.night !== ctx.rest.night) s.nightCare = { night: ctx.rest.night, done: [] }
+      const first = !s.nightCare.done.includes(k)
+      if (first) { s.nightCare.done.push(k); add(s, 'mood', 3) }
+      return { msg: lines[k] + (low ? ' 先安心休息，醒来再吃一点、洗个澡，慢慢来就好。' : ' 你也可以放心去休息啦。') + (first ? ' 心情 ＋3。' : ''), act: 'sleep' }
+    }
+    if (ctx.rest.sleeping && ['food', 'soap', 'toy', 'trip', 'hide', 'cup', 'event'].includes(b.kind)) return { msg: '小狗睡着啦。可以盖被子、轻轻摸摸或哼晚安曲，其他的等睡醒再玩。', act: 'sleep' }
+    if (b.kind === 'equip') {
+      const x = GOODS.find(g => g.k === b.k && ['scarf', 'bow', 'hat'].includes(g.k))
+      if (!x || !s.own[x.k]) return { msg: '先在小卖部找到喜欢的配饰吧。' }
+      const slot = x.k === 'hat' ? 'head' : 'neck'
+      s.outfit ||= {}; s.outfit[slot] = b.off ? '' : x.k
+      return { msg: b.off ? '收好啦，想戴时再拿出来。' : `换上${x.n}啦，回小屋看看！` }
+    }
     // 金币的来源 / 去处（看板和导出按这个分类）
     const good = b.kind === 'buy' && GOODS.find(g => g.k === b.k)
     ctx.tag = good ? { food: '吃的', soap: '洗澡', toy: '玩具', keep: '装扮和摆设' }[good.kind] || '买东西' : { event: '小事件', trip: '散步', jar: '储蓄罐', extra: '做题' }[b.kind] || '其他'
@@ -786,7 +805,7 @@ export function createApi(base, env) {
       const keys = it.segs.flatMap((x, j) => x.k ? [j] : []), noise = it.segs.flatMap((x, j) => x.n ? [j] : [])
       return { circle: { sel: r.circle, keys, noise, kw: c.kw, missed: keys.filter(j => !sel.has(j)).map(j => it.segs[j].t), must: keys.filter(j => it.segs[j].k === 2 && !sel.has(j)).map(j => it.segs[j].t), mustIdx: keys.filter(j => it.segs[j].k === 2), extra: noise.filter(j => sel.has(j)).map(j => it.segs[j].t), why: it.why || '' } }
     }
-    if (b.kind === 'greet') { s.greet = date; return { msg: `${kid}，我们今天也一起慢慢来！`, act: 'wag' } }
+    if (b.kind === 'greet') { s.greet = date; return { msg: ctx.rest.sleeping ? '小狗已经睡着啦，轻轻陪它一会儿吧。' : low ? `${kid}，见到你真好！先吃一点、洗个澡，咱们一件件来。` : `${kid}，我们今天也一起慢慢来！`, act: ctx.rest.sleeping ? 'sleep' : 'wag' } }
     if (b.kind === 'buy') {
       const x = GOODS.find(g => g.k === b.k); if (!x) return { msg: '没有这个东西。' }
       if (x.kind === 'keep' && s.own[x.k]) return { msg: '已经有了。' }
@@ -795,25 +814,25 @@ export function createApi(base, env) {
       if (x.month && x.month !== +date.slice(5, 7)) return { msg: `这是 ${x.month} 月限定，${x.month} 月才卖。` }
       if (s.coins < x.p) return { msg: `还差 ${x.p - s.coins} 金币，做任务就能赚到。` }
       s.coins -= x.p
-      if (x.kind === 'keep') { s.own[x.k] = true; mark(s, date, `买了${x.n}`) } else if (x.kind === 'toy') s.toy[x.k] = (s.toy[x.k] || 0) + x.uses; else s.bag[x.k] = (s.bag[x.k] || 0) + 1
+      if (x.kind === 'keep') { s.own[x.k] = true; if (['scarf', 'bow', 'hat'].includes(x.k)) { s.outfit ||= {}; s.outfit[x.k === 'hat' ? 'head' : 'neck'] = x.k } mark(s, date, `买了${x.n}`) } else if (x.kind === 'toy') s.toy[x.k] = (s.toy[x.k] || 0) + x.uses; else s.bag[x.k] = (s.bag[x.k] || 0) + 1
       return { msg: x.kind === 'keep' ? `买到「${x.n}」了，${p ? `已经摆在${p.n}。` : '回小屋看看。'}` : `「${x.n}」放进背包了，回小屋就能用。` }
     }
     // 喂食、玩具：孩子自己选用哪一样（b.k）；没选的老页面才按以前的办法挑
     if (b.kind === 'toy') {
-      const k = b.k ? (s.toy[b.k] > 0 ? b.k : null) : Object.keys(s.toy).find(k => s.toy[k] > 0); if (!k) return { msg: b.k ? '这个玩具用完了，换一个吧。' : '没有玩具了。小卖部有橡胶小球和飞盘。', act: 'think' }
-      const x = GOODS.find(g => g.k === k); s.toy[k]--; add(s, 'mood', x.mood); return { msg: `玩${x.n}真开心！心情 ＋${x.mood}。`, act: 'catch' }
+      const k = b.k ? (s.toy[b.k] > 0 ? b.k : null) : Object.keys(s.toy).find(k => s.toy[k] > 0); if (!k) return { msg: b.k ? '这个玩具用完了，换一个吧。' : '没有玩具了。小卖部有暖阳拼色球和薄荷飞盘。', act: 'think' }
+      const x = GOODS.find(g => g.k === k); s.toy[k]--; add(s, 'mood', x.mood); return { msg: `${low ? '慢慢玩一小会儿，心情亮起来一点啦。' : `玩${x.n}真开心！`}心情 ＋${x.mood}。`, act: 'catch' }
     }
     if (b.kind === 'food' || b.kind === 'soap') {
       const x = b.k ? GOODS.find(g => g.k === b.k && g.kind === b.kind && s.bag[g.k] > 0) : GOODS.filter(g => g.kind === b.kind && s.bag[g.k] > 0).sort((p, q) => q.p - p.p)[0]
       if (!x) return { msg: b.k ? '背包里没有这个了，换一个吧。' : b.kind === 'food' ? '背包里没有吃的了，去小卖部看看？' : '没有香皂了，小卖部有泡泡香皂。', act: 'think' }
       s.bag[x.k]--
-      if (b.kind === 'food') { add(s, 'full', x.full); if (x.mood) add(s, 'mood', x.mood); return { msg: `${x.n}好好吃！饱食 ＋${x.full}。`, act: 'eat' } }
-      add(s, 'clean', x.clean); return { msg: '泡泡澡好舒服，香香的！', act: 'bath' }
+      if (b.kind === 'food') { add(s, 'full', x.full); if (x.mood) add(s, 'mood', x.mood); return { msg: `${low ? '先吃一口，肚子暖暖的了。我们慢慢恢复精神！' : `${x.n}好好吃！`}饱食 ＋${x.full}。`, act: 'eat' } }
+      add(s, 'clean', x.clean); return { msg: low ? '温温的水、软软的泡泡，洗好舒服多啦。下一件事慢慢来。' : '泡泡澡好舒服，香香的！', act: 'bath' }
     }
     if (b.kind === 'pat') {
       if (s.pats.date !== date) s.pats = { date, n: 0 }
-      if (s.pats.n >= PATS_PER_DAY) return { msg: '今天已经摸了好多次啦，陪我玩吧！', act: 'wag' }
-      s.pats.n++; add(s, 'mood', 3); return { msg: '嘿嘿，舒服。心情 ＋3。', act: 'shake' }
+      if (s.pats.n >= PATS_PER_DAY) return { msg: low ? '你的手暖暖的，安静坐一会儿也很好。' : '今天已经摸了好多次啦，陪我玩吧！', act: 'wag' }
+      s.pats.n++; add(s, 'mood', 3); return { msg: low ? '摸摸真舒服，谢谢你陪着我。先做一件小事就很好。心情 ＋3。' : '嘿嘿，舒服。心情 ＋3。', act: 'shake' }
     }
     if (b.kind === 'learn') {
       const k = b.k, lv = s.skill[k]; if (lv == null || lv >= 3 || s.pts[k] < SKILL_COST[lv]) return { msg: '技能点还不够。' }

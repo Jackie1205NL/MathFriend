@@ -1,9 +1,10 @@
 // 孩子端页面：小屋、学期地图、今日任务、题型、本领、小卖部、纪念册。答案和金币都在后端（kid/server/game.js），这里只负责显示和把操作发过去。
 import './style.css'
-import { SKILLS, SKILL_COST, GOODS, STORY_PAGES, STAGES, SCARF_AT, SEASON, PLACES, POSTCARDS, JAR, TRICKS, POSE_MS, placeOpen, addDays, dayDiff,
+import { SKILLS, needsRest, petRest, wornAccessory, SKILL_COST, GOODS, STORY_PAGES, STAGES, SCARF_AT, SEASON, PLACES, POSTCARDS, JAR, TRICKS, POSE_MS, placeOpen, addDays, dayDiff,
   SKILL_AT, SKILL_L2, STEP_NAME, toTokens, showExpr, validExpr, stripParens, nextOp, canTap, calcOp, reduceAt, isOp } from '../../shared/contract.js'
 import { LINES } from './lines.js'
 import { STORY } from './story.js'
+import { itemArt, itemIcon } from './pet-items.js'
 
 const app = document.getElementById('app')
 let V = null, page = 'home', Q = null, say = '', act = '', pose = '', poseTimer = 0, sel = '审题', pin = '', loginErr = '', busy = false, taps = [], cere = null
@@ -43,25 +44,24 @@ const kid = () => esc(S().kid || '小朋友')
 const fillNames = t => esc(t).replace(/\{name\}/g, name()).replace(/\{kid\}/g, kid())
 const now = () => new Date(Date.now() + clockSkew)
 const hello = () => { const h = (now().getUTCHours() + 8) % 24; return h < 12 ? '早上好' : h < 18 ? '下午好' : '晚上好' }
-const late = () => { const d = now(), [h, m] = String(V?.tuning?.bedtime || '20:30').split(':').map(Number); return d.getHours() * 60 + d.getMinutes() >= h * 60 + m }
+const rest = () => petRest(now().getTime(), V?.rest?.seed || 'main')
+const late = () => !!V?.state?.hatched && rest().sleeping
 const month = () => +D().slice(5, 7)
 const winter = () => D() >= `${D().slice(0, 4)}-12-01` || month() <= 2
 const ownOn = k => S().own[k]
 // 学士帽、领结、毛线帽、本领徽章：素材还没画，先用代码画
 const CAP = '<svg class="cap" viewBox="0 0 100 60" aria-hidden="true"><polygon points="50,4 98,22 50,40 2,22" fill="#1d2430"/><path d="M24 30 v14 q26 14 52 0 v-14 l-26 10z" fill="#2b3442"/><line x1="86" y1="26" x2="88" y2="50" stroke="#ffd766" stroke-width="3"/><circle cx="88" cy="52" r="4" fill="#ffd766"/></svg>'
-const HAT = '<svg class="cap" viewBox="0 0 100 64" aria-hidden="true"><path d="M14 52 q2 -44 36 -44 q34 0 36 44z" fill="#d9542e"/><path d="M14 52 h72" stroke="#fff3e0" stroke-width="10" stroke-linecap="round"/><circle cx="50" cy="8" r="9" fill="#fff3e0"/><path d="M30 20 v26 M50 12 v34 M70 20 v26" stroke="#b5401f" stroke-width="3"/></svg>'
-const BOW = '<svg viewBox="0 0 60 30" aria-hidden="true"><path d="M30 15 L4 2 Q0 15 4 28 Z" fill="#d9542e"/><path d="M30 15 L56 2 Q60 15 56 28 Z" fill="#e8743b"/><circle cx="30" cy="15" r="6" fill="#b5401f"/></svg>'
 function petHtml(o = {}) {
   const st = o.st ?? stage(), p = o.st ? '' : late() && !o.awake ? 'sleep' : pose, a = SCARF_AT[st]
   const src = st && p ? `/pet/s${st}-act-${p}.webp` : `/pet/s${st}.webp`
   const capOn = o.cap ?? S().graduated, still = st && !p
-  const neck = still && a ? `left:${a.x - a.w * 0.65}%;top:${a.y - 5}%;width:${a.w * 1.3}%` : ''
-  const scarf = neck && ownOn('scarf') && !capOn ? `<img class="scarf" src="/pet/item-scarf.webp" alt="" style="${neck}">` : ''
-  const bow = neck && ownOn('bow') && !ownOn('scarf') ? `<span class="bow" style="left:${a.x - 9}%;top:${a.y - 2}%;width:18%">${BOW}</span>` : ''
-  const hat = still && (capOn ? CAP : ownOn('hat') && winter() ? HAT : '')
+  const neck = still && a ? `left:${a.x - a.w * 0.6}%;top:${a.y - a.w * 0.28}%;width:${a.w * 1.2}%` : ''
+  const scarf = neck && wornAccessory(S(), 'neck') === 'scarf' && !capOn ? `<span class="accessory" style="${neck}">${itemArt('scarf')}</span>` : ''
+  const bow = neck && wornAccessory(S(), 'neck') === 'bow' ? `<span class="bow" style="left:${a.x - 13}%;top:${a.y - 8}%;width:26%">${itemArt('bow')}</span>` : ''
+  const hat = still && (capOn ? CAP : wornAccessory(S(), 'head') === 'hat' ? itemArt('hat') : '')
   const full = SKILLS.filter(x => S().skill[x.k] >= 3)
   const badges = neck && full.length ? `<span class="medals" style="left:${a.x - 2 - full.length * 3}%;top:${a.y + 6}%">${full.map(x => `<img src="/pet/badge-${x.badge}.webp" alt="">`).join('')}</span>` : ''
-  const cls = o.st ? '' : act ? 'a-' + (ACT[act] || act) : p && p !== 'sleep' ? 'p-' + p : ''
+  const cls = o.st || p === 'sleep' ? '' : act ? 'a-' + (ACT[act] || act) : p && p !== 'sleep' ? 'p-' + p : ''
   const bubbles = p === 'bath' ? `<div class="bubbles">${[12, 30, 48, 66, 82].map((x, k) => `<i style="left:${x}%;animation-delay:-${k * 0.45}s"></i>`).join('')}</div>` : ''
   return `<div class="pet"><div class="${cls}"><span class="wear ${p ? '' : 'breathe'}"><img src="${src}" alt="${st ? '小柴犬' : '小窝'}">${scarf}${bow}${hat ? `<span class="hat">${hat}</span>` : ''}${badges}</span></div>${bubbles}</div>`
 }
@@ -70,12 +70,13 @@ const fact = t => t.replace('{kid}', S().kid || '小朋友').replace('{fixed}', 
 function chat(kind) {
   const n = S().needs, f = V.facts || {}
   let pool
-  if (kind) pool = LINES[kind]
-  else if (late()) pool = LINES.time_late
+  if (late()) pool = LINES[needsRest(n) ? 'rest_sleep' : 'time_late']
+  else if (needsRest(n)) pool = LINES[kind === 'tap' || kind === 'tap_too_much' ? 'rest_tap' : 'state_rest']
+  else if (kind) pool = LINES[kind]
   else {
     const need = [['state_hungry', n.full], ['state_bored', n.mood], ['state_dirty', n.clean]].filter(([, v]) => v < 40), r = Math.random()
     const mine = LINES.remember.filter(l => (!l.need || f[l.need]) && (!l.kid || S().kid))
-    pool = need.length && r < .45 ? LINES[pick(need)[0]] : V.allDone && r < .6 ? LINES.after_practice : r < .72 && mine.length ? mine : r < .85 ? LINES.idle : r < .94 ? LINES.math : LINES[now().getHours() < 11 ? 'time_morning' : 'time_evening']
+    pool = need.length && r < .45 ? LINES[pick(need)[0]] : V.allDone && r < .6 ? LINES.after_practice : r < .72 && mine.length ? mine : r < .85 ? LINES.idle : r < .94 ? LINES.math : LINES[(now().getUTCHours() + 8) % 24 < 11 ? 'time_morning' : (now().getUTCHours() + 8) % 24 >= 18 ? 'time_evening' : 'idle']
   }
   const l = pick(pool || LINES.idle)
   say = fact(l.t); act = l.act
@@ -96,17 +97,16 @@ const groups = () => V.today || []
 const allItems = () => groups().flatMap(g => g.items)
 const doneCount = () => allItems().filter(it => it.done).length
 const fx = (kind, n = 12) => `<div class="fx ${kind}">${Array.from({ length: n }, (_, i) => `<i style="left:${(i * 37) % 100}%;animation-duration:${4 + (i % 5)}s;animation-delay:-${((i * 0.7) % 5).toFixed(1)}s"></i>`).join('')}</div>`
-const LANTERN = '<svg class="lantern" viewBox="0 0 40 70" aria-hidden="true"><line x1="20" y1="0" x2="20" y2="12" stroke="#7a5130" stroke-width="2"/><ellipse cx="20" cy="34" rx="17" ry="20" fill="#e23a3a"/><rect x="12" y="12" width="16" height="5" rx="2" fill="#ffd766"/><rect x="12" y="51" width="16" height="5" rx="2" fill="#ffd766"/><path d="M20 56 v12" stroke="#ffd766" stroke-width="2"/></svg>'
-const PILLOW = '<svg class="pillow" viewBox="0 0 90 50" aria-hidden="true"><path d="M6 40 q2 -34 39 -34 q37 0 39 34 q-39 10 -78 0z" fill="#fff6e8" stroke="#d9b98a" stroke-width="3"/><path d="M22 14 q4 8 0 16 M36 10 q4 9 0 18 M54 10 q-4 9 0 18 M68 14 q-4 8 0 16" stroke="#d9b98a" stroke-width="2.5" fill="none"/><circle cx="36" cy="32" r="2.5" fill="#5a3418"/><circle cx="54" cy="32" r="2.5" fill="#5a3418"/></svg>'
 function room() {
   const s = S(), ev = V.event
-  return `<div class="room" data-a="tap" role="button" aria-label="戳一戳小狗">
+  return `<div class="room ${late() ? 'resting' : ''}" data-a="tap" role="button" tabindex="0" aria-label="${late() ? '轻轻陪小狗' : '戳一戳小狗'}">
     ${stage() ? `<div class="win">${fx(winter() ? 'snow' : 'leaf', 10)}</div>` : ''}
-    ${s.own.curtain ? '<img class="curtain" src="/pet/item-curtain.webp" alt="">' : ''}
-    ${ownOn('lantern') ? LANTERN : ''}${ownOn('pillow') ? PILLOW : ''}
-    ${ev ? `<button class="event" data-a="event">${esc(ev.t)}<u>${esc(ev.b)}</u></button>` : ''}
+    ${s.own.curtain ? itemArt('curtain', 'class="curtain"') : ''}
+    ${ownOn('lantern') ? itemArt('lantern', 'class="lantern"') : ''}${ownOn('pillow') ? itemArt('pillow', 'class="pillow"') : ''}
+    ${late() ? '<span class="sleep-stars" aria-hidden="true">☾ · ✧</span>' : ''}
+    ${ev && !late() ? `<button class="event" data-a="event">${esc(ev.t)}<u>${esc(ev.b)}</u></button>` : ''}
     ${petHtml()}
-    <span class="tag">${!stage() ? '小窝' : s.good ? '状态好 · 明早有小礼物' : winter() ? '窗外在下雪' : '窗外是秋天'}</span></div>`
+    <span class="tag">${!stage() ? '小窝' : late() ? '梦乡里 · 早上 7 点醒来' : needsRest(s.needs) ? '慢慢恢复精神 · 从一件小事开始' : s.good ? '状态好 · 明早有小礼物' : winter() ? '窗外在下雪' : '窗外是秋天'}</span></div>`
 }
 function growCard() {
   const s = S(), n = s.days, i = stage(), nx = STAGES[i + 1]
@@ -188,12 +188,12 @@ function vAdmTest() {
 }
 async function loadAdmin() { const r = await api('/admin/users'); ADM = r.users; ADMP = r.pack; ADMW = r.weeks || []; ADMS = r.settings || {}; page = 'admin' }
 function vHome() {
-  const s = S(), n = s.needs, st = stage(), bag = kind => GOODS.filter(g => g.kind === kind).reduce((a, g) => a + (s.bag[g.k] || 0), 0)
+  const s = S(), n = s.needs, st = stage(), sleeping = late(), low = needsRest(n), bag = kind => GOODS.filter(g => g.kind === kind).reduce((a, g) => a + (s.bag[g.k] || 0), 0)
   const pats = s.pats.date === D() ? s.pats.n : 0, tricks = TRICKS.filter(t => s.skill[t.k] >= 1).length
   const canLearn = SKILLS.filter(x => s.skill[x.k] < 3 && s.pts[x.k] >= SKILL_COST[s.skill[x.k]]).length
   const breakTime = D() > SEASON.ceremony
   const cta = !V.week || (breakTime && !allItems().length) ? `<button class="btn" disabled>${breakTime ? '寒假没有任务' : '还没有任务'}<small>${breakTime ? `来陪${name()}玩吧` : '等爸爸妈妈发这周的题'}</small></button>`
-    : late() ? `<button class="btn" disabled>${name()}睡觉了<small>明天见</small></button>`
+    : late() ? `<button class="btn" disabled>${name()}睡觉了<small>可以轻轻陪它一会儿</small></button>`
     : V.allDone && chalOpen() ? `<button class="btn red" data-a="go" data-v="quests">本周闯关开放了<small>打败${MONS[(groups().find(g => g.friday).monster ?? 0) % MONS.length].n}，解锁一页故事（每周一次）</small></button>`
     : V.allDone ? `<button class="btn" data-a="go" data-v="result">今天完成啦<small>看看今天的成绩</small></button>`
     : `<button class="btn" data-a="go" data-v="quests">今日任务 ${doneCount()} / ${allItems().length}<small>最多可赚 ${allItems().reduce((a, it) => a + it.max, 0)}${canLearn ? ` · 有 ${canLearn} 个本领可以学` : ''}</small></button>`
@@ -204,8 +204,10 @@ function vHome() {
     ${banner}
     <div class="bubble">${esc(say) || (st ? `嗨，${kid()}！今天也一起加油吧。` : '它还在小窝里睡觉。做完第一道题，它就会醒来。')}</div>
     ${room()}
+    ${st ? `<div class="rest-note"><span>${sleeping ? '晚安时光 · 不用花金币' : `今天约 ${rest().bedtime} 入睡 · 早上 7 点醒来`}</span><button data-a="sheet" data-v="wardrobe">换配饰 ›</button></div>` : ''}
+    ${low && !sleeping ? '<div class="care-note"><b>慢慢恢复精神</b><p>先吃一点、洗个澡，或轻轻摸摸。选一件就好，不用一下全做完。</p></div>' : ''}
     <div class="duo">${growCard()}<div class="card bars">${bar('饱食', n.full, '')}${bar('心情', n.mood, 'b')}${bar('清洁', n.clean, 'c')}</div></div>
-    <div class="acts"><button data-a="sheet" data-v="food">喂食<small>${bag('food')} 份</small></button><button data-a="care" data-v="soap">洗澡<small>${bag('soap')} 块</small></button><button class="new" data-a="sheet" data-v="play" ${st ? '' : 'disabled'}>陪玩<small>三选一</small></button><button data-a="care" data-v="pat">摸摸<small>今天 ${Math.max(0, 3 - pats)} 次</small></button><button data-a="sheet" data-v="tricks" ${st ? '' : 'disabled'}>把戏<small>会 ${tricks} 个</small></button></div>
+    ${sleeping ? `<div class="acts night-acts"><button data-a="quiet" data-v="blanket">盖好被子<small>暖暖的</small></button><button data-a="quiet" data-v="pat">轻轻摸摸<small>安心陪伴</small></button><button data-a="quiet" data-v="hum">哼晚安曲<small>轻轻的</small></button></div><p class="dim">每种陪伴每晚首次心情 ＋3，之后也可以再陪一会儿。你也可以安心去休息。</p>` : `<div class="acts"><button data-a="sheet" data-v="food">喂食<small>${bag('food')} 份</small></button><button data-a="care" data-v="soap">洗澡<small>${bag('soap')} 块</small></button><button class="new" data-a="sheet" data-v="play" ${st ? '' : 'disabled'}>陪玩<small>三选一</small></button><button data-a="care" data-v="pat">摸摸<small>今天 ${Math.max(0, 3 - pats)} 次</small></button><button data-a="sheet" data-v="tricks" ${st ? '' : 'disabled'}>把戏<small>会 ${tricks} 个</small></button></div>`}
     ${cta}
     ${V.wish ? `<p class="dim">心愿单：${esc(V.wish.text)} · 这周做完任务 ${V.wish.got} / ${V.wish.need} 天</p>` : ''}
     ${s.hatched ? `<div class="tri"><button class="card quest" data-a="story" data-v=""><b>故事书</b><span class="pill">${s.story} / ${STORY_PAGES}</span></button><button class="card quest" data-a="go" data-v="diary"><b>日记</b><span class="pill">${s.album.length} 件事</span></button><button class="card quest" data-a="go" data-v="book"><b>纪念册</b><span class="pill">${s.cards.length} / 12</span></button></div>` : ''}
@@ -230,6 +232,7 @@ const SFX = {
   chirp: [[880, 60], [1320, 90]], spin: [[660, 50], [880, 50], [1100, 50], [1320, 80]], eat: [[330, 50], [0, 40], [330, 50], [0, 40], [392, 70]],
   bath: [[600, 40], [900, 40], [700, 40], [1100, 60]], bounce: [[523, 60], [784, 60], [1047, 100]], trick: [[523, 70], [659, 70], [784, 70], [1047, 150]],
   coin: [[988, 60], [1319, 170]], no: [[220, 90, 'triangle']], happy: [[784, 90], [988, 90], [1175, 180]], sad: [[440, 140, 'triangle'], [349, 220, 'triangle']],
+  lullaby: [[392, 320, 'sine'], [330, 320, 'sine'], [294, 360, 'sine'], [262, 560, 'sine']],
   win: [[523, 80], [659, 80], [784, 80], [1047, 80], [784, 80], [1047, 240]],
 }
 let actx = null
@@ -239,7 +242,7 @@ function sfx(k) {
     actx ||= new (window.AudioContext || window.webkitAudioContext)()
     let t = actx.currentTime + 0.01
     for (const [f, ms, type = 'square'] of SFX[k]) {
-      if (f) { const o = actx.createOscillator(), g = actx.createGain(); o.type = type; o.frequency.value = f; g.gain.setValueAtTime(0.07, t); g.gain.exponentialRampToValueAtTime(0.001, t + ms / 1000); o.connect(g).connect(actx.destination); o.start(t); o.stop(t + ms / 1000) }
+      if (f) { const o = actx.createOscillator(), g = actx.createGain(); o.type = type; o.frequency.value = f; g.gain.setValueAtTime(k === 'lullaby' ? 0.025 : 0.07, t); g.gain.exponentialRampToValueAtTime(0.001, t + ms / 1000); o.connect(g).connect(actx.destination); o.start(t); o.stop(t + ms / 1000) }
       t += ms / 1000
     }
   } catch { /* 不支持声音就算了 */ }
@@ -784,9 +787,9 @@ function vSkills() {
 const COLORS = { yard: '#d9682e', park: '#3f9c5f', snow: '#5b8fc9', month: '#cf406a', home: '#e9a23b' }
 function vShop() {
   const s = S(), m = month(), left = Math.max(0, JAR.goal - s.jar), open = D() < SEASON.ceremony && !s.graduated
-  const icon = (x, color) => x.img || x.kind !== 'keep' ? `<img src="/pet/item-${x.k}.webp" alt="">` : `<span class="ic" style="background:${color}">${esc(x.n[0])}</span>`
-  const buy = (x, lock) => s.own[x.k] ? '<span class="dim">已拥有</span>' : lock ? `<span class="dim">${lock}</span>` : `<button class="buy" data-a="buy" data-v="${x.k}" ${s.coins < x.p ? 'disabled' : ''}><i class="ico coin"></i>${x.p}</button>`
-  const row = (x, color, sub, lock) => `<div class="srow">${icon(x, color)}<span><b>${esc(x.n)}</b><small>${sub}</small></span>${buy(x, lock)}</div>`
+  const icon = x => itemIcon(x.k)
+  const buy = (x, lock) => s.own[x.k] ? (['scarf', 'bow', 'hat'].includes(x.k) ? `<button class="buy equip" data-a="equip" data-v="${x.k}">${wornAccessory(s, x.k === 'hat' ? 'head' : 'neck') === x.k ? '收起来' : '戴上'}</button>` : '<span class="dim">已拥有</span>') : lock ? `<span class="dim">${lock}</span>` : `<button class="buy" data-a="buy" data-v="${x.k}" ${s.coins < x.p ? 'disabled' : ''}><i class="ico coin"></i>${x.p}</button>`
+  const row = (x, _color, sub, lock) => `<div class="srow">${icon(x)}<span><b>${esc(x.n)}</b><small>${sub}</small></span>${buy(x, lock)}</div>`
   const bagRow = x => row(x, '', `${x.d} · 背包里 ${x.kind === 'toy' ? (s.toy[x.k] || 0) + ' 次' : (s.bag[x.k] || 0) + ' 份'}`)
   const places = PLACES.filter(p => GOODS.some(g => g.place === p.k)).map(p => { const on = placeOpen(p, stage(), D()); return `<div><h3>${p.n}${on ? '' : ' · 还没开放'}</h3>${GOODS.filter(g => g.place === p.k).map(g => row(g, COLORS[p.k], g.d, on ? '' : '开放后')).join('')}</div>` }).join('')
   const monthly = GOODS.filter(g => g.month).map(g => row(g, COLORS.month, `<span class="tagm">${g.month} 月限定</span>`, g.month === m ? '' : (g.month - m + 12) % 12 < 6 ? `${g.month} 月见` : '已下架')).join('')
@@ -859,10 +862,10 @@ function vPlace() {
     <button class="btn" data-a="ceremony" ${D() >= SEASON.ceremony && !s.graduated ? '' : 'disabled'}>${s.graduated ? '毕业典礼办完啦' : D() >= SEASON.ceremony ? '举行毕业典礼' : `${+SEASON.ceremony.slice(5, 7)} 月 ${+SEASON.ceremony.slice(8)} 日周五举行`}</button></div>`
   const items = GOODS.filter(g => g.place === p.k), got = s.cards.filter(c => c.k === p.k).length
   return `<div class="top"><button class="back" data-a="go" data-v="map" aria-label="回地图">‹</button><h1>${p.n}</h1>${coin(s.coins)}</div><div class="body">
-    <div class="bubble">${esc(say) || `这里是${p.n}！${walked ? '今天已经散过步啦。' : '我们去走一走吧？'}`}</div>
-    <div class="scene">${scene(p.k)}${p.k === 'snow' ? fx('snow', 18) : p.k === 'yard' ? fx('leaf', 8) : ''}${petHtml({ awake: true })}</div>
-    <button class="btn" data-a="trip" ${walked ? 'disabled' : ''}>${walked ? '今天散过步了，明天再来' : `去散步${p.trip ? `（${p.trip} 金币）` : '（自家院子，免费）'}`}<small>心情 ＋20 · 这里的明信片 ${got} / 4</small></button>
-    <div class="card"><b>${p.n}的摆设</b><div class="own">${items.map(i => `<button class="${s.own[i.k] ? 'have' : ''}" data-a="buy" data-v="${i.k}" ${s.own[i.k] || s.coins < i.p ? 'disabled' : ''}>${esc(i.n)}<small>${s.own[i.k] ? '摆好了' : `${i.p} 金币`}</small></button>`).join('')}</div><p class="dim">买了就摆在这里，散步时能看到。</p></div></div>`
+    <div class="bubble">${esc(say) || (late() ? '小狗在小屋里睡觉。先看看风景，醒来再一起散步吧。' : needsRest(s.needs) ? '慢慢逛一会儿也很好，或先回小屋吃一点。' : `这里是${p.n}！${walked ? '今天已经散过步啦。' : '我们去走一走吧？'}`)}</div>
+    <div class="scene">${scene(p.k)}${p.k === 'snow' ? fx('snow', 18) : p.k === 'yard' ? fx('leaf', 8) : ''}${late() ? '' : petHtml({ awake: true })}</div>
+    <button class="btn" data-a="trip" ${walked || late() ? 'disabled' : ''}>${late() ? '小狗睡醒后再一起散步' : walked ? '今天散过步了，明天再来' : `去散步${p.trip ? `（${p.trip} 金币）` : '（自家院子，免费）'}`}<small>心情 ＋20 · 这里的明信片 ${got} / 4</small></button>
+    <div class="card"><b>${p.n}的摆设</b><div class="own">${items.map(i => `<button class="${s.own[i.k] ? 'have' : ''}" data-a="buy" data-v="${i.k}" ${s.own[i.k] || s.coins < i.p ? 'disabled' : ''}>${itemIcon(i.k)}${esc(i.n)}<small>${s.own[i.k] ? '摆好了' : `${i.p} 金币`}</small></button>`).join('')}</div><p class="dim">买了就摆在这里，散步时能看到。</p></div></div>`
 }
 // 地点插画：素材还没画，先用代码画（院子、公园、雪山、礼堂）
 let sceneN = 0
@@ -875,19 +878,19 @@ function scene(k, o = {}) {
     + Array.from({ length: 12 }, (_, i) => `<rect x="${i * 30 + 4}" y="108" width="22" height="56" rx="4" fill="#e7bf86" stroke="#8a5a2b" stroke-width="2"/>`).join('')
     + '<rect x="0" y="124" width="360" height="7" fill="#d9a865"/><rect x="282" y="58" width="16" height="104" fill="#8a5a2b"/><circle cx="290" cy="56" r="44" fill="#e8743b"/><circle cx="254" cy="78" r="28" fill="#f0a040"/><circle cx="322" cy="82" r="30" fill="#d9542e"/>'
     + [[60, 240], [110, 252], [300, 236], [210, 258], [30, 214]].map(([x, y]) => `<ellipse cx="${x}" cy="${y}" rx="8" ry="4" fill="#e8743b"/>`).join('')
-    + (own('house') ? '<polygon points="14,178 66,140 118,178" fill="#d9542e" stroke="#6b3d1c" stroke-width="3"/><rect x="24" y="176" width="84" height="62" fill="#c98a4b" stroke="#6b3d1c" stroke-width="3"/><path d="M52 238 v-26 a14 14 0 0 1 28 0 v26z" fill="#5a3418"/>' : '')
-    + (own('swing') ? '<line x1="252" y1="92" x2="252" y2="182" stroke="#6b3d1c" stroke-width="2"/><line x1="278" y1="92" x2="278" y2="182" stroke="#6b3d1c" stroke-width="2"/><rect x="244" y="180" width="42" height="8" rx="3" fill="#8a5a2b"/>' : '')
-    + (own('flower') ? '<rect x="288" y="232" width="64" height="22" rx="5" fill="#b0703c"/>' + [298, 314, 330, 344].map((x, i) => `<circle cx="${x}" cy="226" r="7" fill="${['#e0527a', '#ffd766', '#f08a1c', '#c45ad6'][i]}"/>`).join('') : '')
+    + (own('house') ? itemArt('house', 'x="0" y="131" width="120" height="120"') : '')
+    + (own('swing') ? itemArt('swing', 'x="227" y="85" width="109" height="122"') : '')
+    + (own('flower') ? itemArt('flower', 'x="276" y="208" width="82" height="58"') : '')
   if (k === 'park') s = sky('#cfeafc', '#f1fafe') + '<ellipse cx="70" cy="196" rx="210" ry="70" fill="#9dd28a"/><ellipse cx="310" cy="206" rx="200" ry="66" fill="#8cc879"/><rect y="200" width="360" height="70" fill="#a8d88f"/><polygon points="150,270 210,270 196,200 170,200" fill="#efdcb0"/>'
     + [[36, 120], [330, 130]].map(([x, y]) => `<rect x="${x - 6}" y="${y}" width="12" height="60" fill="#7a5130"/><circle cx="${x}" cy="${y - 4}" r="30" fill="#4caa6a"/>`).join('')
-    + (own('kite') ? '<polygon points="290,24 312,48 290,78 268,48" fill="#e0527a" stroke="#8a2747" stroke-width="2"/><polyline points="290,78 282,98 296,112 284,130" fill="none" stroke="#8a2747" stroke-width="2"/>' : '')
-    + (own('mat') ? '<polygon points="18,236 104,236 120,264 2,264" fill="#e8574d"/><polygon points="40,236 62,236 70,264 30,264" fill="#fff"/><polygon points="84,236 104,236 114,264 92,264" fill="#fff"/>' : '')
-    + (own('pond') ? '<ellipse cx="300" cy="244" rx="54" ry="16" fill="#69b6e6"/><ellipse cx="288" cy="240" rx="18" ry="4" fill="#bfe4f6"/>' : '')
+    + (own('kite') ? itemArt('kite', 'x="248" y="10" width="89" height="126"') : '')
+    + (own('mat') ? itemArt('mat', 'x="0" y="211" width="125" height="60"') : '')
+    + (own('pond') ? itemArt('pond', 'x="247" y="204" width="111" height="60"') : '')
   if (k === 'snow') s = sky('#d7e5f3', '#f4f8fc') + '<polygon points="-10,170 70,78 150,170" fill="#c9d8ea"/><polygon points="44,108 70,78 96,108 84,102 70,112 56,102" fill="#fff"/><polygon points="90,170 200,56 310,170" fill="#b9cce3"/><polygon points="168,90 200,56 232,90 216,84 200,96 184,84" fill="#fff"/><polygon points="230,170 305,96 380,170" fill="#c9d8ea"/><rect y="166" width="360" height="104" fill="#f7fbff"/>'
     + [[34, 150], [330, 156]].map(([x, y]) => `<polygon points="${x},${y - 60} ${x + 26},${y} ${x - 26},${y}" fill="#3f8a5a"/><polygon points="${x},${y - 60} ${x + 10},${y - 38} ${x - 10},${y - 38}" fill="#fff"/><rect x="${x - 4}" y="${y}" width="8" height="14" fill="#7a5130"/>`).join('')
-    + (own('snowman') ? '<circle cx="56" cy="232" r="24" fill="#fff" stroke="#c4d3e4" stroke-width="2"/><circle cx="56" cy="196" r="16" fill="#fff" stroke="#c4d3e4" stroke-width="2"/><circle cx="51" cy="193" r="2" fill="#333"/><circle cx="61" cy="193" r="2" fill="#333"/><polygon points="56,198 70,201 56,202" fill="#f08a1c"/>' : '')
-    + (own('sled') ? '<rect x="270" y="236" width="66" height="12" rx="3" fill="#c0392b"/><path d="M266 254 h72 q8 0 8 -8" fill="none" stroke="#6b3d1c" stroke-width="3"/>' : '')
-    + (own('stove') ? '<ellipse cx="300" cy="214" rx="40" ry="16" fill="#ffd76655"/><rect x="286" y="198" width="28" height="26" rx="4" fill="#7a5130"/><path d="M294 200 q6 -16 12 0" fill="#f08a1c"/>' : '')
+    + (own('snowman') ? itemArt('snowman', 'x="8" y="163" width="91" height="100"') : '')
+    + (own('sled') ? itemArt('sled', 'x="248" y="224" width="104" height="46"') : '')
+    + (own('stove') ? itemArt('stove', 'x="275" y="175" width="68" height="68"') : '')
   // 毕业礼堂：明亮的学校礼堂，红底黄字横幅、彩旗、气球、木地板舞台、台前一排花
   if (k === 'hall') s = sky('#e3f3ff', '#c4e4fb')
     + '<rect x="34" y="66" width="292" height="132" rx="14" fill="#ffffff" opacity=".75"/>'
@@ -959,20 +962,24 @@ function vSheet() {
     <button class="btn" data-a="kidname">告诉${name()}</button><button class="btn alt" data-a="meetback">回去改小狗的名字</button></div></div>`
   if (m === 3) return `<div class="sheet"><div class="hello"><div class="meet"><img src="/pet/s1-act-wag.webp" alt=""><h2>${kid()}，你好！</h2><p>我是${name()}。以后每天做完题来小屋看我，我们一起过完这个学期，${+SEASON.ceremony.slice(5, 7)} 月 ${+SEASON.ceremony.slice(8)} 日一起毕业。</p></div>
     <button class="btn" data-a="meetdone">好呀，进小屋</button></div></div>`
-  if (page === 'home' && !sheet && V.morning) {
+  if (page === 'home' && !sheet && V.morning && !late()) {
     const M = V.morning, f = M.facts, gift = M.gift === 'cookie' ? '一块骨头饼干（放进背包了）' : M.gift === 'coins' ? '10 金币' : ''
     const said = [f.fixed ? `昨天你订正对了 ${f.fixed} 道题，我都看见了。` : f.firstOk ? `昨天你有 ${f.firstOk} 道题第一次就做对了！` : '', f.focus ? `这周我们一起练「${esc(f.focus)}」。` : '', f.lastSay ? `昨天的答句我还记得：「${esc(f.lastSay)}」` : ''].filter(Boolean).join('')
     return `<div class="sheet"><div class="morning"><div class="hello"><img src="${stage() ? `/pet/s${stage()}-act-wag.webp` : '/pet/s0.webp'}" alt=""><div><h2>${hello()}，${kid()}！</h2><p class="dim">${cnDate(D())} · 已陪伴 ${S().days} 天</p></div></div>
       ${gift ? `<div class="gift"><i class="ico coin"></i>昨天你把我照顾得好好的，我叼来了${gift}。</div>` : ''}
       ${M.note ? `<div class="note">${esc(M.note)}<br><small class="dim">爸爸妈妈的留言，${name()}来转达</small></div>` : ''}
-      ${said ? `<div class="bubble plain">${said}</div>` : ''}
+      ${needsRest(S().needs) ? '<div class="bubble plain">见到你真好！今天先做一件小事，吃一点、洗个澡，慢慢恢复精神。</div>' : said ? `<div class="bubble plain">${said}</div>` : ''}
       <button class="btn" data-a="greet">${gift ? '收下，' : ''}进小屋</button></div></div>`
   }
   if (sheet === 'card' && card) return `<div class="sheet" data-a="close"><div><h2>带回来一张明信片！</h2>${cardHtml(card)}<p class="dim">已经放进纪念册。下一张要过一两天才会出现。</p><button class="btn" data-a="close">收好啦</button></div></div>`
   // 喂什么、玩什么：背包里有的都列出来，孩子自己挑（不替他选）
+  if (sheet === 'wardrobe') {
+    const owned = GOODS.filter(g => ['scarf', 'bow', 'hat'].includes(g.k) && S().own[g.k])
+    return `<div class="sheet" data-a="close"><div><h2>小狗的衣橱</h2><p class="dim">围巾和领结轮着戴，帽子可以一起戴。睡觉时先收在床边。</p>${owned.length ? owned.map(g => `<button class="opt" data-a="equip" data-v="${g.k}">${itemIcon(g.k)}<span><b>${g.n}</b><small>${wornAccessory(S(), g.k === 'hat' ? 'head' : 'neck') === g.k ? '正在戴 · 点一下收起来' : '点一下换上'}</small></span></button>`).join('') : '<p>衣橱还是空的，去小卖部挑一件喜欢的吧。</p>'}<button class="btn alt" data-a="close">收好衣橱</button></div></div>`
+  }
   if (sheet === 'food' || sheet === 'toy') {
     const food = sheet === 'food', have = GOODS.filter(g => g.kind === sheet && (food ? S().bag[g.k] : S().toy[g.k]) > 0)
-    const opt = g => `<button class="opt" data-a="${food ? 'feed' : 'ball'}" data-v="${g.k}"><img class="ii" src="/pet/item-${g.k}.webp" alt=""><span><b>${esc(g.n)}</b><small>${food ? `背包里还有 ${S().bag[g.k]} 份` : `还能玩 ${S().toy[g.k]} 次`}</small></span><span class="r">${food ? `饱食 ＋${g.full}${g.mood ? `，心情 ＋${g.mood}` : ''}` : `心情 ＋${g.mood}`}</span></button>`
+    const opt = g => `<button class="opt" data-a="${food ? 'feed' : 'ball'}" data-v="${g.k}">${itemIcon(g.k)}<span><b>${esc(g.n)}</b><small>${food ? `背包里还有 ${S().bag[g.k]} 份` : `还能玩 ${S().toy[g.k]} 次`}</small></span><span class="r">${food ? `饱食 ＋${g.full}${g.mood ? `，心情 ＋${g.mood}` : ''}` : `心情 ＋${g.mood}`}</span></button>`
     return `<div class="sheet" data-a="close"><div><h2>${food ? `给${name()}吃什么？` : `和${name()}玩什么？`}</h2>
       ${have.length ? have.map(opt).join('') : `<p class="dim">${food ? '背包里没有吃的了。' : '没有玩具了。'}去小卖部买一点吧。</p><button class="btn" data-a="go" data-v="shop">去小卖部</button>`}
       <button class="btn alt" data-a="close">算了</button></div></div>`
@@ -1046,23 +1053,25 @@ const A = {
   kidname() { const n = document.getElementById('nm-kid')?.value; return run(async () => { const r = await api('/act', { kind: 'kidname', name: n }); V = r.view; if (S().kid) meetHi = true; else showToast(r.msg) }) },
   meetback() { meetBack = true },
   meetdone() { meetHi = false; say = `${S().kid}，以后请多关照！`; strike('hop') },
-  greet() { return run(async () => { const r = await api('/act', { kind: 'greet' }); V = r.view; say = r.msg; strike('hop'); sfx('chirp') }) },
-  care(kind) { return run(async () => { const r = await api('/act', { kind }); V = r.view; say = r.msg; if (r.act) { strike(r.act); sfx({ food: 'eat', soap: 'bath', pat: 'chirp', toy: 'bounce' }[kind]) } }) },
+  greet() { return run(async () => { const r = await api('/act', { kind: 'greet' }); V = r.view; say = r.msg; strike(r.act || ''); if (!late()) sfx('chirp') }) },
+  care(kind) { return run(async () => { const r = await api('/act', { kind }); V = r.view; say = r.msg; if (r.act) { strike(r.act); if (!late()) sfx({ food: 'eat', soap: 'bath', pat: 'chirp', toy: 'bounce' }[kind]) } }) },
   buy(k) { const c0 = S().coins; return run(async () => { const r = await api('/act', { kind: 'buy', k }); V = r.view; say = r.msg; sfx(S().coins < c0 ? 'coin' : 'no'); if (page !== 'shop') showToast(r.msg) }) },
   learn() { return run(async () => { const r = await api('/act', { kind: 'learn', k: sel }); V = r.view; say = r.msg; if (r.act) { learned = { k: sel, lv: S().skill[sel] }; sheet = 'learned'; sfx('win') } }) },
   tryit() { sheet = null; startDemo(learned.k) },
   sel(k) { sel = k },
-  tap() { const t = Date.now(); taps = [...taps.filter(x => t - x < 3000), t]; const l = pick(LINES[taps.length >= 5 ? 'tap_too_much' : 'tap']); say = fact(l.t); strike(taps.length >= 5 ? 'spin' : pick(['hop', l.act])); sfx(taps.length >= 5 ? 'spin' : 'chirp') },   // 点小狗只让它跳一跳、转一转，不换动作图，配饰一直戴着
-  sheet(v) { sheet = v },
+  tap() { if (late()) return A.quiet('pat'); const t = Date.now(); taps = [...taps.filter(x => t - x < 3000), t]; chat(taps.length >= 5 ? 'tap_too_much' : 'tap'); strike(needsRest(S().needs) ? 'blink' : act); sfx('chirp') },   // 点小狗只让它跳一跳、转一转，不换动作图，配饰一直戴着
+  sheet(v) { if (late() && ['food', 'toy', 'play', 'tricks'].includes(v)) { showToast('小狗睡着啦，回小屋轻轻陪它吧。'); return } sheet = v },
+  quiet(k) { return run(async () => { const r = await api('/act', { kind: 'quiet', k }); V = r.view; say = r.msg; strike(r.act || ''); if (k === 'hum' && r.act === 'sleep') sfx('lullaby') }) },
+  equip(k) { return run(async () => { const slot = k === 'hat' ? 'head' : 'neck'; const r = await api('/act', { kind: 'equip', k, off: wornAccessory(S(), slot) === k }); V = r.view; say = r.msg; showToast(r.msg) }) },
   sound() { ls.set('kid-sound', !ls.get('kid-sound', true)); sfx('chirp') },
   close() { sheet = null; card = null },
-  event() { return run(async () => { const r = await api('/act', { kind: 'event' }); V = r.view; say = r.msg; strike('hop'); sfx('chirp') }) },
-  ball(k) { sheet = null; return run(async () => { const r = await api('/act', { kind: 'toy', k }); V = r.view; say = r.msg; if (r.act) { strike(r.act); sfx('bounce') } }) },
-  feed(k) { sheet = null; return run(async () => { const r = await api('/act', { kind: 'food', k }); V = r.view; say = r.msg; if (r.act) { strike(r.act); sfx('eat') } }) },
+  event() { return run(async () => { const r = await api('/act', { kind: 'event' }); V = r.view; say = r.msg; strike(r.act || ''); if (!late()) sfx('chirp') }) },
+  ball(k) { sheet = null; return run(async () => { const r = await api('/act', { kind: 'toy', k }); V = r.view; say = r.msg; if (r.act) { strike(r.act); if (!late()) sfx('bounce') } }) },
+  feed(k) { sheet = null; return run(async () => { const r = await api('/act', { kind: 'food', k }); V = r.view; say = r.msg; if (r.act) { strike(r.act); if (!late()) sfx('eat') } }) },
   hidestart() { return run(async () => { const r = await api('/act', { kind: 'hide' }); V = r.view; if (V.hide) sheet = 'hide'; else showToast(r.msg) }) },
   hard() { return run(async () => { const r = await api('/act', { kind: 'hide', hard: !V.hide.hard }); V = r.view }) },
   cup(i) { return run(async () => { const r = await api('/act', { kind: 'cup', i: +i }); V = r.view; if (V.hide?.win) { say = r.msg; strike('hop'); sfx('win') } else sfx('no') }) },
-  trick(k) { const t = TRICKS.find(x => x.k === k); sheet = null; say = fact(t.say); strike(t.pose || t.anim, t.pose ? t.anim || '' : ''); sfx('trick') },
+  trick(k) { if (late()) { sheet = null; chat(); return } const t = TRICKS.find(x => x.k === k); sheet = null; say = fact(t.say); strike(t.pose || t.anim, t.pose ? t.anim || '' : ''); sfx('trick') },
   place(k) { if (k === 'home') return A.go('home'); place = k; page = 'place'; say = '' },
   nope() { showToast('还没开放，看看卡片上还差什么。') },
   trip() { return run(async () => { const r = await api('/act', { kind: 'trip', k: place }); V = r.view; say = r.msg; strike(r.anim || 'hop'); sfx(r.card ? 'win' : 'bounce'); if (r.card) { card = r.card; sheet = 'card' } }) },
@@ -1084,7 +1093,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.id === 'nm-pet') A.petname()
   if (e.key === 'Enter' && e.target.id === 'nm-kid') A.kidname()
 })
-setInterval(() => { if (V && page === 'home' && !busy && !sheet && !pose && !meetStep() && !V.morning && S().name) { chat(); render() } }, 12000)
+setInterval(() => { if (V && page === 'home' && !busy && !sheet && !pose && !meetStep() && (!V.morning || late()) && S().name) { chat(); render() } }, 12000)
 
 ;(async () => {
   try { V = await api('/state'); page = 'home'; if (S().name) chat() } catch (e) {

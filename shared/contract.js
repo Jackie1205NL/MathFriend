@@ -53,29 +53,44 @@ export const GOODS = [
   { k: 'rice', n: '鸡肉蔬菜饭', d: '饱食 ＋35', p: 40, kind: 'food', full: 35 },
   { k: 'bento', n: '豪华便当', d: '饱食 ＋70，心情 ＋10', p: 80, kind: 'food', full: 70, mood: 10 },
   { k: 'soap', n: '泡泡香皂', d: '洗一次澡，清洁 ＋50', p: 30, kind: 'soap', clean: 50 },
-  { k: 'ball', n: '橡胶小球', d: '能玩 4 次，每次心情 ＋15', p: 50, kind: 'toy', uses: 4, mood: 15 },
-  { k: 'disc', n: '飞盘', d: '能玩 5 次，每次心情 ＋20', p: 80, kind: 'toy', uses: 5, mood: 20 },
-  { k: 'scarf', n: '蓝围巾', d: '装扮，买了就戴上', p: 220, kind: 'keep', img: 1 },
-  { k: 'curtain', n: '小窗帘', d: '小屋家具', p: 400, kind: 'keep', img: 1 },
+  { k: 'ball', n: '暖阳拼色球', d: '能玩 4 次，每次心情 ＋15', p: 50, kind: 'toy', uses: 4, mood: 15 },
+  { k: 'disc', n: '薄荷飞盘', d: '能玩 5 次，每次心情 ＋20', p: 80, kind: 'toy', uses: 5, mood: 20 },
+  { k: 'scarf', n: '爪印三角巾', d: '装扮，买了就戴上，可在衣橱更换', p: 220, kind: 'keep', img: 1 },
+  { k: 'curtain', n: '鼠尾草窗帘', d: '小屋家具', p: 400, kind: 'keep', img: 1 },
   // 地点摆设：地方开放后才能买，买了摆在那里
-  { k: 'house', n: '木头狗屋', d: '摆在院子', p: 450, kind: 'keep', place: 'yard' },
-  { k: 'swing', n: '枫树秋千', d: '摆在院子', p: 350, kind: 'keep', place: 'yard' },
-  { k: 'flower', n: '小花坛', d: '摆在院子', p: 200, kind: 'keep', place: 'yard' },
-  { k: 'kite', n: '风筝', d: '摆在公园', p: 300, kind: 'keep', place: 'park' },
-  { k: 'mat', n: '野餐垫', d: '摆在公园', p: 250, kind: 'keep', place: 'park' },
-  { k: 'pond', n: '小水池', d: '摆在公园', p: 450, kind: 'keep', place: 'park' },
-  { k: 'snowman', n: '雪人', d: '摆在雪山', p: 250, kind: 'keep', place: 'snow' },
-  { k: 'sled', n: '小雪橇', d: '摆在雪山', p: 400, kind: 'keep', place: 'snow' },
-  { k: 'stove', n: '围炉', d: '摆在雪山', p: 350, kind: 'keep', place: 'snow' },
+  { k: 'house', n: '森林木屋', d: '摆在院子', p: 450, kind: 'keep', place: 'yard' },
+  { k: 'swing', n: '枫叶秋千', d: '摆在院子', p: 350, kind: 'keep', place: 'yard' },
+  { k: 'flower', n: '木箱花园', d: '摆在院子', p: 200, kind: 'keep', place: 'yard' },
+  { k: 'kite', n: '秋风菱形风筝', d: '摆在公园', p: 300, kind: 'keep', place: 'park' },
+  { k: 'mat', n: '格纹野餐垫', d: '摆在公园', p: 250, kind: 'keep', place: 'park' },
+  { k: 'pond', n: '睡莲小池', d: '摆在公园', p: 450, kind: 'keep', place: 'park' },
+  { k: 'snowman', n: '围巾雪人', d: '摆在雪山', p: 250, kind: 'keep', place: 'snow' },
+  { k: 'sled', n: '暖木雪橇', d: '摆在雪山', p: 400, kind: 'keep', place: 'snow' },
+  { k: 'stove', n: '森林暖炉', d: '摆在雪山', p: 350, kind: 'keep', place: 'snow' },
   // 月度限定：只在当月卖
-  { k: 'bow', n: '枫叶领结', d: '装扮，戴在项圈上', p: 180, kind: 'keep', month: 10 },
-  { k: 'hat', n: '毛线帽', d: '装扮，冬天戴', p: 220, kind: 'keep', month: 11 },
-  { k: 'pillow', n: '饺子抱枕', d: '放在小屋里', p: 160, kind: 'keep', month: 12 },
-  { k: 'lantern', n: '小红灯笼', d: '挂在小屋里', p: 200, kind: 'keep', month: 1 },
+  { k: 'bow', n: '陶红枫叶结', d: '装扮，戴在项圈上', p: 180, kind: 'keep', month: 10 },
+  { k: 'hat', n: '松绿针织帽', d: '装扮，软软的针织帽，可在衣橱更换', p: 220, kind: 'keep', month: 11 },
+  { k: 'pillow', n: '晚安饺子抱枕', d: '放在小屋里', p: 160, kind: 'keep', month: 12 },
+  { k: 'lantern', n: '爪印福灯', d: '挂在小屋里', p: 200, kind: 'keep', month: 1 },
 ]
 export const DECAY = { full: 25, mood: 22, clean: 15 }            // 每天下降多少，照顾一天约 55 金币
 export const NEED_FLOOR = 20
 export const PATS_PER_DAY = 3
+// 每只小狗每天固定抽一个入睡时刻，刷新不会重抽。统一按北京时间，次日 07:00 起床。
+export const needsRest = needs => ['full', 'mood', 'clean'].every(k => needs[k] < 30)
+export function bedtimeMinutes(date, seed = 'main') {
+  let h = 2166136261
+  for (const c of `${seed}:${date}:bed`) h = Math.imul(h ^ c.charCodeAt(0), 16777619)
+  h ^= h >>> 16
+  return 20 * 60 + 30 + (h >>> 0) % 61
+}
+export function petRest(ms, seed = 'main') {
+  const local = new Date(Number(ms) + 8 * 3600000), date = local.toISOString().slice(0, 10)
+  const minute = local.getUTCHours() * 60 + local.getUTCMinutes(), bed = bedtimeMinutes(date, seed)
+  const night = minute < 7 * 60 ? addDays(date, -1) : date
+  return { seed, bedtime: `${Math.floor(bed / 60)}:${String(bed % 60).padStart(2, '0')}`, sleeping: minute < 7 * 60 || minute >= bed, night }
+}
+export const wornAccessory = (s, slot) => s.outfit?.[slot] ?? (slot === 'neck' ? (s.own.scarf ? 'scarf' : s.own.bow ? 'bow' : '') : s.own.hat ? 'hat' : '')
 export const POSE_MS = 4500                                        // 动作图停留多久
 
 // ---------- 学期 ----------
