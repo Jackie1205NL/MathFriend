@@ -6,11 +6,13 @@ import { LINES } from './lines.js'
 import { STORY } from './story.js'
 import { itemArt, itemIcon, itemScene } from './pet-items.js'
 import { postcardSource } from './postcards.js'
+import { interactionReaction } from './interactions.js'
 
 const app = document.getElementById('app')
 let V = null, page = 'home', Q = null, say = '', act = '', pose = '', poseTimer = 0, sel = '审题', pin = '', loginErr = '', busy = false, taps = [], cere = null
 let learned = null, sheet = null, place = null, card = null, meetBack = false, meetHi = false, grad = 0, toast = '', toastTimer = 0, clockSkew = 0
 const ls = { get: (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d } catch { return d } }, set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)) } catch { /* 隐私模式下不保存 */ } } }
+let touchedItem = ''
 let sp = null          // 故事书里正在看的那一页
 const POSES = ['eat', 'bath', 'catch', 'shake', 'wag', 'sleep']
 const ACT = { blink: 'squish', look: 'look', yawn: 'squish', stretch: 'stretch', hop: 'hop', spin: 'spin', sniff: 'sniff', wave: 'hop', think: 'think', giggle: 'giggle', sleepy: 'squish', walk: 'walk' }
@@ -52,19 +54,22 @@ const winter = () => D() >= `${D().slice(0, 4)}-12-01` || month() <= 2
 const ownOn = k => S().own[k]
 // 学士帽仍用矢量图；商店配饰使用与柴犬同画风的透明图片。
 const CAP = '<svg class="cap" viewBox="0 0 100 60" aria-hidden="true"><polygon points="50,4 98,22 50,40 2,22" fill="#1d2430"/><path d="M24 30 v14 q26 14 52 0 v-14 l-26 10z" fill="#2b3442"/><line x1="86" y1="26" x2="88" y2="50" stroke="#ffd766" stroke-width="3"/><circle cx="88" cy="52" r="4" fill="#ffd766"/></svg>'
+const propAttrs = k => `data-a="item" data-v="${k}" aria-label="摸摸${esc(GOODS.find(g => g.k === k)?.n || k)}"`
+const propClass = k => `prop-hit${touchedItem === k ? ' touched' : ''}`
+const wornAttrs = (k, interactive) => interactive ? ` ${propAttrs(k)} role="button" tabindex="0"` : ''
 function petHtml(o = {}) {
   const st = o.st ?? stage(), p = o.st ? '' : late() && !o.awake ? 'sleep' : pose, a = SCARF_AT[st]
   const src = st && p ? `/pet/s${st}-act-${p}.webp` : `/pet/s${st}.webp`
   const capOn = o.cap ?? S().graduated, still = st && !p
   const neck = still && a ? `left:${a.x - a.w * 0.5}%;top:${a.y - 2}%;width:${a.w}%` : ''
-  const scarf = neck && wornAccessory(S(), 'neck') === 'scarf' && !capOn ? `<span class="accessory" style="${neck}">${itemArt('scarf')}</span>` : ''
-  const bow = neck && wornAccessory(S(), 'neck') === 'bow' ? `<span class="bow" style="left:${a.x - 13}%;top:${a.y - 8}%;width:26%">${itemArt('bow')}</span>` : ''
+  const scarf = neck && wornAccessory(S(), 'neck') === 'scarf' && !capOn ? `<span class="accessory ${o.interactive ? propClass('scarf') : ''}"${wornAttrs('scarf', o.interactive)} style="${neck}">${itemArt('scarf')}</span>` : ''
+  const bow = neck && wornAccessory(S(), 'neck') === 'bow' ? `<span class="bow ${o.interactive ? propClass('bow') : ''}"${wornAttrs('bow', o.interactive)} style="left:${a.x - 13}%;top:${a.y - 8}%;width:26%">${itemArt('bow')}</span>` : ''
   const hat = still && (capOn ? CAP : wornAccessory(S(), 'head') === 'hat' ? itemArt('hat') : '')
   const full = SKILLS.filter(x => S().skill[x.k] >= 3)
   const badges = neck && full.length ? `<span class="medals" style="left:${a.x - 2 - full.length * 3}%;top:${a.y + 6}%">${full.map(x => `<img src="/pet/badge-${x.badge}.webp" alt="">`).join('')}</span>` : ''
   const cls = o.st || p === 'sleep' ? '' : act ? 'a-' + (ACT[act] || act) : p && p !== 'sleep' ? 'p-' + p : ''
   const bubbles = p === 'bath' ? `<div class="bubbles">${[12, 30, 48, 66, 82].map((x, k) => `<i style="left:${x}%;animation-delay:-${k * 0.45}s"></i>`).join('')}</div>` : ''
-  return `<div class="pet"><div class="${cls}"><span class="wear ${p ? '' : 'breathe'}"><img src="${src}" alt="${st ? '小柴犬' : '小窝'}">${scarf}${bow}${hat ? `<span class="hat"${capOn ? '' : ` style="top:${[0, -17, -9, -12, -12][st]}%"`}>${hat}</span>` : ''}${badges}</span></div>${bubbles}</div>`
+  return `<div class="pet"><div class="${cls}"><span class="wear ${p ? '' : 'breathe'}"><img src="${src}" alt="${st ? '小柴犬' : '小窝'}">${scarf}${bow}${hat ? `<span class="hat ${o.interactive && !capOn ? propClass('hat') : ''}"${wornAttrs('hat', o.interactive && !capOn)}${capOn ? '' : ` style="top:${[0, -17, -9, -12, -12][st]}%"`}>${hat}</span>` : ''}${badges}</span></div>${bubbles}</div>`
 }
 const face = k => stage() ? `/pet/s${stage()}-face-${k}.webp` : '/pet/s0.webp'
 const fact = t => t.replace('{kid}', S().kid || '小朋友').replace('{fixed}', V.facts?.fixed ?? 0).replace('{focus}', V.facts?.focus || '今天的题').replace('{days}', S().days).replace('{circled}', ls.get('kid-circled', 0)).replace('{best}', S().best)
@@ -98,16 +103,31 @@ const groups = () => V.today || []
 const allItems = () => groups().flatMap(g => g.items)
 const doneCount = () => allItems().filter(it => it.done).length
 const fx = (kind, n = 12) => `<div class="fx ${kind}">${Array.from({ length: n }, (_, i) => `<i style="left:${(i * 37) % 100}%;animation-duration:${4 + (i % 5)}s;animation-delay:-${((i * 0.7) % 5).toFixed(1)}s"></i>`).join('')}</div>`
+function itemReply(k) {
+  if (!S().own[k] || !GOODS.some(g => g.k === k && g.kind === 'keep')) return
+  const line = interactionReaction({ item: k, sleeping: late(), resting: needsRest(S().needs), previous: say })
+  if (!line) return
+  say = line.t; touchedItem = k; strike(line.act); showToast(say)
+  if (!late()) sfx('chirp')
+}
+function explore() {
+  const p = PLACES.find(p => p.k === place)
+  if (page !== 'place' || !p || !placeOpen(p, stage(), D())) return
+  const line = interactionReaction({ place, sleeping: late(), resting: needsRest(S().needs), previous: say })
+  if (!line) return
+  say = line.t; strike(line.act); if (!late()) sfx('chirp')
+}
+const sceneTouch = (action, label) => `<button class="scene-touch" data-a="${action}" aria-label="${label}"></button>`
 function room() {
   const s = S(), ev = V.event
-  return `<div class="room ${late() ? 'resting' : ''}" data-a="tap" role="button" tabindex="0" aria-label="${late() ? '轻轻陪小狗' : '戳一戳小狗'}">
+  return `<div class="room ${late() ? 'resting' : ''}" data-a="tap">
+    ${sceneTouch('tap', late() ? '轻轻陪小狗' : '戳一戳小狗')}
     ${stage() ? `<div class="win">${fx(winter() ? 'snow' : 'leaf', 10)}</div>` : ''}
-    ${s.own.curtain ? itemArt('curtain', 'class="curtain"') : ''}
-    ${ownOn('lantern') ? itemArt('lantern', 'class="lantern"') : ''}${ownOn('pillow') ? itemArt('pillow', 'class="pillow"') : ''}
+    ${s.own.curtain ? `<button class="curtain room-item ${propClass('curtain')}" ${propAttrs('curtain')}>${itemArt('curtain')}</button>` : ''}
+    ${['lantern', 'pillow'].map(k => ownOn(k) ? `<button class="${k} room-item ${propClass(k)}" ${propAttrs(k)}>${itemArt(k)}</button>` : '').join('')}
     ${late() ? '<span class="sleep-stars" aria-hidden="true">☾ · ✧</span>' : ''}
-    ${ev && !late() ? `<button class="event" data-a="event">${esc(ev.t)}<u>${esc(ev.b)}</u></button>` : ''}
-    ${petHtml()}
-    <span class="tag">${!stage() ? '小窝' : late() ? '梦乡里 · 早上 7 点醒来' : needsRest(s.needs) ? '慢慢恢复精神 · 从一件小事开始' : s.good ? '状态好 · 明早有小礼物' : winter() ? '窗外在下雪' : '窗外是秋天'}</span></div>`
+    ${petHtml({ interactive: true })}
+    <span class="tag">${!stage() ? '小窝' : late() ? '梦乡里 · 早上 7 点醒来' : needsRest(s.needs) ? '慢慢恢复精神 · 从一件小事开始' : s.good ? '状态好 · 明早有小礼物' : winter() ? '窗外在下雪' : '窗外是秋天'}</span></div>${ev && !late() ? `<button class="room-event" data-a="event"><span>${esc(ev.t)}</span><u>${esc(ev.b)}</u></button>` : ''}`
 }
 function growCard() {
   const s = S(), n = s.days, i = stage(), nx = STAGES[i + 1]
@@ -203,7 +223,7 @@ function vHome() {
   return `<div class="top"><h1>${house(s.name)}</h1><button class="pill scr" data-a="sound" aria-label="声音">${ls.get('kid-sound', true) ? '声音开' : '声音关'}</button><button class="pill scr" data-a="logout" aria-label="换人">换人</button>${coin(s.coins)}<span class="pill"><i class="ico star"></i>${stars()}</span></div>
   <div class="body">
     ${banner}
-    <div class="bubble">${esc(say) || (st ? `嗨，${kid()}！今天也一起加油吧。` : '它还在小窝里睡觉。做完第一道题，它就会醒来。')}</div>
+    <div class="bubble" role="status" aria-live="polite">${esc(say) || (st ? `嗨，${kid()}！今天也一起加油吧。` : '它还在小窝里睡觉。做完第一道题，它就会醒来。')}</div>
     ${room()}
     ${st ? `<div class="rest-note"><span>${sleeping ? '晚安时光 · 不用花金币' : `今天约 ${rest().bedtime} 入睡 · 早上 7 点醒来`}</span><button data-a="sheet" data-v="wardrobe">换配饰 ›</button></div>` : ''}
     ${low && !sleeping ? '<div class="care-note"><b>慢慢恢复精神</b><p>先吃一点、洗个澡，或轻轻摸摸。选一件就好，不用一下全做完。</p></div>' : ''}
@@ -788,8 +808,8 @@ function vSkills() {
 const COLORS = { yard: '#d9682e', park: '#3f9c5f', snow: '#5b8fc9', month: '#cf406a', home: '#e9a23b' }
 function vShop() {
   const s = S(), m = month(), left = Math.max(0, JAR.goal - s.jar), open = D() < SEASON.ceremony && !s.graduated
-  const icon = x => itemIcon(x.k)
-  const buy = (x, lock) => s.own[x.k] ? (['scarf', 'bow', 'hat'].includes(x.k) ? `<button class="buy equip" data-a="equip" data-v="${x.k}">${wornAccessory(s, x.k === 'hat' ? 'head' : 'neck') === x.k ? '收起来' : '戴上'}</button>` : '<span class="dim">已拥有</span>') : lock ? `<span class="dim">${lock}</span>` : `<button class="buy" data-a="buy" data-v="${x.k}" ${s.coins < x.p ? 'disabled' : ''}><i class="ico coin"></i>${x.p}</button>`
+  const icon = x => s.own[x.k] ? `<button class="shop-item ${propClass(x.k)}" ${propAttrs(x.k)}>${itemIcon(x.k)}</button>` : itemIcon(x.k)
+  const buy = (x, lock) => s.own[x.k] ? (['scarf', 'bow', 'hat'].includes(x.k) ? `<button class="buy equip" data-a="equip" data-v="${x.k}">${wornAccessory(s, x.k === 'hat' ? 'head' : 'neck') === x.k ? '收起来' : '戴上'}</button>` : `<button class="buy" ${propAttrs(x.k)}>摸摸看</button>`) : lock ? `<span class="dim">${lock}</span>` : `<button class="buy" data-a="buy" data-v="${x.k}" ${s.coins < x.p ? 'disabled' : ''}><i class="ico coin"></i>${x.p}</button>`
   const row = (x, _color, sub, lock) => `<div class="srow">${icon(x)}<span><b>${esc(x.n)}</b><small>${sub}</small></span>${buy(x, lock)}</div>`
   const bagRow = x => row(x, '', `${x.d} · 背包里 ${x.kind === 'toy' ? (s.toy[x.k] || 0) + ' 次' : (s.bag[x.k] || 0) + ' 份'}`)
   const places = PLACES.filter(p => GOODS.some(g => g.place === p.k)).map(p => { const on = placeOpen(p, stage(), D()); return `<div><h3>${p.n}${on ? '' : ' · 还没开放'}</h3>${GOODS.filter(g => g.place === p.k).map(g => row(g, COLORS[p.k], g.d, on ? '' : '开放后')).join('')}</div>` }).join('')
@@ -859,19 +879,20 @@ function vPlace() {
   const p = PLACES.find(x => x.k === place), s = S(), walked = V.walked
   if (!p || !placeOpen(p, stage(), D())) { page = 'map'; return vMap() }
   if (p.finale) return `<div class="top"><button class="back" data-a="go" data-v="map" aria-label="回地图">‹</button><h1>毕业礼堂</h1>${coin(s.coins)}</div><div class="body">
-    <div class="scene">${scene('hall')}${petHtml({ cap: true, awake: true })}</div><div class="bubble plain">周五 ${md(SEASON.ceremony)} 在这里举行毕业典礼。典礼上会打开储蓄罐，还会做一本学期纪念册。</div>
+    <div class="bubble" role="status" aria-live="polite">${esc(say) || (late() ? '小狗在小屋睡觉，先轻轻看看彩旗吧。' : '点点小狗和舞台，一起练习打招呼吧！')}</div><div class="scene" data-a="explore">${sceneTouch('explore', '探索毕业礼堂')}${scene('hall')}${late() ? '' : petHtml({ cap: true, awake: true, interactive: true })}</div><div class="bubble plain">周五 ${md(SEASON.ceremony)} 在这里举行毕业典礼。典礼上会打开储蓄罐，还会做一本学期纪念册。</div>
     <button class="btn" data-a="ceremony" ${D() >= SEASON.ceremony && !s.graduated ? '' : 'disabled'}>${s.graduated ? '毕业典礼办完啦' : D() >= SEASON.ceremony ? '举行毕业典礼' : `${+SEASON.ceremony.slice(5, 7)} 月 ${+SEASON.ceremony.slice(8)} 日周五举行`}</button></div>`
   const items = GOODS.filter(g => g.place === p.k), got = s.cards.filter(c => c.k === p.k).length
   return `<div class="top"><button class="back" data-a="go" data-v="map" aria-label="回地图">‹</button><h1>${p.n}</h1>${coin(s.coins)}</div><div class="body">
-    <div class="bubble">${esc(say) || (late() ? '小狗在小屋里睡觉。先看看风景，醒来再一起散步吧。' : needsRest(s.needs) ? '慢慢逛一会儿也很好，或先回小屋吃一点。' : `这里是${p.n}！${walked ? '今天已经散过步啦。' : '我们去走一走吧？'}`)}</div>
-    <div class="scene">${scene(p.k)}${p.k === 'snow' ? fx('snow', 18) : p.k === 'yard' ? fx('leaf', 8) : ''}${late() ? '' : petHtml({ awake: true })}</div>
+    <div class="bubble" role="status" aria-live="polite">${esc(say) || (late() ? '小狗在小屋里睡觉。先看看风景，醒来再一起散步吧。' : needsRest(s.needs) ? '慢慢逛一会儿也很好，或先回小屋吃一点。' : `这里是${p.n}！${walked ? '今天已经散过步啦。' : '我们去走一走吧？'}`)}</div>
+    <div class="scene" data-a="explore">${sceneTouch('explore', `探索${p.n}，和小狗玩一玩`)}${scene(p.k)}${p.k === 'snow' ? fx('snow', 18) : p.k === 'yard' ? fx('leaf', 8) : ''}${late() ? '' : petHtml({ awake: true, interactive: true })}</div><p class="dim">点点风景${late() ? '' : '、小狗'}和摆设，看看有什么小发现。</p>
     <button class="btn" data-a="trip" ${walked || late() ? 'disabled' : ''}>${late() ? '小狗睡醒后再一起散步' : walked ? '今天散过步了，明天再来' : `去散步${p.trip ? `（${p.trip} 金币）` : '（自家院子，免费）'}`}<small>心情 ＋20 · 这里的明信片 ${got} / 4</small></button>
-    <div class="card"><b>${p.n}的摆设</b><div class="own">${items.map(i => `<button class="${s.own[i.k] ? 'have' : ''}" data-a="buy" data-v="${i.k}" ${s.own[i.k] || s.coins < i.p ? 'disabled' : ''}>${itemIcon(i.k)}${esc(i.n)}<small>${s.own[i.k] ? '摆好了' : `${i.p} 金币`}</small></button>`).join('')}</div><p class="dim">买了就摆在这里，散步时能看到。</p></div></div>`
+    <div class="card"><b>${p.n}的摆设</b><div class="own">${items.map(i => `<button class="${s.own[i.k] ? 'have' : ''}" data-a="${s.own[i.k] ? 'item' : 'buy'}" data-v="${i.k}" ${!s.own[i.k] && s.coins < i.p ? 'disabled' : ''}>${itemIcon(i.k)}${esc(i.n)}<small>${s.own[i.k] ? '摆好了 · 摸摸看' : `${i.p} 金币`}</small></button>`).join('')}</div><p class="dim">买了就摆在这里，点一下就能和小狗一起玩。</p></div></div>`
 }
 // 地点插画：素材还没画，先用代码画（院子、公园、雪山、礼堂）
 let sceneN = 0
 function scene(k, o = {}) {
   const own = x => S().own[x] && (!o.thumb || o.card), id = `g${k}${++sceneN}`
+  const decor = (k, attrs) => o.thumb ? itemScene(k, attrs) : `<g class="${propClass(k)}" ${propAttrs(k)} role="button" tabindex="0"><rect ${attrs} rx="8" fill="transparent"/>${itemScene(k, attrs)}</g>`
   const sky = (a, b) => `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs><rect width="360" height="270" fill="url(#${id})"/>`
   let s = ''
   if (k === 'home') s = '<image href="/pet/room.webp" width="360" height="640" preserveAspectRatio="xMidYMin slice"/>'
@@ -879,19 +900,19 @@ function scene(k, o = {}) {
     + Array.from({ length: 12 }, (_, i) => `<rect x="${i * 30 + 4}" y="108" width="22" height="56" rx="4" fill="#e7bf86" stroke="#8a5a2b" stroke-width="2"/>`).join('')
     + '<rect x="0" y="124" width="360" height="7" fill="#d9a865"/><rect x="282" y="58" width="16" height="104" fill="#8a5a2b"/><circle cx="290" cy="56" r="44" fill="#e8743b"/><circle cx="254" cy="78" r="28" fill="#f0a040"/><circle cx="322" cy="82" r="30" fill="#d9542e"/>'
     + [[60, 240], [110, 252], [300, 236], [210, 258], [30, 214]].map(([x, y]) => `<ellipse cx="${x}" cy="${y}" rx="8" ry="4" fill="#e8743b"/>`).join('')
-    + (own('house') ? itemScene('house', 'x="0" y="131" width="120" height="120"') : '')
-    + (own('swing') ? itemScene('swing', 'x="227" y="85" width="109" height="122"') : '')
-    + (own('flower') ? itemScene('flower', 'x="276" y="208" width="82" height="58"') : '')
+    + (own('house') ? decor('house', 'x="0" y="131" width="120" height="120"') : '')
+    + (own('swing') ? decor('swing', 'x="227" y="85" width="109" height="122"') : '')
+    + (own('flower') ? decor('flower', 'x="276" y="208" width="82" height="58"') : '')
   if (k === 'park') s = sky('#cfeafc', '#f1fafe') + '<ellipse cx="70" cy="196" rx="210" ry="70" fill="#9dd28a"/><ellipse cx="310" cy="206" rx="200" ry="66" fill="#8cc879"/><rect y="200" width="360" height="70" fill="#a8d88f"/><polygon points="150,270 210,270 196,200 170,200" fill="#efdcb0"/>'
     + [[36, 120], [330, 130]].map(([x, y]) => `<rect x="${x - 6}" y="${y}" width="12" height="60" fill="#7a5130"/><circle cx="${x}" cy="${y - 4}" r="30" fill="#4caa6a"/>`).join('')
-    + (own('kite') ? itemScene('kite', 'x="248" y="10" width="89" height="126"') : '')
-    + (own('mat') ? itemScene('mat', 'x="0" y="211" width="125" height="60"') : '')
-    + (own('pond') ? itemScene('pond', 'x="247" y="204" width="111" height="60"') : '')
+    + (own('kite') ? decor('kite', 'x="248" y="10" width="89" height="126"') : '')
+    + (own('mat') ? decor('mat', 'x="0" y="211" width="125" height="60"') : '')
+    + (own('pond') ? decor('pond', 'x="247" y="204" width="111" height="60"') : '')
   if (k === 'snow') s = sky('#d7e5f3', '#f4f8fc') + '<polygon points="-10,170 70,78 150,170" fill="#c9d8ea"/><polygon points="44,108 70,78 96,108 84,102 70,112 56,102" fill="#fff"/><polygon points="90,170 200,56 310,170" fill="#b9cce3"/><polygon points="168,90 200,56 232,90 216,84 200,96 184,84" fill="#fff"/><polygon points="230,170 305,96 380,170" fill="#c9d8ea"/><rect y="166" width="360" height="104" fill="#f7fbff"/>'
     + [[34, 150], [330, 156]].map(([x, y]) => `<polygon points="${x},${y - 60} ${x + 26},${y} ${x - 26},${y}" fill="#3f8a5a"/><polygon points="${x},${y - 60} ${x + 10},${y - 38} ${x - 10},${y - 38}" fill="#fff"/><rect x="${x - 4}" y="${y}" width="8" height="14" fill="#7a5130"/>`).join('')
-    + (own('snowman') ? itemScene('snowman', 'x="8" y="163" width="91" height="100"') : '')
-    + (own('sled') ? itemScene('sled', 'x="248" y="224" width="104" height="46"') : '')
-    + (own('stove') ? itemScene('stove', 'x="275" y="147" width="68" height="68"') : '')
+    + (own('snowman') ? decor('snowman', 'x="8" y="163" width="91" height="100"') : '')
+    + (own('sled') ? decor('sled', 'x="248" y="224" width="104" height="46"') : '')
+    + (own('stove') ? decor('stove', 'x="275" y="147" width="68" height="68"') : '')
   // 毕业礼堂：明亮的学校礼堂，红底黄字横幅、彩旗、气球、木地板舞台、台前一排花
   if (k === 'hall') s = sky('#e3f3ff', '#c4e4fb')
     + '<rect x="34" y="66" width="292" height="132" rx="14" fill="#ffffff" opacity=".75"/>'
@@ -903,7 +924,7 @@ function scene(k, o = {}) {
     + '<rect y="196" width="360" height="74" fill="#f0c78a"/>' + Array.from({ length: 8 }, (_, i) => `<line x1="${i * 48}" y1="196" x2="${i * 48 - 20}" y2="270" stroke="#dcae6c" stroke-width="2"/>`).join('') + '<rect y="192" width="360" height="8" fill="#c98f4f"/>'
     + [[22, 150], [338, 150]].map(([cx, cy], side) => [0, 1, 2, 3].map(j => { const x = cx + (side ? -1 : 1) * (j % 2) * 16, y = cy - j * 26; return `<line x1="${x}" y1="${y + 16}" x2="${cx}" y2="196" stroke="#8aa0b0" stroke-width="1"/><ellipse cx="${x}" cy="${y}" rx="12" ry="15" fill="${['#e0322f', '#ffc928', '#3b8fd6', '#2f9e5b'][(j + side) % 4]}"/><ellipse cx="${x - 4}" cy="${y - 5}" rx="3" ry="4" fill="#fff" opacity=".5"/>` }).join('')).join('')
     + Array.from({ length: 12 }, (_, i) => { const x = 14 + i * 30; return `<rect x="${x + 6}" y="238" width="3" height="20" fill="#3f9c5f"/><circle cx="${x + 7}" cy="234" r="8" fill="${['#ffc928', '#f6a5c0', '#f08a1c'][i % 3]}"/><circle cx="${x + 7}" cy="234" r="3" fill="#8a5a2b"/>` }).join('')
-  return `<svg viewBox="0 0 360 270" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${s}</svg>`
+  return `<svg viewBox="0 0 360 270" preserveAspectRatio="xMidYMid slice"${o.thumb ? ' aria-hidden="true"' : ''}>${s}</svg>`
 }
 // 收藏插画固定保存，不随当前家具变化；收集索引和日期沿用原存档。
 const cardHtml = (c, clickable = false) => {
@@ -1030,6 +1051,7 @@ function render() {
   lastPage = page
   if (page === 'q' && Q && !Q.demo) { const all = drafts(); if (Q.fin) delete all[Q.id]; else all[Q.id] = { i: Q.i, rec: Q.rec }; ls.set('kid-draft', { date: V.date, all }) }
   if (Q?.scratch) initScratch()
+  touchedItem = ''
   if (!pose) act = ''
   cere = null; if (Q) { Q.mood = ''; Q.fire = null }
 }
@@ -1051,6 +1073,8 @@ const A = {
   learn() { return run(async () => { const r = await api('/act', { kind: 'learn', k: sel }); V = r.view; say = r.msg; if (r.act) { learned = { k: sel, lv: S().skill[sel] }; sheet = 'learned'; sfx('win') } }) },
   tryit() { sheet = null; startDemo(learned.k) },
   sel(k) { sel = k },
+  item(k) { itemReply(k) },
+  explore() { explore() },
   tap() { if (late()) return A.quiet('pat'); const t = Date.now(); taps = [...taps.filter(x => t - x < 3000), t]; chat(taps.length >= 5 ? 'tap_too_much' : 'tap'); strike(needsRest(S().needs) ? 'blink' : act); sfx('chirp') },   // 点小狗只让它跳一跳、转一转，不换动作图，配饰一直戴着
   sheet(v) { if (late() && ['food', 'toy', 'play', 'tricks'].includes(v)) { showToast('小狗睡着啦，回小屋轻轻陪它吧。'); return } sheet = v },
   quiet(k) { return run(async () => { const r = await api('/act', { kind: 'quiet', k }); V = r.view; say = r.msg; strike(r.act || ''); if (k === 'hum' && r.act === 'sleep') sfx('lullaby') }) },
@@ -1075,15 +1099,17 @@ const onAct = e => {
   const t = e.target.closest('[data-a]')
   if (!t || t.disabled || (Q?.cover && page === 'q' && t.dataset.a !== 'go')) return
   if (t.classList.contains('sheet') && e.target !== t) return        // 点弹层里面不关
+  const restore = e.detail === 0 && ['item', 'explore', 'tap'].includes(t.dataset.a) && document.activeElement === t
+  const selector = `[data-a="${t.dataset.a}"]${t.dataset.v ? `[data-v="${t.dataset.v}"]` : ''}`
   const r = A[t.dataset.a]?.(t.dataset.v)
-  if (!(r instanceof Promise)) render()
+  if (!(r instanceof Promise)) { render(); if (restore) document.querySelector(`${selector}[tabindex],button${selector}`)?.focus({ preventScroll: true }) }
 }
 document.addEventListener('click', onAct)
 document.addEventListener('input', e => { if (e.target.id === 'login-name') loginName = e.target.value })
 document.addEventListener('keydown', e => {
   if (sheet === 'postcard' && e.key === 'Escape') { e.preventDefault(); A.close(); render(); return }
   if (sheet === 'postcard' && e.key === 'Tab') { e.preventDefault(); document.querySelector('.postcard-view [data-a="close"]')?.focus(); return }
-  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.seg[data-a],.room[data-a]')) { e.preventDefault(); onAct(e) }
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.seg[data-a],[role="button"][data-a]')) { e.preventDefault(); onAct(e) }
   if (e.key === 'Enter' && e.target.id === 'nm-pet') A.petname()
   if (e.key === 'Enter' && e.target.id === 'nm-kid') A.kidname()
 })

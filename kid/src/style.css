@@ -40,7 +40,7 @@ h3{font:400 22px var(--kid);margin:0}
 .room .tag{position:absolute;left:14px;bottom:14px;font-size:17px;background:var(--card);border-radius:999px;padding:3px 14px}
 .room .curtain{position:absolute;left:5.5%;top:-10px;width:48%;pointer-events:none}
 .room .lantern{position:absolute;right:9%;top:0;width:9%;pointer-events:none;transform-origin:50% 0;animation:sway 4s ease-in-out infinite}
-.room .pillow{position:absolute;left:8%;bottom:6%;width:17%;pointer-events:none}
+.room .pillow{position:absolute;left:8%;bottom:14%;width:17%;pointer-events:none}
 @keyframes sway{50%{transform:rotate(5deg)}}
 .win{position:absolute;left:10cqw;top:7.5cqw;width:39cqw;height:39cqw;border-radius:50%;overflow:hidden;pointer-events:none}
 .fx{position:absolute;inset:0;pointer-events:none;overflow:hidden}
@@ -49,7 +49,7 @@ h3{font:400 22px var(--kid);margin:0}
 .fx.leaf i:nth-child(3n){background:#f1a63a}
 .fx.snow i{width:9px;height:9px;border-radius:50%;background:#fff;box-shadow:0 0 2px rgba(0,0,0,.15)}
 @keyframes fall{0%{transform:translate(0,0) rotate(0)}100%{transform:translate(24px,560px) rotate(260deg)}}
-.event{position:absolute;right:14px;top:14px;background:var(--sun);border-radius:16px;padding:10px 16px;font-size:19px;font-weight:700;max-width:52%;text-align:left;line-height:1.4;box-shadow:0 3px 8px rgba(0,0,0,.18);z-index:2}
+.room-event{display:flex;align-items:center;justify-content:space-between;gap:16px;background:var(--sun);border-radius:16px;padding:12px 16px;min-height:52px;font-size:18px;font-weight:700;text-align:left;line-height:1.5}.room-event u{flex:none;color:var(--leaf-d)}
 .event u{display:block;color:var(--leaf-d)}
 .pet{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);height:350px}
 .pet>div{height:100%;transform-origin:50% 100%}
@@ -517,3 +517,20 @@ table.dash tr.idle td{color:#a5ad9f}
 .pcard small{font-size:14px;line-height:1.5}
 .sheet>.postcard-view{max-width:760px}.postcard-view .pcard{transform:none}
 @media(max-width:600px){.pgrid{gap:10px}.pgrid .pcard .postcard-title{font-size:15px;line-height:1.5}.pgrid .pcard small{font-size:12px}.pgrid .empty{min-height:140px;font-size:14px}.postcard-album{padding:16px 12px}.postcard-view .postcard-title{font-size:21px}}
+
+/* 场景背景和物件分别响应点击，装饰层不遮住小狗与物件。 */
+.scene-touch{position:absolute;inset:0;width:100%;height:100%;background:transparent;border-radius:24px}
+.scene-touch:focus-visible{outline:4px solid var(--leaf);outline-offset:-6px}
+.scene>svg{pointer-events:none}.scene .prop-hit{pointer-events:all}
+.prop-hit{cursor:pointer;touch-action:manipulation}
+.prop-hit:focus-visible{outline:3px solid var(--leaf);outline-offset:3px;border-radius:8px}
+.scene g.prop-hit:focus-visible{outline:none}.scene g.prop-hit:focus-visible>rect{stroke:var(--leaf);stroke-width:3}
+.room .room-item{pointer-events:auto;background:transparent;padding:0;min-width:44px;min-height:44px;}
+.room-item>svg{display:block;width:100%;height:auto}
+.room .tag{pointer-events:none}
+.shop-item{background:transparent;padding:0;flex:none;min-width:44px;min-height:44px}
+.prop-hit.touched{animation:prop-pop .6s ease;transform-box:fill-box;transform-origin:center}
+@keyframes prop-pop{40%{filter:brightness(1.15);transform:scale(1.06) rotate(-3deg)}}
+@media(prefers-reduced-motion:reduce){.prop-hit.touched{animation:none}}
+.wear .prop-hit{pointer-events:auto;min-width:44px;min-height:44px}
+.room .pillow,.room .lantern{z-index:1}
