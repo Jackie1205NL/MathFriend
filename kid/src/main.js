@@ -55,7 +55,7 @@ function petHtml(o = {}) {
   const st = o.st ?? stage(), p = o.st ? '' : late() && !o.awake ? 'sleep' : pose, a = SCARF_AT[st]
   const src = st && p ? `/pet/s${st}-act-${p}.webp` : `/pet/s${st}.webp`
   const capOn = o.cap ?? S().graduated, still = st && !p
-  const neck = still && a ? `left:${a.x - a.w * 0.65}%;top:${a.y - 5}%;width:${a.w * 1.3}%` : ''
+  const neck = still && a ? `left:${a.x - a.w * 0.5}%;top:${a.y - 2}%;width:${a.w}%` : ''
   const scarf = neck && wornAccessory(S(), 'neck') === 'scarf' && !capOn ? `<span class="accessory" style="${neck}">${itemArt('scarf')}</span>` : ''
   const bow = neck && wornAccessory(S(), 'neck') === 'bow' ? `<span class="bow" style="left:${a.x - 13}%;top:${a.y - 8}%;width:26%">${itemArt('bow')}</span>` : ''
   const hat = still && (capOn ? CAP : wornAccessory(S(), 'head') === 'hat' ? itemArt('hat') : '')
