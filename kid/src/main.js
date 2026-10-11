@@ -4,7 +4,7 @@ import { SKILLS, needsRest, petRest, wornAccessory, SKILL_COST, GOODS, STORY_PAG
   SKILL_AT, SKILL_L2, STEP_NAME, toTokens, showExpr, validExpr, stripParens, nextOp, canTap, calcOp, reduceAt, isOp } from '../../shared/contract.js'
 import { LINES } from './lines.js'
 import { STORY } from './story.js'
-import { itemArt, itemIcon } from './pet-items.js'
+import { itemArt, itemIcon, itemScene } from './pet-items.js'
 
 const app = document.getElementById('app')
 let V = null, page = 'home', Q = null, say = '', act = '', pose = '', poseTimer = 0, sel = '审题', pin = '', loginErr = '', busy = false, taps = [], cere = null
@@ -49,13 +49,13 @@ const late = () => !!V?.state?.hatched && rest().sleeping
 const month = () => +D().slice(5, 7)
 const winter = () => D() >= `${D().slice(0, 4)}-12-01` || month() <= 2
 const ownOn = k => S().own[k]
-// 学士帽、领结、毛线帽、本领徽章：素材还没画，先用代码画
+// 学士帽仍用矢量图；商店配饰使用与柴犬同画风的透明图片。
 const CAP = '<svg class="cap" viewBox="0 0 100 60" aria-hidden="true"><polygon points="50,4 98,22 50,40 2,22" fill="#1d2430"/><path d="M24 30 v14 q26 14 52 0 v-14 l-26 10z" fill="#2b3442"/><line x1="86" y1="26" x2="88" y2="50" stroke="#ffd766" stroke-width="3"/><circle cx="88" cy="52" r="4" fill="#ffd766"/></svg>'
 function petHtml(o = {}) {
   const st = o.st ?? stage(), p = o.st ? '' : late() && !o.awake ? 'sleep' : pose, a = SCARF_AT[st]
   const src = st && p ? `/pet/s${st}-act-${p}.webp` : `/pet/s${st}.webp`
   const capOn = o.cap ?? S().graduated, still = st && !p
-  const neck = still && a ? `left:${a.x - a.w * 0.6}%;top:${a.y - a.w * 0.28}%;width:${a.w * 1.2}%` : ''
+  const neck = still && a ? `left:${a.x - a.w * 0.65}%;top:${a.y - 5}%;width:${a.w * 1.3}%` : ''
   const scarf = neck && wornAccessory(S(), 'neck') === 'scarf' && !capOn ? `<span class="accessory" style="${neck}">${itemArt('scarf')}</span>` : ''
   const bow = neck && wornAccessory(S(), 'neck') === 'bow' ? `<span class="bow" style="left:${a.x - 13}%;top:${a.y - 8}%;width:26%">${itemArt('bow')}</span>` : ''
   const hat = still && (capOn ? CAP : wornAccessory(S(), 'head') === 'hat' ? itemArt('hat') : '')
@@ -63,7 +63,7 @@ function petHtml(o = {}) {
   const badges = neck && full.length ? `<span class="medals" style="left:${a.x - 2 - full.length * 3}%;top:${a.y + 6}%">${full.map(x => `<img src="/pet/badge-${x.badge}.webp" alt="">`).join('')}</span>` : ''
   const cls = o.st || p === 'sleep' ? '' : act ? 'a-' + (ACT[act] || act) : p && p !== 'sleep' ? 'p-' + p : ''
   const bubbles = p === 'bath' ? `<div class="bubbles">${[12, 30, 48, 66, 82].map((x, k) => `<i style="left:${x}%;animation-delay:-${k * 0.45}s"></i>`).join('')}</div>` : ''
-  return `<div class="pet"><div class="${cls}"><span class="wear ${p ? '' : 'breathe'}"><img src="${src}" alt="${st ? '小柴犬' : '小窝'}">${scarf}${bow}${hat ? `<span class="hat">${hat}</span>` : ''}${badges}</span></div>${bubbles}</div>`
+  return `<div class="pet"><div class="${cls}"><span class="wear ${p ? '' : 'breathe'}"><img src="${src}" alt="${st ? '小柴犬' : '小窝'}">${scarf}${bow}${hat ? `<span class="hat"${capOn ? '' : ` style="top:${[0, -17, -9, -12, -12][st]}%"`}>${hat}</span>` : ''}${badges}</span></div>${bubbles}</div>`
 }
 const face = k => stage() ? `/pet/s${stage()}-face-${k}.webp` : '/pet/s0.webp'
 const fact = t => t.replace('{kid}', S().kid || '小朋友').replace('{fixed}', V.facts?.fixed ?? 0).replace('{focus}', V.facts?.focus || '今天的题').replace('{days}', S().days).replace('{circled}', ls.get('kid-circled', 0)).replace('{best}', S().best)
@@ -818,7 +818,7 @@ function vStory() {
   if (sp != null && sp < n) {
     const pg = STORY[sp], st = sp === 0 ? 0 : pg.ch
     return `<div class="top"><button class="back" data-a="story" data-v="" aria-label="回到目录">‹</button><h1>第 ${sp + 1} 页</h1></div><div class="body">
-      <div class="room"><div class="pet"><span class="wear breathe"><img src="/pet/s${st}.webp" alt=""></span></div></div>
+      ${pg.image ? `<figure class="story-postcard"><img src="${pg.image}" alt="${esc(pg.title)}：小狗成长故事插画" width="1200" height="800" decoding="async"><figcaption><span>和${name()}的第 ${sp + 1} 个小故事</span><span class="postcard-mark" aria-hidden="true">✧</span></figcaption></figure>` : `<div class="room"><div class="pet"><span class="wear breathe"><img src="/pet/s${st}.webp" alt=""></span></div></div>`}
       <div class="card story"><h2>${esc(pg.title)}</h2><p>${fill(pg.text)}</p></div>
       ${sp + 1 < n ? `<button class="btn" data-a="story" data-v="${sp + 1}">下一页</button>` : `<button class="btn" data-a="go" data-v="home">回小屋</button>`}</div>`
   }
@@ -878,19 +878,19 @@ function scene(k, o = {}) {
     + Array.from({ length: 12 }, (_, i) => `<rect x="${i * 30 + 4}" y="108" width="22" height="56" rx="4" fill="#e7bf86" stroke="#8a5a2b" stroke-width="2"/>`).join('')
     + '<rect x="0" y="124" width="360" height="7" fill="#d9a865"/><rect x="282" y="58" width="16" height="104" fill="#8a5a2b"/><circle cx="290" cy="56" r="44" fill="#e8743b"/><circle cx="254" cy="78" r="28" fill="#f0a040"/><circle cx="322" cy="82" r="30" fill="#d9542e"/>'
     + [[60, 240], [110, 252], [300, 236], [210, 258], [30, 214]].map(([x, y]) => `<ellipse cx="${x}" cy="${y}" rx="8" ry="4" fill="#e8743b"/>`).join('')
-    + (own('house') ? itemArt('house', 'x="0" y="131" width="120" height="120"') : '')
-    + (own('swing') ? itemArt('swing', 'x="227" y="85" width="109" height="122"') : '')
-    + (own('flower') ? itemArt('flower', 'x="276" y="208" width="82" height="58"') : '')
+    + (own('house') ? itemScene('house', 'x="0" y="131" width="120" height="120"') : '')
+    + (own('swing') ? itemScene('swing', 'x="227" y="85" width="109" height="122"') : '')
+    + (own('flower') ? itemScene('flower', 'x="276" y="208" width="82" height="58"') : '')
   if (k === 'park') s = sky('#cfeafc', '#f1fafe') + '<ellipse cx="70" cy="196" rx="210" ry="70" fill="#9dd28a"/><ellipse cx="310" cy="206" rx="200" ry="66" fill="#8cc879"/><rect y="200" width="360" height="70" fill="#a8d88f"/><polygon points="150,270 210,270 196,200 170,200" fill="#efdcb0"/>'
     + [[36, 120], [330, 130]].map(([x, y]) => `<rect x="${x - 6}" y="${y}" width="12" height="60" fill="#7a5130"/><circle cx="${x}" cy="${y - 4}" r="30" fill="#4caa6a"/>`).join('')
-    + (own('kite') ? itemArt('kite', 'x="248" y="10" width="89" height="126"') : '')
-    + (own('mat') ? itemArt('mat', 'x="0" y="211" width="125" height="60"') : '')
-    + (own('pond') ? itemArt('pond', 'x="247" y="204" width="111" height="60"') : '')
+    + (own('kite') ? itemScene('kite', 'x="248" y="10" width="89" height="126"') : '')
+    + (own('mat') ? itemScene('mat', 'x="0" y="211" width="125" height="60"') : '')
+    + (own('pond') ? itemScene('pond', 'x="247" y="204" width="111" height="60"') : '')
   if (k === 'snow') s = sky('#d7e5f3', '#f4f8fc') + '<polygon points="-10,170 70,78 150,170" fill="#c9d8ea"/><polygon points="44,108 70,78 96,108 84,102 70,112 56,102" fill="#fff"/><polygon points="90,170 200,56 310,170" fill="#b9cce3"/><polygon points="168,90 200,56 232,90 216,84 200,96 184,84" fill="#fff"/><polygon points="230,170 305,96 380,170" fill="#c9d8ea"/><rect y="166" width="360" height="104" fill="#f7fbff"/>'
     + [[34, 150], [330, 156]].map(([x, y]) => `<polygon points="${x},${y - 60} ${x + 26},${y} ${x - 26},${y}" fill="#3f8a5a"/><polygon points="${x},${y - 60} ${x + 10},${y - 38} ${x - 10},${y - 38}" fill="#fff"/><rect x="${x - 4}" y="${y}" width="8" height="14" fill="#7a5130"/>`).join('')
-    + (own('snowman') ? itemArt('snowman', 'x="8" y="163" width="91" height="100"') : '')
-    + (own('sled') ? itemArt('sled', 'x="248" y="224" width="104" height="46"') : '')
-    + (own('stove') ? itemArt('stove', 'x="275" y="175" width="68" height="68"') : '')
+    + (own('snowman') ? itemScene('snowman', 'x="8" y="163" width="91" height="100"') : '')
+    + (own('sled') ? itemScene('sled', 'x="248" y="224" width="104" height="46"') : '')
+    + (own('stove') ? itemScene('stove', 'x="275" y="147" width="68" height="68"') : '')
   // 毕业礼堂：明亮的学校礼堂，红底黄字横幅、彩旗、气球、木地板舞台、台前一排花
   if (k === 'hall') s = sky('#e3f3ff', '#c4e4fb')
     + '<rect x="34" y="66" width="292" height="132" rx="14" fill="#ffffff" opacity=".75"/>'

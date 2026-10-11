@@ -53,10 +53,10 @@ export const GOODS = [
   { k: 'rice', n: '鸡肉蔬菜饭', d: '饱食 ＋35', p: 40, kind: 'food', full: 35 },
   { k: 'bento', n: '豪华便当', d: '饱食 ＋70，心情 ＋10', p: 80, kind: 'food', full: 70, mood: 10 },
   { k: 'soap', n: '泡泡香皂', d: '洗一次澡，清洁 ＋50', p: 30, kind: 'soap', clean: 50 },
-  { k: 'ball', n: '暖阳拼色球', d: '能玩 4 次，每次心情 ＋15', p: 50, kind: 'toy', uses: 4, mood: 15 },
-  { k: 'disc', n: '薄荷飞盘', d: '能玩 5 次，每次心情 ＋20', p: 80, kind: 'toy', uses: 5, mood: 20 },
-  { k: 'scarf', n: '爪印三角巾', d: '装扮，买了就戴上，可在衣橱更换', p: 220, kind: 'keep', img: 1 },
-  { k: 'curtain', n: '鼠尾草窗帘', d: '小屋家具', p: 400, kind: 'keep', img: 1 },
+  { k: 'ball', n: '暖阳小球', d: '能玩 4 次，每次心情 ＋15', p: 50, kind: 'toy', uses: 4, mood: 15 },
+  { k: 'disc', n: '天蓝飞盘', d: '能玩 5 次，每次心情 ＋20', p: 80, kind: 'toy', uses: 5, mood: 20 },
+  { k: 'scarf', n: '蓝色围巾', d: '装扮，买了就戴上，可在衣橱更换', p: 220, kind: 'keep', img: 1 },
+  { k: 'curtain', n: '粉色小窗帘', d: '小屋家具', p: 400, kind: 'keep', img: 1 },
   // 地点摆设：地方开放后才能买，买了摆在那里
   { k: 'house', n: '森林木屋', d: '摆在院子', p: 450, kind: 'keep', place: 'yard' },
   { k: 'swing', n: '枫叶秋千', d: '摆在院子', p: 350, kind: 'keep', place: 'yard' },
@@ -68,8 +68,8 @@ export const GOODS = [
   { k: 'sled', n: '暖木雪橇', d: '摆在雪山', p: 400, kind: 'keep', place: 'snow' },
   { k: 'stove', n: '森林暖炉', d: '摆在雪山', p: 350, kind: 'keep', place: 'snow' },
   // 月度限定：只在当月卖
-  { k: 'bow', n: '陶红枫叶结', d: '装扮，戴在项圈上', p: 180, kind: 'keep', month: 10 },
-  { k: 'hat', n: '松绿针织帽', d: '装扮，软软的针织帽，可在衣橱更换', p: 220, kind: 'keep', month: 11 },
+  { k: 'bow', n: '枫叶领结', d: '装扮，戴在项圈上', p: 180, kind: 'keep', month: 10 },
+  { k: 'hat', n: '星星毛线帽', d: '装扮，软软的针织帽，可在衣橱更换', p: 220, kind: 'keep', month: 11 },
   { k: 'pillow', n: '晚安饺子抱枕', d: '放在小屋里', p: 160, kind: 'keep', month: 12 },
   { k: 'lantern', n: '爪印福灯', d: '挂在小屋里', p: 200, kind: 'keep', month: 1 },
 ]

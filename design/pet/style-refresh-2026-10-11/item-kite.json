@@ -1,0 +1,12 @@
+{
+  "id": "item-kite",
+  "sourcePath": "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/design/pet/style-refresh-2026-10-11/originals/item-kite.png",
+  "outputPath": "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/pet/items-v2/kite.png",
+  "dimensions": {
+    "width": 412,
+    "height": 640,
+    "hasAlpha": true
+  },
+  "promptPath": "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/design/pet/style-refresh-2026-10-11/prompts/item-kite.txt",
+  "status": "complete"
+}
