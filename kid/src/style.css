@@ -225,15 +225,14 @@ button.frow{box-shadow:0 4px 0 var(--line)}
 .own button.have{background:var(--ok);color:var(--leaf-d)}
 .own button:disabled:not(.have){opacity:.55}
 /* 明信片和纪念册 */
-.pcard{background:#fff;border-radius:12px;padding:8px 8px 10px;box-shadow:0 4px 14px rgba(0,0,0,.18);transform:rotate(-1.5deg)}
-.pcard svg{display:block;width:100%;height:auto;border-radius:6px}
-.pcard p{margin:8px 2px 0;font:400 22px var(--kid);color:var(--ink)}
+.pcard{background:#fff9e9;border:1px solid #ead9b8;border-radius:12px;padding:8px 8px 10px;box-shadow:0 4px 14px rgba(0,0,0,.18);transform:rotate(-1.5deg)}
+.pcard>img{display:block;width:100%;height:auto;border-radius:6px;aspect-ratio:3/2;object-fit:cover}
+.pcard .postcard-title{display:block;margin:8px 2px 0;font:400 22px var(--kid);color:var(--ink)}
 .pcard small{display:block;color:var(--dim);font-size:15px;margin:0 2px}
-.pgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:stretch;margin-top:8px}
+.pgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:stretch;margin-top:10px}
 .pgrid>*{min-width:0}
-.pgrid .ph{font-size:19px;font-weight:700;text-align:center;color:var(--dim)}
 .pgrid .pcard{padding:6px 6px 8px;transform:none;box-shadow:0 1px 4px rgba(0,0,0,.12)}
-.pgrid .pcard p{font-size:17px;margin-top:4px;line-height:1.3}
+.pgrid .pcard .postcard-title{font-size:17px;margin-top:4px;line-height:1.3}
 .pgrid .empty{border:2px dashed var(--line);border-radius:12px;min-height:150px;display:grid;place-items:center;text-align:center;color:var(--dim);font-size:17px;line-height:1.4}
 .pgrid .empty.lock{background:#f3f5f3;border-style:solid}
 .grad{background:linear-gradient(160deg,#fff2c9,#ffe1e8);border-radius:20px;padding:20px;display:grid;gap:10px}
@@ -439,7 +438,6 @@ h2 .hb{width:44px;height:44px;border-radius:50%;vertical-align:-10px;margin-righ
   .skills{gap:9px}.skill img{width:54px;height:54px}.skill b{font-size:17px}
   .place{grid-template-columns:110px 1fr}.place .th{height:96px}.place b{font-size:20px}.place small{font-size:13px}
   .wk{font-size:14px}.flag,.hol,.hint{font-size:12px}
-  .pgrid{gap:6px}.pgrid .pcard p,.pgrid .empty{font-size:12px}.pgrid .empty{min-height:84px}
   .stats{grid-template-columns:1fr 1fr}.stats b{font-size:24px}
   .sheet{padding:12px}.sheet>div{padding:18px}
   .opt{grid-template-columns:44px minmax(0,1fr);gap:8px 12px}.opt>.r{grid-column:2;white-space:normal;font-size:15px}.opt>span{min-width:0;overflow-wrap:anywhere}.opt .ic{width:44px;height:44px;font-size:22px}.opt b{font-size:17px}.opt small{font-size:13px}
@@ -510,3 +508,12 @@ table.dash tr.idle td{color:#a5ad9f}
 
 /* 手机答题标题单独一行，避免被操作按钮挤窄。 */
 @media(max-width:600px){.qtop{flex-wrap:wrap}.qtop h1{flex:1 0 calc(100% - 64px);white-space:normal;font-size:24px}.qtop>.pill{margin-top:4px}}
+
+/* 散步明信片：按地点收藏，点开看大图。 */
+.postcard-group{margin-top:22px}.postcard-group h3{display:flex;align-items:center;justify-content:space-between;color:var(--ink)}
+.postcard-group h3 span{font:700 16px var(--sans);color:var(--dim)}
+.postcard-link{display:block;text-align:left;width:100%;color:inherit;transition:transform .15s}
+.postcard-link:active{transform:scale(.98)}
+.pcard small{font-size:14px;line-height:1.5}
+.sheet>.postcard-view{max-width:760px}.postcard-view .pcard{transform:none}
+@media(max-width:600px){.pgrid{gap:10px}.pgrid .pcard .postcard-title{font-size:15px;line-height:1.5}.pgrid .pcard small{font-size:12px}.pgrid .empty{min-height:140px;font-size:14px}.postcard-album{padding:16px 12px}.postcard-view .postcard-title{font-size:21px}}

@@ -127,7 +127,7 @@ export const PLACES = [
 export const placeOpen = (p, st, date) => p.finale ? date >= SEASON.finale : st >= p.st
 export const TRIP_MOOD = 20
 export const JAR = { goal: 1500, step: 100, sig: 10 }              // 储蓄罐「毕业旅行基金」，10 枚可兑换 1 个签名（只显示，不取出）
-// 明信片：每个地方 4 张，页面用代码画（地点插画 + 天气或时间 v）
+// 明信片：每个地方 4 张；地点与索引对应独立旅行插画，v 保留兼容。
 export const POSTCARDS = {
   yard: [{ t: '院子里的第一片红叶', v: 'sun' }, { t: '和{name}一起扫落叶', v: 'leaves' }, { t: '傍晚的木栅栏', v: 'dusk' }, { t: '小鸟飞过枫树', v: 'birds' }],
   park: [{ t: '公园的早晨', v: 'sun' }, { t: '雨后的彩虹', v: 'rainbow' }, { t: '一群小鸟', v: 'birds' }, { t: '草坡上看星星', v: 'night' }],

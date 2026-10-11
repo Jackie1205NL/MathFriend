@@ -5,6 +5,7 @@ import { SKILLS, needsRest, petRest, wornAccessory, SKILL_COST, GOODS, STORY_PAG
 import { LINES } from './lines.js'
 import { STORY } from './story.js'
 import { itemArt, itemIcon, itemScene } from './pet-items.js'
+import { postcardSource } from './postcards.js'
 
 const app = document.getElementById('app')
 let V = null, page = 'home', Q = null, say = '', act = '', pose = '', poseTimer = 0, sel = '审题', pin = '', loginErr = '', busy = false, taps = [], cere = null
@@ -904,32 +905,22 @@ function scene(k, o = {}) {
     + Array.from({ length: 12 }, (_, i) => { const x = 14 + i * 30; return `<rect x="${x + 6}" y="238" width="3" height="20" fill="#3f9c5f"/><circle cx="${x + 7}" cy="234" r="8" fill="${['#ffc928', '#f6a5c0', '#f08a1c'][i % 3]}"/><circle cx="${x + 7}" cy="234" r="3" fill="#8a5a2b"/>` }).join('')
   return `<svg viewBox="0 0 360 270" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${s}</svg>`
 }
-// 明信片：地点插画 + 一层天气或时间 + 邮票
-function cardSvg(c) {
-  const v = POSTCARDS[c.k][c.i].v, ov = {
-    sun: '<circle cx="312" cy="46" r="24" fill="#ffd766"/><circle cx="312" cy="46" r="34" fill="#ffd76644"/>',
-    dusk: '<rect width="360" height="270" fill="#f08a1c" opacity=".28"/><circle cx="60" cy="120" r="26" fill="#ffb15a"/>',
-    night: '<rect width="360" height="270" fill="#0c1a3a" opacity=".55"/><path d="M300 40 a18 18 0 1 0 14 30 a14 14 0 1 1 -14 -30z" fill="#fff6c8"/>' + [[40, 30], [90, 60], [150, 24], [220, 50], [260, 20], [120, 90]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2" fill="#fff"/>`).join(''),
-    rainbow: ['#e0527a', '#f08a1c', '#ffd766', '#5cc48a', '#3b8fd6'].map((col, k) => `<path d="M40 190 A140 140 0 0 1 320 190" fill="none" stroke="${col}" stroke-width="8" transform="translate(0 ${k * 8}) scale(1 ${1 - k * 0.02})" opacity=".8"/>`).join(''),
-    birds: [[70, 50], [100, 36], [130, 56], [240, 40]].map(([x, y]) => `<path d="M${x - 10} ${y} q5 -7 10 0 q5 -7 10 0" fill="none" stroke="#34424a" stroke-width="2.5"/>`).join(''),
-    leaves: [[40, 60], [120, 40], [200, 90], [280, 30], [320, 110], [90, 120]].map(([x, y], k) => `<ellipse cx="${x}" cy="${y}" rx="8" ry="4" fill="${k % 2 ? '#f1a63a' : '#e8743b'}" transform="rotate(${k * 35} ${x} ${y})"/>`).join(''),
-    snow: Array.from({ length: 30 }, (_, k) => `<circle cx="${(k * 53) % 360}" cy="${(k * 37) % 250}" r="${2 + k % 3}" fill="#fff"/>`).join(''),
-  }[v] || ''
-  const inner = scene(c.k, { thumb: true, card: true }).replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '')
-  return `<svg viewBox="0 0 360 270" aria-hidden="true">${inner}${ov}<g transform="translate(296 200)"><rect width="52" height="58" rx="3" fill="#fff" stroke="#e0527a" stroke-width="2" stroke-dasharray="4 3"/><circle cx="26" cy="30" r="13" fill="#f2c27a"/><circle cx="20" cy="26" r="2.5" fill="#5a3418"/><circle cx="32" cy="26" r="2.5" fill="#5a3418"/></g></svg>`
+// 收藏插画固定保存，不随当前家具变化；收集索引和日期沿用原存档。
+const cardHtml = (c, clickable = false) => {
+  const title = fillNames(POSTCARDS[c.k][c.i].t), tag = clickable ? 'button' : 'div'
+  return `<${tag} class="pcard${clickable ? ' postcard-link' : ''}"${clickable ? ` type="button" data-a="postcard" data-v="${c.k}:${c.i}" aria-label="放大查看：${title}"` : ''}><img src="${postcardSource(c)}" alt="${title}" width="1200" height="800" decoding="async"${clickable ? ' loading="lazy"' : ''}><span class="postcard-title">${title}</span><small>${md(c.at)} · ${PLACES.find(p => p.k === c.k).n}</small></${tag}>`
 }
-const cardHtml = c => `<div class="pcard">${cardSvg(c)}<p>${fillNames(POSTCARDS[c.k][c.i].t)}</p><small>${md(c.at)} · ${PLACES.find(p => p.k === c.k).n}</small></div>`
 
 // ---------- 纪念册 ----------
 function pcGrid() {
   const cards = S().cards, ps = PLACES.filter(p => POSTCARDS[p.k])
   const cell = (p, r) => {
     const mine = cards.filter(x => x.k === p.k), c = mine[r]
-    if (c) return cardHtml(c)
+    if (c) return cardHtml(c, true)
     if (!placeOpen(p, stage(), D())) return `<div class="empty lock">${r ? '' : `${md(STAGES[p.st].from)} 以后<br>开放`}</div>`
     return `<div class="empty">${r === mine.length ? '散步时<br>带回来' : ''}</div>`
   }
-  return ps.map(p => `<div class="ph">${p.n} ${cards.filter(x => x.k === p.k).length}/4</div>`).join('') + [0, 1, 2, 3].map(r => ps.map(p => cell(p, r)).join('')).join('')
+  return ps.map(p => `<section class="postcard-group"><h3>${p.n}<span>${cards.filter(x => x.k === p.k).length} / 4</span></h3><div class="pgrid">${[0, 1, 2, 3].map(r => cell(p, r)).join('')}</div></section>`).join('')
 }
 function vBook() {
   const s = S(), fin = D() >= SEASON.finale, learned = SKILLS.filter(x => s.skill[x.k] >= 1).length
@@ -944,7 +935,7 @@ function vBook() {
   const full = SKILLS.filter(x => s.skill[x.k] >= 3)
   const pages = full.map(x => { const m = s.album.filter(a => a.t.includes(`「${x.n}」`)); return `<div class="card memo"><img src="/pet/badge-${x.badge}.webp" alt=""><span><b>${x.n} · 学满三级</b><small>${m.map(a => md(a.at)).join(' → ')}</small>${x.s}的好习惯，${name()}都记住了。</span></div>` }).join('')
   return `<div class="top"><button class="back" data-a="go" data-v="home" aria-label="回小屋">‹</button><h1>纪念册</h1></div><div class="body">${head}
-    <div class="card"><b>明信片 ${s.cards.length} / 12</b><div class="pgrid">${pcGrid()}</div></div>
+    <div class="card postcard-album"><b>散步带回的明信片 ${s.cards.length} / 12</b><p class="dim">点一张明信片，看看旅途里的小风景。</p>${pcGrid()}</div>
     ${pages ? `<h3 class="chap">学满的本领</h3><div class="duo">${pages}</div>` : ''}
     <div class="card"><b>老朋友墙</b><div class="alumni">${(s.alumni || []).map(a => `<div><img src="/pet/s${a.st || 4}.webp" alt=""><b>${esc(a.name)}</b>${esc(a.season)} · 陪伴 ${a.days} 天<br>去小镇当巡逻队长了</div>`).join('')}<div class="empty">${s.graduated ? `下学期开学那天，<br>${name()}会住进这里` : '毕业的小狗<br>会住在这里'}</div></div></div>
     <button class="btn alt" data-a="go" data-v="diary">看${name()}的日记<small>${s.album.length} 件事</small></button></div>`
@@ -971,7 +962,7 @@ function vSheet() {
       ${needsRest(S().needs) ? '<div class="bubble plain">见到你真好！今天先做一件小事，吃一点、洗个澡，慢慢恢复精神。</div>' : said ? `<div class="bubble plain">${said}</div>` : ''}
       <button class="btn" data-a="greet">${gift ? '收下，' : ''}进小屋</button></div></div>`
   }
-  if (sheet === 'card' && card) return `<div class="sheet" data-a="close"><div><h2>带回来一张明信片！</h2>${cardHtml(card)}<p class="dim">已经放进纪念册。下一张要过一两天才会出现。</p><button class="btn" data-a="close">收好啦</button></div></div>`
+  if (['card', 'postcard'].includes(sheet) && card) return `<div class="sheet" data-a="close"><div class="postcard-view" role="dialog" aria-modal="true" aria-label="散步明信片"><h2>${sheet === 'card' ? '带回来一张明信片！' : '旅途里的小风景'}</h2>${cardHtml(card)}${sheet === 'card' ? '<p class="dim">已经放进纪念册。下一张要过一两天才会出现。</p>' : ''}<button class="btn" data-a="close">${sheet === 'card' ? '收好啦' : '回纪念册'}</button></div></div>`
   // 喂什么、玩什么：背包里有的都列出来，孩子自己挑（不替他选）
   if (sheet === 'wardrobe') {
     const owned = GOODS.filter(g => ['scarf', 'bow', 'hat'].includes(g.k) && S().own[g.k])
@@ -1046,6 +1037,7 @@ function render() {
 const A = {
   ...QA,
   go(v) { if (v === 'home' && page !== 'home') chat(); if (['shop', 'place'].includes(v)) say = ''; page = v; Q = null; sheet = null },
+  postcard(v) { const [k, i] = v.split(':'); card = S().cards.find(c => c.k === k && c.i === +i); if (card) { sheet = 'postcard'; setTimeout(() => document.querySelector('.postcard-view [data-a="close"]')?.focus(), 0) } },
   story(i) { sp = i === '' || i == null ? null : +i; page = 'story'; Q = null },
   extra() { return run(async () => { const r = await api('/act', { kind: 'extra' }); V = r.view; if (r.extra) page = 'quests'; else say = r.msg, page = 'home' }) },
   // 初次见面：先给小狗起名，再问孩子的名字
@@ -1064,7 +1056,7 @@ const A = {
   quiet(k) { return run(async () => { const r = await api('/act', { kind: 'quiet', k }); V = r.view; say = r.msg; strike(r.act || ''); if (k === 'hum' && r.act === 'sleep') sfx('lullaby') }) },
   equip(k) { return run(async () => { const slot = k === 'hat' ? 'head' : 'neck'; const r = await api('/act', { kind: 'equip', k, off: wornAccessory(S(), slot) === k }); V = r.view; say = r.msg; showToast(r.msg) }) },
   sound() { ls.set('kid-sound', !ls.get('kid-sound', true)); sfx('chirp') },
-  close() { sheet = null; card = null },
+  close() { const previous = sheet === 'postcard' && card; sheet = null; card = null; if (previous) setTimeout(() => document.querySelector(`[data-a="postcard"][data-v="${previous.k}:${previous.i}"]`)?.focus(), 0) },
   event() { return run(async () => { const r = await api('/act', { kind: 'event' }); V = r.view; say = r.msg; strike(r.act || ''); if (!late()) sfx('chirp') }) },
   ball(k) { sheet = null; return run(async () => { const r = await api('/act', { kind: 'toy', k }); V = r.view; say = r.msg; if (r.act) { strike(r.act); if (!late()) sfx('bounce') } }) },
   feed(k) { sheet = null; return run(async () => { const r = await api('/act', { kind: 'food', k }); V = r.view; say = r.msg; if (r.act) { strike(r.act); if (!late()) sfx('eat') } }) },
@@ -1089,6 +1081,8 @@ const onAct = e => {
 document.addEventListener('click', onAct)
 document.addEventListener('input', e => { if (e.target.id === 'login-name') loginName = e.target.value })
 document.addEventListener('keydown', e => {
+  if (sheet === 'postcard' && e.key === 'Escape') { e.preventDefault(); A.close(); render(); return }
+  if (sheet === 'postcard' && e.key === 'Tab') { e.preventDefault(); document.querySelector('.postcard-view [data-a="close"]')?.focus(); return }
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.seg[data-a],.room[data-a]')) { e.preventDefault(); onAct(e) }
   if (e.key === 'Enter' && e.target.id === 'nm-pet') A.petname()
   if (e.key === 'Enter' && e.target.id === 'nm-kid') A.kidname()

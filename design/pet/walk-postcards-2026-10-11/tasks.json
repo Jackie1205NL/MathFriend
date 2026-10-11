@@ -1,0 +1,158 @@
+[
+  {
+    "id": "yard-1",
+    "place": "yard",
+    "title": "院子里的第一片红叶",
+    "index": 0,
+    "prompt": "Create one polished horizontal 3:2 collectible postcard illustration for a math-and-pet app for ages 8–9. Match supplied Shiba reference art: cute rounded 2D cartoon sticker character, big head small body, warm saturated orange and cream, sky-blue collar, curled tail, clean consistent dark chocolate outlines, restrained cel shading, tiny highlights. Scenic storybook backdrop in the same bright clean 2D style. Full bleed art only, no paper border, no stamp, no panel collage, no words, letters, numbers, signature or watermark. Use a scenic composition with dog about one quarter of the frame; foreground and background thoughtfully balanced, clear silhouette. Not 3D, not photorealistic, not thin SVG, not muted dusty green. Landscape format 3:2.\nIdentity: Stage 2 adolescent Shiba: one upright ear and one floppy ear, exactly TWO gold collar stars, no backpack and no cape.\nScene: A bright autumn yard. A single brilliant red maple leaf rests on the puppy's raised paw as it marvels at it; a wooden picket fence and large orange maple tree frame the scene. Warm morning light, a few golden leaves on grass.",
+    "refs": [
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/pet/s2.webp",
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/design/pet/style-refresh-2026-10-11/references/shiba-growth-v1.png",
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/story/story-04.webp"
+    ],
+    "output": "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/postcards/yard-1.webp"
+  },
+  {
+    "id": "yard-2",
+    "place": "yard",
+    "title": "和{name}一起扫落叶",
+    "index": 1,
+    "prompt": "Create one polished horizontal 3:2 collectible postcard illustration for a math-and-pet app for ages 8–9. Match supplied Shiba reference art: cute rounded 2D cartoon sticker character, big head small body, warm saturated orange and cream, sky-blue collar, curled tail, clean consistent dark chocolate outlines, restrained cel shading, tiny highlights. Scenic storybook backdrop in the same bright clean 2D style. Full bleed art only, no paper border, no stamp, no panel collage, no words, letters, numbers, signature or watermark. Use a scenic composition with dog about one quarter of the frame; foreground and background thoughtfully balanced, clear silhouette. Not 3D, not photorealistic, not thin SVG, not muted dusty green. Landscape format 3:2.\nIdentity: Stage 2 adolescent Shiba: one upright ear and one floppy ear, exactly TWO gold collar stars, no backpack and no cape.\nScene: A playful candid travel snapshot in an autumn yard. The puppy joyfully dives chest-first into a fluffy pile of red and gold fallen leaves, hind paws playfully lifted and curled tail bouncing. One front paw reaches through flying leaves. Its eyes look into the leaf pile, not toward the viewer. The action is playful and unposed, like a spontaneous animal travel photograph interpreted in original bright 2D cartoon style. A small wooden rake leans safely against a fence, wicker leaf basket nearby. No people.",
+    "refs": [
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/pet/s2.webp",
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/design/pet/style-refresh-2026-10-11/references/shiba-growth-v1.png",
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/story/story-04.webp"
+    ],
+    "output": "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/postcards/yard-2.webp"
+  },
+  {
+    "id": "yard-3",
+    "place": "yard",
+    "title": "傍晚的木栅栏",
+    "index": 2,
+    "prompt": "Create one polished horizontal 3:2 collectible postcard illustration for a math-and-pet app for ages 8–9. Match supplied Shiba reference art: cute rounded 2D cartoon sticker character, big head small body, warm saturated orange and cream, sky-blue collar, curled tail, clean consistent dark chocolate outlines, restrained cel shading, tiny highlights. Scenic storybook backdrop in the same bright clean 2D style. Full bleed art only, no paper border, no stamp, no panel collage, no words, letters, numbers, signature or watermark. Use a scenic composition with dog about one quarter of the frame; foreground and background thoughtfully balanced, clear silhouette. Not 3D, not photorealistic, not thin SVG, not muted dusty green. Landscape format 3:2.\nIdentity: Stage 2 adolescent Shiba: one upright ear and one floppy ear, exactly TWO gold collar stars, no backpack and no cape.\nScene: A candid evening exploration beside a LOW wooden picket fence. The curious puppy balances on its hind paws and rests both small front paws on the low fence rail, stretching to peer through and over it toward rosy sunset hills. Three-quarter side view with its face visible and eye gaze toward the view, never posing at camera. Golden rim light, maple branches above, cozy autumn yard. Expressive happy exploratory action like a pet's own travel snapshot. No people.",
+    "refs": [
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/pet/s2.webp",
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/design/pet/style-refresh-2026-10-11/references/shiba-growth-v1.png",
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/story/story-04.webp"
+    ],
+    "output": "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/postcards/yard-3.webp"
+  },
+  {
+    "id": "yard-4",
+    "place": "yard",
+    "title": "小鸟飞过枫树",
+    "index": 3,
+    "prompt": "Create one polished horizontal 3:2 collectible postcard illustration for a math-and-pet app for ages 8–9. Match supplied Shiba reference art: cute rounded 2D cartoon sticker character, big head small body, warm saturated orange and cream, sky-blue collar, curled tail, clean consistent dark chocolate outlines, restrained cel shading, tiny highlights. Scenic storybook backdrop in the same bright clean 2D style. Full bleed art only, no paper border, no stamp, no panel collage, no words, letters, numbers, signature or watermark. Use a scenic composition with dog about one quarter of the frame; foreground and background thoughtfully balanced, clear silhouette. Not 3D, not photorealistic, not thin SVG, not muted dusty green. Landscape format 3:2.\nIdentity: Stage 2 adolescent Shiba: one upright ear and one floppy ear, exactly TWO gold collar stars, no backpack and no cape.\nScene: A joyous candid garden snapshot. Four little round friendly sparrows flutter above a red-orange maple tree while the excited puppy makes a small springy leap beneath them, front paws lifted, mouth smiling, body in three-quarter profile and gaze following the birds rather than facing the viewer. Its shadow under the jumping paws anchors the energetic moment. Blue sky, drifting leaves, wooden fence. Spontaneous playful travel memory, no people.",
+    "refs": [
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/pet/s2.webp",
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/design/pet/style-refresh-2026-10-11/references/shiba-growth-v1.png",
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/story/story-04.webp"
+    ],
+    "output": "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/postcards/yard-4.webp"
+  },
+  {
+    "id": "park-1",
+    "place": "park",
+    "title": "公园的早晨",
+    "index": 0,
+    "prompt": "Create one polished horizontal 3:2 collectible postcard illustration for a math-and-pet app for ages 8–9. Match supplied Shiba reference art: cute rounded 2D cartoon sticker character, big head small body, warm saturated orange and cream, sky-blue collar, curled tail, clean consistent dark chocolate outlines, restrained cel shading, tiny highlights. Scenic storybook backdrop in the same bright clean 2D style. Full bleed art only, no paper border, no stamp, no panel collage, no words, letters, numbers, signature or watermark. Use a scenic composition with dog about one quarter of the frame; foreground and background thoughtfully balanced, clear silhouette. Not 3D, not photorealistic, not thin SVG, not muted dusty green. Landscape format 3:2.\nIdentity: Stage 3 young Shiba: both ears upright, exactly THREE gold collar stars, a small RED BACKPACK, NO cape.\nScene: Dewy green park in morning sunshine, winding cream path, small blue pond with lily pads and cheerful daisies. A candid solo travel snapshot: the young Shiba with red backpack happily trots down the grassy slope following one tiny blue butterfly, one forepaw lifted mid-step, ears perked, cheerful open-mouth smile, gaze on the butterfly rather than the viewer. Sunlight sparkles on dew. Dog occupies about one quarter of frame. Fresh, playful and bright; active candid moment, never standing for a portrait.\n",
+    "refs": [
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/pet/s3.webp",
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/design/pet/style-refresh-2026-10-11/references/shiba-growth-v1.png",
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/story/story-10.webp"
+    ],
+    "output": "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/postcards/park-1.webp"
+  },
+  {
+    "id": "park-2",
+    "place": "park",
+    "title": "雨后的彩虹",
+    "index": 1,
+    "prompt": "Create one polished horizontal 3:2 collectible postcard illustration for a math-and-pet app for ages 8–9. Match supplied Shiba reference art: cute rounded 2D cartoon sticker character, big head small body, warm saturated orange and cream, sky-blue collar, curled tail, clean consistent dark chocolate outlines, restrained cel shading, tiny highlights. Scenic storybook backdrop in the same bright clean 2D style. Full bleed art only, no paper border, no stamp, no panel collage, no words, letters, numbers, signature or watermark. Use a scenic composition with dog about one quarter of the frame; foreground and background thoughtfully balanced, clear silhouette. Not 3D, not photorealistic, not thin SVG, not muted dusty green. Landscape format 3:2.\nIdentity: Stage 3 young Shiba: both ears upright, exactly THREE gold collar stars, a small RED BACKPACK, NO cape.\nScene: After a rain shower, a full pastel rainbow arcs over a green park and sparkling shallow puddle. A candid solo travel snapshot: the young Shiba with red backpack gleefully taps a front paw into the shallow puddle making a few tiny splashes, smiling at its reflection. Fresh flowers, soft white clouds, joyful clear sky. Dog occupies about one quarter of frame and is actively playing rather than posing for viewer.\n",
+    "refs": [
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/pet/s3.webp",
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/design/pet/style-refresh-2026-10-11/references/shiba-growth-v1.png",
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/story/story-10.webp"
+    ],
+    "output": "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/postcards/park-2.webp"
+  },
+  {
+    "id": "park-3",
+    "place": "park",
+    "title": "一群小鸟",
+    "index": 2,
+    "prompt": "Create one polished horizontal 3:2 collectible postcard illustration for a math-and-pet app for ages 8–9. Match supplied Shiba reference art: cute rounded 2D cartoon sticker character, big head small body, warm saturated orange and cream, sky-blue collar, curled tail, clean consistent dark chocolate outlines, restrained cel shading, tiny highlights. Scenic storybook backdrop in the same bright clean 2D style. Full bleed art only, no paper border, no stamp, no panel collage, no words, letters, numbers, signature or watermark. Use a scenic composition with dog about one quarter of the frame; foreground and background thoughtfully balanced, clear silhouette. Not 3D, not photorealistic, not thin SVG, not muted dusty green. Landscape format 3:2.\nIdentity: Stage 3 young Shiba: both ears upright, exactly THREE gold collar stars, a small RED BACKPACK, NO cape.\nScene: A friendly flock of exactly five tiny round songbirds gathers on a park path and low branch. A candid solo travel snapshot: the young Shiba with red backpack play-bows curiously toward one bird on a small rock beside its forepaw, head tilted with friendly delighted expression, not chasing or frightening birds; other four birds on path and low branch. Green grassy slopes, flowers and pond far behind. Dog occupies about one quarter of frame, engaged with birds rather than posing.\n",
+    "refs": [
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/pet/s3.webp",
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/design/pet/style-refresh-2026-10-11/references/shiba-growth-v1.png",
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/story/story-10.webp"
+    ],
+    "output": "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/postcards/park-3.webp"
+  },
+  {
+    "id": "park-4",
+    "place": "park",
+    "title": "草坡上看星星",
+    "index": 3,
+    "prompt": "Create one polished horizontal 3:2 collectible postcard illustration for a math-and-pet app for ages 8–9. Match supplied Shiba reference art: cute rounded 2D cartoon sticker character, big head small body, warm saturated orange and cream, sky-blue collar, curled tail, clean consistent dark chocolate outlines, restrained cel shading, tiny highlights. Scenic storybook backdrop in the same bright clean 2D style. Full bleed art only, no paper border, no stamp, no panel collage, no words, letters, numbers, signature or watermark. Use a scenic composition with dog about one quarter of the frame; foreground and background thoughtfully balanced, clear silhouette. Not 3D, not photorealistic, not thin SVG, not muted dusty green. Landscape format 3:2.\nIdentity: Stage 3 young Shiba: both ears upright, exactly THREE gold collar stars, a small RED BACKPACK, NO cape.\nScene: A peaceful evening on a grassy park slope under a deep cobalt sky full of small stars, crescent moon and a gentle shooting star. A candid solo travel snapshot: the young Shiba reclines happily on its back on the grass, both upright ears visible, gently raises one forepaw toward the shooting star with delighted relaxed smile, small red backpack set beside it. Warm softly illuminated orange dog, cheerful and readable, no scary darkness. Dog occupies about one quarter of frame, joyfully relaxing alone rather than posing.\n",
+    "refs": [
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/pet/s3.webp",
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/design/pet/style-refresh-2026-10-11/references/shiba-growth-v1.png",
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/story/story-10.webp"
+    ],
+    "output": "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/postcards/park-4.webp"
+  },
+  {
+    "id": "snow-1",
+    "place": "snow",
+    "title": "第一场雪",
+    "index": 0,
+    "prompt": "Create one polished horizontal 3:2 collectible postcard illustration for a math-and-pet app for ages 8–9. Match supplied Shiba reference art: cute rounded 2D cartoon sticker character, big head small body, warm saturated orange and cream, sky-blue collar, curled tail, clean consistent dark chocolate outlines, restrained cel shading, tiny highlights. Scenic storybook backdrop in the same bright clean 2D style. Full bleed art only, no paper border, no stamp, no panel collage, no words, letters, numbers, signature or watermark. Use a scenic composition with dog about one quarter of the frame; foreground and background thoughtfully balanced, clear silhouette. Not 3D, not photorealistic, not thin SVG, not muted dusty green. Landscape format 3:2.\nIdentity: Stage 4 adult Shiba: both ears upright, exactly FIVE gold collar stars in a clear row, a short RED CAPE, NO backpack.\nScene: The first gentle snowfall in a mountain meadow. Adult Shiba is joyfully LEAPING into the air to catch a snowflake on its nose, paws playfully spread, lively diagonal body, happy open-mouth smile and short red cape bouncing. Dog is actively enjoying its own trip, candid travel snapshot, no posed portrait. Sparse fluffy flakes, snowy pine trees, soft blue hills, a little curving chain of pawprints behind. Cozy winter wonder. Dog's front chest faces viewer enough to show FIVE distinct gold stars, no occlusion.\n\nCORRECTION PASS:\nEdit image 1 only. Fix the dog's face anatomy: it currently has an erroneous extra brown nose on its LEFT CHEEK under the snowflake. REMOVE that extra brown oval on the left cheek and restore cream fur there. Keep only ONE nose, the original triangular dark-brown nose centered above its smiling mouth. Move the single snowflake to rest just above that correct centered nose. Keep exactly two eyes, one nose and one mouth. All other parts unchanged: joyful airborne jumping pose, both upright ears, exactly FIVE gold collar stars, cyan collar, short red cape, curled tail, snow, pawprints, alpine background and 3:2 composition. Use image 2 only as reference for correct single-nose dog facial anatomy. No other changes.",
+    "refs": [
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/pet/s4.webp",
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/design/pet/style-refresh-2026-10-11/references/shiba-growth-v1.png",
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/story/story-13.webp"
+    ],
+    "output": "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/postcards/snow-1.webp"
+  },
+  {
+    "id": "snow-2",
+    "place": "snow",
+    "title": "雪地里的太阳",
+    "index": 1,
+    "prompt": "Create one polished horizontal 3:2 collectible postcard illustration for a math-and-pet app for ages 8–9. Match supplied Shiba reference art: cute rounded 2D cartoon sticker character, big head small body, warm saturated orange and cream, sky-blue collar, curled tail, clean consistent dark chocolate outlines, restrained cel shading, tiny highlights. Scenic storybook backdrop in the same bright clean 2D style. Full bleed art only, no paper border, no stamp, no panel collage, no words, letters, numbers, signature or watermark. Use a scenic composition with dog about one quarter of the frame; foreground and background thoughtfully balanced, clear silhouette. Not 3D, not photorealistic, not thin SVG, not muted dusty green. Landscape format 3:2.\nIdentity: Stage 4 adult Shiba: both ears upright, exactly FIVE gold collar stars in a clear row, a short RED CAPE, NO backpack.\nScene: A brilliant winter sun shines over a snowy alpine meadow. Adult Shiba rides a little honey-wood sled with red runners down a safe gentle snowy slope, front paws eagerly gripping sled, delighted open-mouth smile and red cape fluttering, playful motion and small snow puffs. Candid travel snapshot of dog independently having fun, no posed portrait. Sparkly snow, clear pawprints behind, blue shadows, snowy pine trees and rounded mountain peaks. FIVE visible separate stars across cyan collar. No humans.",
+    "refs": [
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/pet/s4.webp",
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/design/pet/style-refresh-2026-10-11/references/shiba-growth-v1.png",
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/story/story-13.webp"
+    ],
+    "output": "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/postcards/snow-2.webp"
+  },
+  {
+    "id": "snow-3",
+    "place": "snow",
+    "title": "傍晚的雪山",
+    "index": 2,
+    "prompt": "Create one polished horizontal 3:2 collectible postcard illustration for a math-and-pet app for ages 8–9. Match supplied Shiba reference art: cute rounded 2D cartoon sticker character, big head small body, warm saturated orange and cream, sky-blue collar, curled tail, clean consistent dark chocolate outlines, restrained cel shading, tiny highlights. Scenic storybook backdrop in the same bright clean 2D style. Full bleed art only, no paper border, no stamp, no panel collage, no words, letters, numbers, signature or watermark. Use a scenic composition with dog about one quarter of the frame; foreground and background thoughtfully balanced, clear silhouette. Not 3D, not photorealistic, not thin SVG, not muted dusty green. Landscape format 3:2.\nIdentity: Stage 4 adult Shiba: both ears upright, exactly FIVE gold collar stars in a clear row, a short RED CAPE, NO backpack.\nScene: Golden peach sunset lights a peaceful snowy mountain range. Adult Shiba has built a little two-ball snowman and is playfully patting the snowman's head with one front paw, smiling proudly with both ears up and all FIVE collar stars visible. Red short cape, one curled tail. A couple small rolled snowballs nearby show the activity. Pink alpenglow, snow-laden pines and a tiny distant amber-lit cottage. Candid solo traveling dog having fun, no posed portrait, no cliffs, no humans.\n\nCORRECTION PASS:\nMake one precise anatomy correction only. The Shiba in this image has an extra leg: currently one raised front paw on snowman PLUS four legs on the snow. It must have exactly FOUR limbs TOTAL: one raised front paw on snowman, ONE front paw on ground, TWO hind paws on ground. REMOVE the extra grounded foreleg at left, closest to the snowman, and fill that small area seamlessly with the background snow. Retain the central front leg, two hind legs, and raised paw. The left foreleg nearest snowman must disappear entirely, since that foreleg is already raised up. Keep all FIVE gold collar stars, short red cape, single curled tail, both ears upright, dog face, snowman, sunset scenery, all colors and composition unchanged. No text, landscape 3:2.",
+    "refs": [
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/pet/s4.webp",
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/design/pet/style-refresh-2026-10-11/references/shiba-growth-v1.png",
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/story/story-13.webp"
+    ],
+    "output": "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/postcards/snow-3.webp"
+  },
+  {
+    "id": "snow-4",
+    "place": "snow",
+    "title": "冬夜的星空",
+    "index": 3,
+    "prompt": "Create one polished horizontal 3:2 collectible postcard illustration for a math-and-pet app for ages 8–9. Match supplied Shiba reference art: cute rounded 2D cartoon sticker character, big head small body, warm saturated orange and cream, sky-blue collar, curled tail, clean consistent dark chocolate outlines, restrained cel shading, tiny highlights. Scenic storybook backdrop in the same bright clean 2D style. Full bleed art only, no paper border, no stamp, no panel collage, no words, letters, numbers, signature or watermark. Use a scenic composition with dog about one quarter of the frame; foreground and background thoughtfully balanced, clear silhouette. Not 3D, not photorealistic, not thin SVG, not muted dusty green. Landscape format 3:2.\nIdentity: Stage 4 adult Shiba: both ears upright, exactly FIVE gold collar stars in a clear row, a short RED CAPE, NO backpack.\nScene: A magical winter night with star-filled indigo sky and silver crescent moon above round snowy mountains. Adult Shiba reclines cozily on a soft cream-and-orange blanket on a snow-free wooden cabin porch, playfully stretching one front paw upward into a soft shaft of moonlight while gazing at stars with a contented smile. Dog's head and chest remain visible with exactly FIVE clear collar stars, red short cape loosely draped on back, curled tail. Warm lantern nearby, snow-covered pine branches frame scene. Candid solo travel memory, inviting safe warmth, no posed standing portrait, no humans.",
+    "refs": [
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/pet/s4.webp",
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/design/pet/style-refresh-2026-10-11/references/shiba-growth-v1.png",
+      "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/story/story-13.webp"
+    ],
+    "output": "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/postcards/snow-4.webp"
+  }
+]
