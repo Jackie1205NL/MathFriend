@@ -8,7 +8,7 @@ export const itemArt = (k, attrs = '') => {
   const height = k === 'scarf' ? 36 : 100
   return src ? `<svg ${attrs} viewBox="0 0 100 ${height}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><image href="${src}" x="0" y="0" width="100" height="${height}" preserveAspectRatio="xMidYMid meet"/></svg>` : ''
 }
-export const itemIcon = k => itemArt(k, 'class="item-art"') || `<img src="/pet/item-${k}.webp" alt="">`
+export const itemIcon = k => itemArt(k, 'class="item-art"') || `<img class="ii" src="/pet/item-${k}.webp" alt="">`
 
 // 户外场景直接嵌入图片，让长形物件充分使用各自的摆放区域。
 export const itemScene = (k, attrs) => `<image ${attrs} href="${itemSource(k)}" preserveAspectRatio="xMidYMid meet"/>`

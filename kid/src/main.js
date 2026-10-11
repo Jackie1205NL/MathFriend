@@ -416,13 +416,13 @@ function statTable(b, cells, live) {
 const box = (v, cur = true, cls = '') => `<span class="box ${cur ? 'cur' : ''} ${cls}">${v === '' || v == null ? '&nbsp;' : esc(v)}</span>`
 function vStep() {
   const it = curItem(), b = step(), go = lastStep() ? '交卷' : '下一步'
-  if (b.type === 'column' && b.op === '÷') return `<p class="dim">用竖式计算 ${b.a} ÷ ${b.b}。从最高位除起，商写在上面；一位不够除，商就写 0。下面一行写乘积，一行写减下来的数和落下来的一位。</p>${divGrid(b)}${pad(null, go, 'stepgo')}`
+  if (b.type === 'column' && b.op === '÷') return `<div class="card q">用竖式计算 ${b.a} ÷ ${b.b}。</div><p class="dim">从最高位除起，商写在上面；一位不够除，商就写 0。下面一行写乘积，一行写减下来的数和落下来的一位。</p>${divGrid(b)}${pad(null, go, 'stepgo')}`
   if (b.type === 'check') {
     const tpl = { mul: '□ × □ + □ = □', back: it.op === '+' ? '□ − □ = □' : '□ + □ = □', estimate: `□ × ${b.b} ≈ □` }[b.kind], parts = tpl.split('□')
     return `<div class="bubble plain good">验算一下：${b.kind === 'mul' ? '商 × 除数 + 余数，应该等于被除数（没有余数就填 0）' : b.kind === 'back' ? (it.op === '+' ? '和 − 一个加数 = 另一个加数' : '差 + 减数 = 被减数') : `把 ${b.a} 看成接近它的整十或整百数，估一估`}</div>
       <div class="card"><div class="ans big2">${parts.map((x, j) => esc(x) + (j < parts.length - 1 ? `<button class="bx" data-a="blank" data-v="${j}">${box(Q.vals[j], Q.cur === j)}</button>` : '')).join('')}</div></div>${pad(null, go, 'stepgo')}`
   }
-  if (b.type === 'column') return `<p class="dim">用竖式计算 ${b.a} ${b.op} ${b.b}，从个位算起。${b.op === '−' ? '退位' : '进位'}写在上面的小格里，没有就空着。点格子可以改。</p>${colGrid(b)}${pad(null, go, 'stepgo')}`
+  if (b.type === 'column') return `<div class="card q">用竖式计算 ${b.a} ${b.op} ${b.b}。</div><p class="dim">从个位算起。${b.op === '−' ? '退位' : '进位'}写在上面的小格里，没有就空着。点格子可以改。</p>${colGrid(b)}${pad(null, go, 'stepgo')}`
   if (b.type === 'table') return `${record(b)}${statTable(b, Q.cells, true)}<p class="dim">点一个格子再填数，合计也要填。</p>${pad(null, go, 'stepgo')}`
   if (b.type === 'pickcat') return `${qText()}<div class="opts">${b.opts.map((o, i) => `<button data-a="pickgo" data-v="${i}">${esc(o)}</button>`).join('')}</div>`
   if (b.type === 'tapnum') {
@@ -445,7 +445,7 @@ function vStep() {
     let g = 0
     const rows = b.blanks.map(t => { const parts = t.split('□'), start = g; g += parts.length - 1
       return `<div class="mrow ${Q.cur >= start && Q.cur < g ? 'cur' : ''}">${parts.map((x, j) => esc(x) + (j < parts.length - 1 ? `<button class="bx ${Q.fx.flash && Q.vals[start + j] === '' ? 'bad' : ''}" data-a="blank" data-v="${start + j}">${box(Q.vals[start + j], Q.cur === start + j)}</button>` : '')).join('')}</div>` }).join('')
-    return `${it.text ? `<p class="dim">${esc(it.text)}</p>` : ''}<div class="card multi">${rows}</div><p class="dim">点一个空再填数。每个空都要填。</p>${pad(null, go, 'stepgo')}`
+    return `${qText()}<div class="card multi">${rows}</div><p class="dim">点一个空再填数。每个空都要填。</p>${pad(null, go, 'stepgo')}`
   }
   if (b.type === 'circle' && Q.rec[Q.i]?.cfb) {
     // 圈完马上点评：绿色是圈对的，橙色虚线是漏圈的，灰色划掉的是不用圈的。点评过就定下来了，回到这一步只能看
@@ -598,7 +598,7 @@ function vQ() {
   // 做过的步骤可以点回去改，不扣分；回去改完再往后走，后面填过的还在
   const live = !Q.fin && !Q.catch && !Q.walk && !Q.cover
   const bar = Q.flow.length > 1 ? `<div class="stepbar">${live && Q.i > 0 ? '<button class="pill" data-a="backto" data-v="">‹ 上一步</button>' : ''}<div class="steps" style="grid-template-columns:repeat(${Q.flow.length},1fr)">${Q.flow.map((t, i) => live && i < Q.i ? `<button class="done" data-a="backto" data-v="${i}">${STEP_NAME[t.type]}</button>` : `<span class="${Q.fin || i < Q.i ? 'done' : i === Q.i ? 'now' : ''}">${STEP_NAME[t.type]}</span>`).join('')}</div></div>` : ''
-  return `<div class="top"><button class="back" data-a="go" data-v="quests" aria-label="回到任务">‹</button><h1>${esc(g.name)} ${idx}/${g.items.length}</h1>${!Q.demo && !Q.fin && !Q.catch && !Q.walk ? '<button class="pill scr" data-a="skip">跳过</button>' : ''}<button class="pill scr" data-a="scratch">草稿</button>${coin('最高 ' + (g.extra ? Math.ceil(it.max / 2) : it.max))}</div>
+  return `<div class="top qtop"><button class="back" data-a="go" data-v="quests" aria-label="回到任务">‹</button><h1>${esc(g.name)} ${idx}/${g.items.length}</h1>${!Q.demo && !Q.fin && !Q.catch && !Q.walk ? '<button class="pill scr" data-a="skip">跳过</button>' : ''}<button class="pill scr" data-a="scratch">草稿</button>${coin('最高 ' + (g.extra ? Math.ceil(it.max / 2) : it.max))}</div>
   <div class="body qbody">${Q.gid === 'friday' && !Q.demo ? vBoss() : ''}${Q.cover ? `<div class="cover"><img src="${face('thinking')}" alt=""><b style="font:400 30px var(--kid)">慢慢来</b><span>${name()}在帮你把题目再读一遍……</span></div>` : ''}${bar}${Q.walk ? vWalk() : Q.fin ? (it.segs || it.format === 'stat' ? qText() : '') + vQResult(g) : vStep()}</div>
   ${vDock()}${Q.menu ? vMenu() : ''}${Q.scratch ? '<div class="scratch"><canvas id="scratch"></canvas><div class="duo"><button class="btn alt" data-a="sclear">擦干净</button><button class="btn" data-a="scratch">关上</button></div></div>' : ''}${Q.catch ? vCatch() : ''}${Q.fire ? `<div class="toast fire"><img src="/pet/badge-${SKILLS.find(x => x.k === Q.fire.k).badge}.webp" alt="">${esc(Q.fire.text)}</div>` : ''}`
 }

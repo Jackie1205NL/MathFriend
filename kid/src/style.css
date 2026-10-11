@@ -102,7 +102,7 @@ h3{font:400 22px var(--kid);margin:0}
 .steps .done{background:var(--leaf);color:#fff}.steps .now{background:var(--sun);color:var(--ink);font-weight:700}
 .stepbar{display:flex;gap:8px;align-items:center}.stepbar .steps{flex:1}.stepbar .pill{flex:none;font-size:17px;padding:6px 12px}
 .steps button{border:0;border-radius:12px;padding:6px 2px;font:inherit;cursor:pointer}.steps button.done{text-decoration:underline;text-underline-offset:3px}
-.q{font-size:23px;line-height:2.2}
+.q{font-size:24px;line-height:1.9;overflow-wrap:anywhere}
 .q.big{font:700 40px/1.6 var(--sans);text-align:center;letter-spacing:.04em}
 /* 圈关键词：没点的时候就是普通文字，不提前框出任何词；题干切成短词（关键词、干扰词都能点），点哪个词只圈哪个词 */
 .seg{display:inline-block;border:2px solid transparent;border-radius:10px;padding:0 1px;margin:2px 0;cursor:pointer;line-height:1.6}
@@ -253,7 +253,7 @@ button.frow{box-shadow:0 4px 0 var(--line)}
 /* 弹层：居中的卡片 */
 .sheet{position:fixed;inset:0;background:var(--shade);display:flex;align-items:center;justify-content:center;padding:32px;z-index:6}
 .sheet>div{background:var(--bg);border-radius:28px;padding:26px 28px 28px;width:100%;max-width:580px;max-height:92vh;overflow-y:auto;display:flex;flex-direction:column;gap:14px}
-.opt{display:grid;grid-template-columns:60px 1fr auto;gap:14px;align-items:center;background:var(--card);border-radius:18px;padding:14px 16px;text-align:left;width:100%;min-height:72px}
+.opt{display:grid;grid-template-columns:60px minmax(0,1fr) auto;gap:14px;align-items:center;background:var(--card);border-radius:18px;padding:14px 16px;text-align:left;width:100%;min-height:72px}
 .opt .ic{width:60px;height:60px;border-radius:16px;display:grid;place-items:center;font:400 31px var(--kid);color:#fff}
 .opt b{display:block;font-size:22px}.opt small{color:var(--dim);font-size:17px;display:block;line-height:1.4}
 .opt:disabled{opacity:.55}
@@ -432,7 +432,7 @@ h2 .hb{width:44px;height:44px;border-radius:50%;vertical-align:-10px;margin-righ
   .bars{font-size:14px}.cond{font-size:13px}
   .acts{gap:6px}.acts button{font-size:17px;min-height:64px;padding:9px 0}.acts small{font-size:12px}
   .nav button{font-size:16px;min-height:52px;padding:11px 0 13px}
-  .q{font-size:17px}.q.big{font-size:28px}.expr{font-size:20px}.ans{font-size:16.5px}.line{font-size:20px}
+  .q{font-size:21px}.q.big{font-size:28px}.expr{font-size:20px}.ans{font-size:16.5px}.line{font-size:20px}
   .box{min-width:60px;min-height:36px;font-size:22px;line-height:32px}
   .pad{gap:8px}.pad button{min-height:52px;font-size:20px}.pad button.u{font-size:16px}
   .opts button{font-size:17px}
@@ -442,7 +442,7 @@ h2 .hb{width:44px;height:44px;border-radius:50%;vertical-align:-10px;margin-righ
   .pgrid{gap:6px}.pgrid .pcard p,.pgrid .empty{font-size:12px}.pgrid .empty{min-height:84px}
   .stats{grid-template-columns:1fr 1fr}.stats b{font-size:24px}
   .sheet{padding:12px}.sheet>div{padding:18px}
-  .opt{grid-template-columns:44px 1fr auto}.opt .ic{width:44px;height:44px;font-size:22px}.opt b{font-size:17px}.opt small{font-size:13px}
+  .opt{grid-template-columns:44px minmax(0,1fr);gap:8px 12px}.opt>.r{grid-column:2;white-space:normal;font-size:15px}.opt>span{min-width:0;overflow-wrap:anywhere}.opt .ic{width:44px;height:44px;font-size:22px}.opt b{font-size:17px}.opt small{font-size:13px}
   .cups{gap:8px;padding-top:40px}.cup span{font-size:15px}
   .meet img{width:130px;height:130px}.hello input{font-size:20px}
   .gradcere .pet{height:220px}.gradcere p{font-size:16px}.gradcere h2{font-size:30px}
@@ -507,3 +507,6 @@ table.dash tr.idle td{color:#a5ad9f}
 .story-postcard figcaption{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:60px;padding:8px 3px;color:#8b6236;font-size:17px}
 .postcard-mark{display:grid;place-items:center;width:38px;height:42px;border:2px dashed #dda554;color:#dca03f;border-radius:5px;font-size:30px;flex:none}
 @media(max-width:600px){.story-postcard{padding:9px 9px 0;border-radius:14px}.story-postcard figcaption{font-size:14px;min-height:50px}.postcard-mark{width:28px;height:32px;font-size:23px}.story p{font-size:20px;line-height:1.9}}
+
+/* 手机答题标题单独一行，避免被操作按钮挤窄。 */
+@media(max-width:600px){.qtop{flex-wrap:wrap}.qtop h1{flex:1 0 calc(100% - 64px);white-space:normal;font-size:24px}.qtop>.pill{margin-top:4px}}
