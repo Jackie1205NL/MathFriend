@@ -1,4 +1,5 @@
 import { recordings } from './recordings.js'
+import { recordingPlan } from './recording-plan.js'
 // 孩子端后端：判分、金币、照顾、存档都在这里，页面拿不到答案。
 // 存储只要有 get(key) / set(key, value) 两个方法：线上是 Netlify Blobs（kid/functions/kid.mjs），本地开发是文件（kid/vite.config.js）。
 import { FORMATS, needsRest, petRest, bedtimeMinutes, MIN_SECONDS, SKILLS, SKILL_COST, GOODS, DECAY, NEED_FLOOR, PATS_PER_DAY, LEVELS, LEVEL_MIX, STORY_PAGES, BOSS_SIZE, BOSS_PASS, BOSS_COINS, BOSS_RATE, EXTRA_STEP, STAGES,
@@ -226,7 +227,14 @@ export function createApi(base, env) {
       if (state.chal?.week !== wk || state.chal.items.some(id => !ids.has(id))) state.chal = { week: wk, ...pickChallenge(pack, log, date, day.groups.flatMap(g => g.items)), recs: {}, done: false }
       if (!state.chal.done && state.chal.items.length) { day.groups.push({ id: 'friday', items: state.chal.items, pass: state.chal.pass }); await S.set(`day:${date}`, day) }
     }
-    return { S, pack, state, date, log, day, now, recordingEnabled: settings.recordingEnabled !== false, rest: petRest(now, user.id), c0: state.coins }      // c0：这次请求开始时的金币（早安礼物已经单独记了），存档时算出赚了还是花了
+    // 独立于 day 保存：重抽每日任务或替换题库也不能重抽录像名额。
+    let videoPlan = await S.get(`recording-plan:${date}`)
+    if (!videoPlan && day) {
+      const candidates = new Set(day.groups.filter(g => g.id !== 'sample').flatMap(g => g.items).filter(id => !day.items[id]?.fin && !state.chal?.recs?.[id]))
+      videoPlan = recordingPlan(pack.items.filter(it => candidates.has(it.id)), date, user.id)
+      await S.set(`recording-plan:${date}`, videoPlan)
+    }
+    return { S, pack, state, date, log, day, now, recordingItems: videoPlan?.items || [], recordingEnabled: settings.recordingEnabled !== false, rest: petRest(now, user.id), c0: state.coins }      // c0：这次请求开始时的金币（早安礼物已经单独记了），存档时算出赚了还是花了
   }
   /** 记得你：小狗说话时能用上的几件事 */
   function facts({ pack, state, date, log }) {
@@ -240,7 +248,7 @@ export function createApi(base, env) {
     const st = stageOf(s, date), ev = s.hatched && s.event !== date ? eventOf(date, s.skill['概念不清'] >= 2) : null
     const H = s.hide?.date === date ? s.hide : null
     return {
-      date, now: ctx.now, rest: ctx.rest, recordingEnabled: ctx.recordingEnabled,
+      date, now: ctx.now, rest: ctx.rest, recordingEnabled: ctx.recordingEnabled, recordingItems: ctx.recordingItems,
       state: { ...s, hide: undefined, stage: st, good: good(s), finale: date >= SEASON.finale, graduated: !!s.grad, pcPending: POSTCARD_DAYS.some(d => d > (s.pcLast || '') && d <= date) },
       week: pack?.week || null, tuning: pack?.tuning || {},
       today: day ? day.groups.map(dg => ({ ...(dg.id === 'friday' ? { ...FRIDAY, pass: dg.pass ?? BOSS_PASS, monster: hash(isoWeek(date)) % MONSTERS, sub: `周五到周日开放，每周一次。答对 ${dg.pass ?? BOSS_PASS} 题打败怪兽，解锁一页故事` } : dg.id === 'extra' ? EXTRA : dg.id === 'sample' ? SAMPLE : pack.groups.find(g => g.id === dg.id)), items: dg.items.map(id => { const it = byId[id], r = day.items[id] || {}; return { ...publicItem(it, { tier: s.tiers?.[`${it.kp}|${it.err}`]?.lv ?? 0 }), ...(dg.id === 'friday' ? { max: Math.round(maxCoins(it) * BOSS_RATE) } : {}), circle: r.circle ? circleFeedback(it, r) : null, done: r.fin || (dg.id === 'friday' && s.chal?.recs?.[id]) || null, guard: r.guard || null, caught: r.caught || null, l2: !!r.l2, help: r.help || [] } }) })) : [],
@@ -1116,6 +1124,10 @@ export function createApi(base, env) {
           if (!date || date > ctx.date || dayDiff(date, ctx.date) > 30) return json({ error: '录像日期无效' }, 400)
           const day = await S.get(`day:${date}`)
           if (!day?.groups?.some(g => g.items.includes(body.item))) return json({ error: '录像题目不属于这个账号的任务' }, 400)
+          // 已创建的片段允许幂等补传，不受后来重抽任务或抽样升级影响。
+          if (/^[a-f0-9-]{36}$/.test(body.clientId || '') && await S.get(`recording:${body.clientId}`)) return json(await service.start({ ...body, date }))
+          const plan = await S.get(`recording-plan:${date}`)
+          if (!plan?.items.includes(body.item)) return json({ error: '这道题未被选入当天的录像抽样，片段可保留在本地', code: 'RECORDING_NOT_SELECTED' }, 403)
           return json(await service.start({ ...body, date, title: String(body.title || body.item).slice(0, 200) }))
         }
         if (parts.length === 4 && parts[3] === 'status') return json(await service.read(parts[2]))

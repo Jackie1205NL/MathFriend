@@ -46,7 +46,7 @@ export function practiceRecorder(api) {
     const focused = control.contains(document.activeElement) ? document.activeElement?.dataset.action : null
     control.replaceChildren()
     const label = document.createElement('span'); label.setAttribute('role', 'status')
-    label.textContent = error || (!supported ? '此浏览器不支持答题录像，可继续做题' : preparing ? '准备录像…' : active ? '正在录制答题画面' : paused ? '答题录像已暂停' : clips.some(c => !c.uploadBlocked) ? '录像等待上传' : clips.length ? '录像已从服务器删除，仅保留本地副本' : saving ? '正在保存录像…' : '答题录像已关闭')
+    label.textContent = error || (!supported ? '此浏览器不支持答题录像，可继续做题' : preparing ? '准备录像…' : active ? '正在录制答题画面' : paused ? '答题录像已暂停' : clips.some(c => !c.uploadBlocked) ? '录像等待上传' : clips.length ? '部分录像仅保留本地副本' : saving ? '正在保存录像…' : '答题录像已关闭')
     control.append(label)
     const button = (text, action, fn) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = text; b.dataset.action = action; b.onclick = fn; control.append(b) }
     if (supported && target?.enabled) button(paused ? '继续录制' : '暂停录制', 'toggle', () => { paused = !paused; error = ''; if (paused) stop(); else reconcile(); show() })
@@ -56,7 +56,7 @@ export function practiceRecorder(api) {
         const clip = mine()[0]
         if (clip) download(clip.blob, `答题-${clip.item}-${clip.id}.${clip.mime === 'video/mp4' ? 'mp4' : 'webm'}`)
       })
-      if (clips.some(c => c.uploadBlocked)) button('清除已删除录像的本地副本', 'discard', async () => {
+      if (clips.some(c => c.uploadBlocked)) button('清除仅本地保存的录像', 'discard', async () => {
         const user = owner
         try {
           for (const clip of mine().filter(c => c.uploadBlocked)) { await saved('delete', clip.id); backups.delete(clip.id) }
@@ -101,8 +101,8 @@ export function practiceRecorder(api) {
           }
           await saved('delete', clip.id)
         } catch (e) {
-          if (e.status !== 410) throw e
-          // 管理员明确删除的录像不复活；保留本地下载，并让后面的片段继续上传。
+          if (e.status !== 410 && e.code !== 'RECORDING_NOT_SELECTED') throw e
+          // 已删除或旧版录下但不在新抽样名单的片段留在本地，不阻塞后续上传。
           clip.uploadBlocked = true; backups.set(clip.id, clip)
           await saved('put', clip); backups.delete(clip.id)
         }

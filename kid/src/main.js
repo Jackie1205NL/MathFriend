@@ -27,7 +27,7 @@ async function api(path, body) {
   const r = await fetch('/api/kid' + path, body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {})
   const d = await r.json().catch(() => ({ error: '网络不太好，再试一次。' }))
   if (r.status === 401 && path !== '/login') { V = null; page = 'login'; if (path.startsWith('/admin')) ADM = null }
-  if (!r.ok) { const error = new Error(d.error || '出错了，再试一次。'); error.status = r.status; throw error }
+  if (!r.ok) { const error = new Error(d.error || '出错了，再试一次。'); error.status = r.status; error.code = d.code; throw error }
   const v = d.view || (path === '/state' ? d : null)
   if (v?.now) clockSkew = v.now - Date.now()
   return d
@@ -147,10 +147,10 @@ let RECORDS = null
 function recordingPanel() {
   if (!RECORDS) return ''
   const r = RECORDS, user = ADM.find(u => u.id === r.user)
-  return `<section class="card recordings"><b>${esc(user?.name || '')}的答题录像</b><p class="dim">按题目保存无声答题画面，长题每分钟分段。每个账号最多保留 200 段，可下载后删除。</p>
+  return `<section class="card recordings"><b>${esc(user?.name || '')}的答题录像</b><p class="dim">每天随机录制 2–3 道题，优先应用题；长题每分钟分段。每个账号最多保留 200 段，可下载后删除。</p>
     ${r.url ? `<video class="practice-video" controls playsinline src="${r.url}" aria-label="答题过程录像"></video><a class="link" href="${r.url}" download="答题-${esc(r.play.id)}.${r.play.mime === 'video/mp4' ? 'mp4' : 'webm'}">下载当前视频</a>` : ''}
     ${r.loading ? '<p role="status">正在读取视频…</p>' : ''}
-    ${r.clips.length ? r.clips.map(c => `<div class="record-row"><div><b>${esc(c.title)}</b><small>${esc(c.date)} · ${new Date(c.created).toLocaleTimeString('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit' })} · ${Math.ceil(c.duration / 1000)} 秒${c.ready ? '' : ' · 上传未完成'}</small></div><button class="buy" data-a="recordplay" data-v="${c.id}" ${!c.ready || r.loading ? 'disabled' : ''}>回看 / 下载</button><button class="link" data-a="recorddelete" data-v="${c.id}">删除</button></div>`).join('') : '<p class="dim">还没有录像。孩子开始做题后会自动录制，离开题目或暂停时保存。</p>'}
+    ${r.clips.length ? r.clips.map(c => `<div class="record-row"><div><b>${esc(c.title)}</b><small>${esc(c.date)} · ${new Date(c.created).toLocaleTimeString('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit' })} · ${Math.ceil(c.duration / 1000)} 秒${c.ready ? '' : ' · 上传未完成'}</small></div><button class="buy" data-a="recordplay" data-v="${c.id}" ${!c.ready || r.loading ? 'disabled' : ''}>回看 / 下载</button><button class="link" data-a="recorddelete" data-v="${c.id}">删除</button></div>`).join('') : '<p class="dim">还没有录像。当天抽中的题会自动录制，离开题目或暂停时保存。</p>'}
     <button class="link" data-a="admrecordings" data-v="${r.user}">刷新录像列表</button></section>`
 }
 function vAdmin() {
@@ -162,7 +162,7 @@ function vAdmin() {
     <div class="card"><b>新建孩子账号</b><p class="dim">每个账号有自己的小狗和存档，题目大家共用。用户名最多 12 个字，密码是 4 位数字。</p>
       <div class="field"><input id="adm-name" maxlength="12" placeholder="用户名" aria-label="用户名"><input id="adm-pin" inputmode="numeric" maxlength="4" placeholder="4 位密码" aria-label="密码"><button class="btn" data-a="admadd">新建</button></div></div>
     ${us.map(row).join('') || '<p class="dim">还没有账号。</p>'}
-    <div class="card"><b>答题过程录像</b><p class="dim">只录答题页面和草稿操作，不录摄像头、声音或其他应用。孩子可以暂停；管理员在账号下点击「答题录像」回看、下载或删除。</p><button class="btn alt" data-a="recordsetting">${ADMS.recordingEnabled === false ? '开启自动录像' : '关闭自动录像'}</button></div>
+    <div class="card"><b>答题过程录像</b><p class="dim">每天随机抽选 2–3 道题，优先应用题；不足时用其他题补足。只录答题页面和草稿操作，孩子可以暂停；管理员在账号下点击「答题录像」回看、下载或删除。</p><button class="btn alt" data-a="recordsetting">${ADMS.recordingEnabled === false ? '开启自动录像' : '关闭自动录像'}</button></div>
     ${recordingPanel()}
     <div class="card"><b>每天题量</b><p class="dim">所有账号每天做几题（题型一组不少，按比例分，每组至少 1 题；本周闯关题也跟着少）。现在是 ${ADMS.daily ?? 12} 题。改了以后，今天还没开始做的马上按新题量，已经开始做的明天生效。</p>
       <div class="field"><input id="adm-daily" type="number" inputmode="numeric" min="5" max="40" value="${ADMS.daily ?? 12}" aria-label="每天题量"><button class="btn" data-a="admdaily">保存</button></div></div>
@@ -229,7 +229,7 @@ function vHome() {
     <div class="bubble" role="status" aria-live="polite">${esc(say) || (st ? `嗨，${kid()}！今天也一起加油吧。` : '它还在小窝里睡觉。做完第一道题，它就会醒来。')}</div>
     ${room()}
     ${sleeping ? `<div class="acts night-acts"><button data-a="quiet" data-v="blanket">盖好被子<small>暖暖的</small></button><button data-a="quiet" data-v="pat">轻轻摸摸<small>安心陪伴</small></button><button data-a="quiet" data-v="hum">哼晚安曲<small>轻轻的</small></button></div><p class="dim">每种陪伴每晚首次心情 ＋3，之后也可以再陪一会儿。你也可以安心去休息。</p>` : ''}
-    ${st ? `<div class="rest-note"><span>${sleeping ? '晚安时光 · 不用花金币' : `今天约 ${rest().bedtime} 入睡 · 早上 7 点醒来`}</span><button data-a="sheet" data-v="wardrobe">换配饰 ›</button></div>` : ''}
+    ${st ? `<div class="rest-note"><span>${sleeping ? '' : `今天约 ${rest().bedtime} 入睡 · 早上 7 点醒来`}</span><button data-a="sheet" data-v="wardrobe">换配饰 ›</button></div>` : ''}
     ${low && !sleeping ? '<div class="care-note"><b>慢慢恢复精神</b><p>先吃一点、洗个澡，或轻轻摸摸。选一件就好，不用一下全做完。</p></div>' : ''}
     <div class="card bars">${bar('饱食', n.full, '')}${bar('心情', n.mood, 'b')}${bar('清洁', n.clean, 'c')}</div>
     ${!sleeping ? `<div class="acts"><button data-a="sheet" data-v="food">喂食<small>${bag('food')} 份</small></button><button data-a="care" data-v="soap">洗澡<small>${bag('soap')} 块</small></button><button class="new" data-a="sheet" data-v="play" ${st ? '' : 'disabled'}>陪玩<small>三选一</small></button><button data-a="care" data-v="pat">摸摸<small>今天 ${Math.max(0, 3 - pats)} 次</small></button><button data-a="sheet" data-v="tricks" ${st ? '' : 'disabled'}>把戏<small>会 ${tricks} 个</small></button></div>` : ''}
@@ -1066,7 +1066,7 @@ function render() {
   if (page === 'q' && Q && !Q.demo) { const all = drafts(); if (Q.fin) delete all[Q.id]; else all[Q.id] = { i: Q.i, rec: Q.rec }; ls.set('kid-draft', { date: V.date, all }) }
   if (Q?.scratch) initScratch()
   const recordingUser = V.rest?.seed || ''
-  practice.sync(page === 'q' && Q && !Q.demo ? { key: `${recordingUser}:${V.date}:${Q.id}`, user: recordingUser, item: Q.id, date: V.date, title: curItem().text || curItem().segs?.map(x => x.t).join('') || Q.id, enabled: V.recordingEnabled !== false, element: app } : null, recordingUser)
+  practice.sync(page === 'q' && Q && !Q.demo && V.recordingItems?.includes(Q.id) ? { key: `${recordingUser}:${V.date}:${Q.id}`, user: recordingUser, item: Q.id, date: V.date, title: curItem().text || curItem().segs?.map(x => x.t).join('') || Q.id, enabled: V.recordingEnabled !== false, element: app } : null, recordingUser)
   touchedItem = ''
   if (!pose) act = ''
   cere = null; if (Q) { Q.mood = ''; Q.fire = null }
