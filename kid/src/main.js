@@ -131,17 +131,6 @@ function room() {
     ${petHtml({ interactive: true })}
     <span class="tag">${!stage() ? '小窝' : late() ? '梦乡里 · 早上 7 点醒来' : needsRest(s.needs) ? '慢慢恢复精神 · 从一件小事开始' : s.good ? '状态好 · 明早有小礼物' : winter() ? '窗外在下雪' : '窗外是秋天'}</span></div>${ev && !late() ? `<button class="room-event" data-a="event"><span>${esc(ev.t)}</span><u>${esc(ev.b)}</u></button>` : ''}`
 }
-function growCard() {
-  const s = S(), n = s.days, i = stage(), nx = STAGES[i + 1]
-  if (!i) return `<div class="card grow"><b>它还在小窝里睡觉</b><p class="dim">做完第一道题，它就会醒来。</p></div>`
-  if (s.graduated) return `<div class="card grow"><b>已陪伴 ${n} 天 · 毕业啦</b><p class="dim">${D() > SEASON.ceremony ? `寒假里${name()}也在家陪你。下学期开学那天，它把小窝留给新朋友。` : `毕业以后${name()}还在小屋里，寒假也一直陪着你。`}</p></div>`
-  if (!nx) return `<div class="card grow"><b>已陪伴 ${n} 天</b><div class="conds"><span class="cond ${D() >= SEASON.finale ? 'ok' : ''}">${md(SEASON.finale)} 毕业周${D() >= SEASON.finale ? ' ✓' : ''}</span><span class="cond">周五 ${md(SEASON.ceremony)} 毕业典礼</span></div></div>`
-  const cur = STAGES[i], need = n >= nx.days, dok = D() >= nx.from, from = cur.from || SEASON.start
-  const pct = Math.min(100, Math.round(Math.max(0, Math.min(n, nx.days) - (cur.days || 0)) / (nx.days - (cur.days || 0)) * 50 + Math.min(1, Math.max(0, dayDiff(from, D()) / Math.max(1, dayDiff(from, nx.from)))) * 50))
-  return `<div class="card grow"><b>已陪伴 ${n} 天</b><span class="bar s"><i style="width:${pct}%"></i></span>
-    <div class="conds"><span class="cond ${need ? 'ok' : ''}">陪满 ${nx.days} 天${need ? ' ✓' : ''}</span><span class="cond ${dok ? 'ok' : ''}">${md(nx.from)} 以后${dok ? ' ✓' : ''}</span><span class="cond">长成${nx.n}</span></div></div>`
-}
-
 // ---------- 登录和账号管理 ----------
 let loginName = ls.get('kid-user', ''), adminMode = false, ADM = null, ADMP = null, ADMW = [], ADMS = {}, admMsg = '', admEdit = null
 function vLogin() {
@@ -242,7 +231,7 @@ function vHome() {
     ${sleeping ? `<div class="acts night-acts"><button data-a="quiet" data-v="blanket">盖好被子<small>暖暖的</small></button><button data-a="quiet" data-v="pat">轻轻摸摸<small>安心陪伴</small></button><button data-a="quiet" data-v="hum">哼晚安曲<small>轻轻的</small></button></div><p class="dim">每种陪伴每晚首次心情 ＋3，之后也可以再陪一会儿。你也可以安心去休息。</p>` : ''}
     ${st ? `<div class="rest-note"><span>${sleeping ? '晚安时光 · 不用花金币' : `今天约 ${rest().bedtime} 入睡 · 早上 7 点醒来`}</span><button data-a="sheet" data-v="wardrobe">换配饰 ›</button></div>` : ''}
     ${low && !sleeping ? '<div class="care-note"><b>慢慢恢复精神</b><p>先吃一点、洗个澡，或轻轻摸摸。选一件就好，不用一下全做完。</p></div>' : ''}
-    <div class="duo home-status">${growCard()}<div class="card bars">${bar('饱食', n.full, '')}${bar('心情', n.mood, 'b')}${bar('清洁', n.clean, 'c')}</div></div>
+    <div class="card bars">${bar('饱食', n.full, '')}${bar('心情', n.mood, 'b')}${bar('清洁', n.clean, 'c')}</div>
     ${!sleeping ? `<div class="acts"><button data-a="sheet" data-v="food">喂食<small>${bag('food')} 份</small></button><button data-a="care" data-v="soap">洗澡<small>${bag('soap')} 块</small></button><button class="new" data-a="sheet" data-v="play" ${st ? '' : 'disabled'}>陪玩<small>三选一</small></button><button data-a="care" data-v="pat">摸摸<small>今天 ${Math.max(0, 3 - pats)} 次</small></button><button data-a="sheet" data-v="tricks" ${st ? '' : 'disabled'}>把戏<small>会 ${tricks} 个</small></button></div>` : ''}
     ${cta}
     ${V.wish ? `<p class="dim">心愿单：${esc(V.wish.text)} · 这周做完任务 ${V.wish.got} / ${V.wish.need} 天</p>` : ''}
