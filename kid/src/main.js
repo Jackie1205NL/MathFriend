@@ -7,8 +7,10 @@ import { STORY } from './story.js'
 import { itemArt, itemIcon, itemScene } from './pet-items.js'
 import { postcardSource } from './postcards.js'
 import { interactionReaction } from './interactions.js'
+import { practiceRecorder, recordingBlob } from './recording.js'
 
 const app = document.getElementById('app')
+const practice = practiceRecorder(api)
 let V = null, page = 'home', Q = null, say = '', act = '', pose = '', poseTimer = 0, sel = '审题', pin = '', loginErr = '', busy = false, taps = [], cere = null
 let learned = null, sheet = null, place = null, card = null, meetBack = false, meetHi = false, grad = 0, toast = '', toastTimer = 0, clockSkew = 0
 const ls = { get: (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d } catch { return d } }, set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)) } catch { /* 隐私模式下不保存 */ } } }
@@ -25,7 +27,7 @@ async function api(path, body) {
   const r = await fetch('/api/kid' + path, body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {})
   const d = await r.json().catch(() => ({ error: '网络不太好，再试一次。' }))
   if (r.status === 401 && path !== '/login') { V = null; page = 'login'; if (path.startsWith('/admin')) ADM = null }
-  if (!r.ok) throw new Error(d.error || '出错了，再试一次。')
+  if (!r.ok) { const error = new Error(d.error || '出错了，再试一次。'); error.status = r.status; throw error }
   const v = d.view || (path === '/state' ? d : null)
   if (v?.now) clockSkew = v.now - Date.now()
   return d
@@ -152,15 +154,27 @@ function vLogin() {
     ${pad(null, '进去')}
     <button class="link" data-a="adminmode">${adminMode ? '‹ 回到孩子登录' : '管理员登录'}</button></div>`
 }
+let RECORDS = null
+function recordingPanel() {
+  if (!RECORDS) return ''
+  const r = RECORDS, user = ADM.find(u => u.id === r.user)
+  return `<section class="card recordings"><b>${esc(user?.name || '')}的答题录像</b><p class="dim">按题目保存无声答题画面，长题每分钟分段。每个账号最多保留 200 段，可下载后删除。</p>
+    ${r.url ? `<video class="practice-video" controls playsinline src="${r.url}" aria-label="答题过程录像"></video><a class="link" href="${r.url}" download="答题-${esc(r.play.id)}.${r.play.mime === 'video/mp4' ? 'mp4' : 'webm'}">下载当前视频</a>` : ''}
+    ${r.loading ? '<p role="status">正在读取视频…</p>' : ''}
+    ${r.clips.length ? r.clips.map(c => `<div class="record-row"><div><b>${esc(c.title)}</b><small>${esc(c.date)} · ${new Date(c.created).toLocaleTimeString('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit' })} · ${Math.ceil(c.duration / 1000)} 秒${c.ready ? '' : ' · 上传未完成'}</small></div><button class="buy" data-a="recordplay" data-v="${c.id}" ${!c.ready || r.loading ? 'disabled' : ''}>回看 / 下载</button><button class="link" data-a="recorddelete" data-v="${c.id}">删除</button></div>`).join('') : '<p class="dim">还没有录像。孩子开始做题后会自动录制，离开题目或暂停时保存。</p>'}
+    <button class="link" data-a="admrecordings" data-v="${r.user}">刷新录像列表</button></section>`
+}
 function vAdmin() {
   const us = ADM || [], row = u => `<div class="card urow ${u.off ? 'off' : ''}"><div><b>${esc(u.name)}</b>${u.off ? ' <span class="tagx">停用</span>' : ''}<small>${u.test ? `<span class="tagx">测试账号${u.clockDate ? ` · 日期拨到 ${md(u.clockDate)}` : ''}</span> ` : ''}${u.today?.q ? `今天做了 ${u.today.q} 题、错 ${u.today.wrong} 题、做题 ${mins(u.today.ms)} · ` : ''}${u.kid ? `孩子「${esc(u.kid)}」· ` : ''}${u.pet ? `小狗「${esc(u.pet)}」· ` : ''}陪伴 ${u.days} 天 · ${u.seen ? `最近来过 ${md(u.seen)}` : '还没来过'}</small></div>
     ${admEdit?.id === u.id ? `<div class="field"><input id="adm-v" ${{ pin: 'inputmode="numeric" maxlength="4" placeholder="新的 4 位密码"', name: 'maxlength="12" placeholder="新的用户名"', kid: `maxlength="6" placeholder="孩子的名字" value="${esc(u.kid)}"`, pet: `maxlength="6" placeholder="小狗的名字" value="${esc(u.pet)}"` }[admEdit.k]} aria-label="新值"><button class="btn" data-a="admsave">保存</button><button class="btn alt" data-a="admcancel">取消</button></div>`
-      : `<div class="ubtns"><button class="buy" data-a="admstats" data-v="${u.id}">看板</button>${u.test ? `<button class="buy" data-a="admtest" data-v="${u.id}">测试工具</button>` : ''}<button class="buy" data-a="admedit" data-v="${u.id}:pin">重置密码</button><button class="buy" data-a="admedit" data-v="${u.id}:name">改用户名</button><button class="buy" data-a="admedit" data-v="${u.id}:kid">改孩子名字</button><button class="buy" data-a="admedit" data-v="${u.id}:pet">改小狗名字</button><button class="buy" data-a="admoff" data-v="${u.id}">${u.off ? '启用' : '停用'}</button><button class="buy" data-a="admflag" data-v="${u.id}">${u.test ? '取消测试账号' : '设为测试账号'}</button></div>`}${ADT?.user.id === u.id ? vAdmTest() : ''}</div>`
+      : `<div class="ubtns"><button class="buy" data-a="admstats" data-v="${u.id}">看板</button><button class="buy" data-a="admrecordings" data-v="${u.id}">答题录像</button>${u.test ? `<button class="buy" data-a="admtest" data-v="${u.id}">测试工具</button>` : ''}<button class="buy" data-a="admedit" data-v="${u.id}:pin">重置密码</button><button class="buy" data-a="admedit" data-v="${u.id}:name">改用户名</button><button class="buy" data-a="admedit" data-v="${u.id}:kid">改孩子名字</button><button class="buy" data-a="admedit" data-v="${u.id}:pet">改小狗名字</button><button class="buy" data-a="admoff" data-v="${u.id}">${u.off ? '启用' : '停用'}</button><button class="buy" data-a="admflag" data-v="${u.id}">${u.test ? '取消测试账号' : '设为测试账号'}</button></div>`}${ADT?.user.id === u.id ? vAdmTest() : ''}</div>`
   return `<div class="top"><h1>账号管理</h1><button class="pill scr" data-a="admout">退出</button></div><div class="body">
     ${admMsg ? `<div class="bubble plain">${esc(admMsg)}</div>` : ''}
     <div class="card"><b>新建孩子账号</b><p class="dim">每个账号有自己的小狗和存档，题目大家共用。用户名最多 12 个字，密码是 4 位数字。</p>
       <div class="field"><input id="adm-name" maxlength="12" placeholder="用户名" aria-label="用户名"><input id="adm-pin" inputmode="numeric" maxlength="4" placeholder="4 位密码" aria-label="密码"><button class="btn" data-a="admadd">新建</button></div></div>
     ${us.map(row).join('') || '<p class="dim">还没有账号。</p>'}
+    <div class="card"><b>答题过程录像</b><p class="dim">只录答题页面和草稿操作，不录摄像头、声音或其他应用。孩子可以暂停；管理员在账号下点击「答题录像」回看、下载或删除。</p><button class="btn alt" data-a="recordsetting">${ADMS.recordingEnabled === false ? '开启自动录像' : '关闭自动录像'}</button></div>
+    ${recordingPanel()}
     <div class="card"><b>每天题量</b><p class="dim">所有账号每天做几题（题型一组不少，按比例分，每组至少 1 题；本周闯关题也跟着少）。现在是 ${ADMS.daily ?? 12} 题。改了以后，今天还没开始做的马上按新题量，已经开始做的明天生效。</p>
       <div class="field"><input id="adm-daily" type="number" inputmode="numeric" min="5" max="40" value="${ADMS.daily ?? 12}" aria-label="每天题量"><button class="btn" data-a="admdaily">保存</button></div></div>
     <div class="card"><b>导入题库</b><p class="dim">${ADMP ? `现在是 ${esc(ADMP.week)} 的题库（${ADMP.created ? md(ADMP.created.slice(0, 10)) + ' ' : ''}生成），${ADMP.items} 道题，按每天都来做够 ${ADMP.days} 天${ADMP.days < 14 ? '（不够两周）' : ''}。` : '还没有题库，孩子进来会看到「还没有题」。'}每周家长端归集完，会在数据文件夹的「孩子端题库」里生成 <code>pack-周.json</code>，选它导入。导入新的就换掉旧的，孩子的存档不受影响。</p>
@@ -225,10 +239,11 @@ function vHome() {
     ${banner}
     <div class="bubble" role="status" aria-live="polite">${esc(say) || (st ? `嗨，${kid()}！今天也一起加油吧。` : '它还在小窝里睡觉。做完第一道题，它就会醒来。')}</div>
     ${room()}
+    ${sleeping ? `<div class="acts night-acts"><button data-a="quiet" data-v="blanket">盖好被子<small>暖暖的</small></button><button data-a="quiet" data-v="pat">轻轻摸摸<small>安心陪伴</small></button><button data-a="quiet" data-v="hum">哼晚安曲<small>轻轻的</small></button></div><p class="dim">每种陪伴每晚首次心情 ＋3，之后也可以再陪一会儿。你也可以安心去休息。</p>` : ''}
     ${st ? `<div class="rest-note"><span>${sleeping ? '晚安时光 · 不用花金币' : `今天约 ${rest().bedtime} 入睡 · 早上 7 点醒来`}</span><button data-a="sheet" data-v="wardrobe">换配饰 ›</button></div>` : ''}
     ${low && !sleeping ? '<div class="care-note"><b>慢慢恢复精神</b><p>先吃一点、洗个澡，或轻轻摸摸。选一件就好，不用一下全做完。</p></div>' : ''}
-    <div class="duo">${growCard()}<div class="card bars">${bar('饱食', n.full, '')}${bar('心情', n.mood, 'b')}${bar('清洁', n.clean, 'c')}</div></div>
-    ${sleeping ? `<div class="acts night-acts"><button data-a="quiet" data-v="blanket">盖好被子<small>暖暖的</small></button><button data-a="quiet" data-v="pat">轻轻摸摸<small>安心陪伴</small></button><button data-a="quiet" data-v="hum">哼晚安曲<small>轻轻的</small></button></div><p class="dim">每种陪伴每晚首次心情 ＋3，之后也可以再陪一会儿。你也可以安心去休息。</p>` : `<div class="acts"><button data-a="sheet" data-v="food">喂食<small>${bag('food')} 份</small></button><button data-a="care" data-v="soap">洗澡<small>${bag('soap')} 块</small></button><button class="new" data-a="sheet" data-v="play" ${st ? '' : 'disabled'}>陪玩<small>三选一</small></button><button data-a="care" data-v="pat">摸摸<small>今天 ${Math.max(0, 3 - pats)} 次</small></button><button data-a="sheet" data-v="tricks" ${st ? '' : 'disabled'}>把戏<small>会 ${tricks} 个</small></button></div>`}
+    <div class="duo home-status">${growCard()}<div class="card bars">${bar('饱食', n.full, '')}${bar('心情', n.mood, 'b')}${bar('清洁', n.clean, 'c')}</div></div>
+    ${!sleeping ? `<div class="acts"><button data-a="sheet" data-v="food">喂食<small>${bag('food')} 份</small></button><button data-a="care" data-v="soap">洗澡<small>${bag('soap')} 块</small></button><button class="new" data-a="sheet" data-v="play" ${st ? '' : 'disabled'}>陪玩<small>三选一</small></button><button data-a="care" data-v="pat">摸摸<small>今天 ${Math.max(0, 3 - pats)} 次</small></button><button data-a="sheet" data-v="tricks" ${st ? '' : 'disabled'}>把戏<small>会 ${tricks} 个</small></button></div>` : ''}
     ${cta}
     ${V.wish ? `<p class="dim">心愿单：${esc(V.wish.text)} · 这周做完任务 ${V.wish.got} / ${V.wish.need} 天</p>` : ''}
     ${s.hatched ? `<div class="tri"><button class="card quest" data-a="story" data-v=""><b>故事书</b><span class="pill">${s.story} / ${STORY_PAGES}</span></button><button class="card quest" data-a="go" data-v="diary"><b>日记</b><span class="pill">${s.album.length} 件事</span></button><button class="card quest" data-a="go" data-v="book"><b>纪念册</b><span class="pill">${s.cards.length} / 12</span></button></div>` : ''}
@@ -334,6 +349,10 @@ function startQ(g, it) {
   Q = { gid: g.id, id: it.id, flow: it.flow, i: 0, rec: [], t0: Date.now(), say: '', sk: '', menu: null, fire: null, fin: null, catch: null, cover: false, mood: '', guard: it.guard, caught: it.caught }
   const d = drafts()[it.id]       // 刷新页面前、或者跳过之前做到一半的，接着做
   if (d && d.i < it.flow.length) Object.assign(Q, { rec: d.rec || [], i: d.i })
+  if (it.circle) {
+    const ci = it.flow.findIndex(b => b.type === 'circle')
+    if (ci >= 0) { Q.rec[ci] = { sel: it.circle.sel, cfb: it.circle }; if (it.circle.readyAt > now().getTime()) Q.i = ci }
+  }
   setSkip(skips().filter(x => x !== it.id))
   enter()
   if (S().slow > 0 && S().slowFrom !== it.id) {      // 「慢慢来」：先盖住 3 秒，剩几题由服务器记
@@ -393,7 +412,8 @@ const chainFinal = () => { const r = Q.rec[fi('chain')]; if (!r) return null; le
 /** 这一行只剩一个能算的符号（其他的被括号挡着），就直接选上，出填写的框 */
 function autoOp() { const L = Q.lines.at(-1), ks = L.t.flatMap((x, k) => canTap(L.t, k) ? [k] : []); Q.op = ks.length === 1 ? ks[0] : null }
 function save(x) { Q.rec[Q.i] = { ...(Q.rec[Q.i] || {}), ...x } }
-function next() { if (lastStep()) return submitQ(); Q.i++; enter() }
+const circleWait = () => Q && !Q.demo ? Math.max(0, Math.ceil(((Q.rec[fi('circle')]?.cfb?.readyAt || 0) - now().getTime()) / 1000)) : 0
+function next() { if (circleWait()) return; if (lastStep()) return submitQ(); Q.i++; enter() }
 function submitQ() {
   if (Q.demo) { Q = null; page = 'skills'; showToast('试过了！真正做题时，点亮着的徽章就能用。'); return }
   return run(async () => {
@@ -470,11 +490,11 @@ function vStep() {
   }
   if (b.type === 'circle' && Q.rec[Q.i]?.cfb) {
     // 圈完马上点评：绿色是圈对的，橙色虚线是漏圈的，灰色划掉的是不用圈的。点评过就定下来了，回到这一步只能看
-    const fb = Q.rec[Q.i].cfb
+    const fb = Q.rec[Q.i].cfb, wait = circleWait()
     return `${qText('review')}<div class="review ${fb.kw === 2 ? 'good' : ''}"><img src="/pet/s${stage() || 1}-face-${fb.kw === 2 ? "proud" : "thinking"}.webp" alt=""><div><b>${name()}说：</b>${esc(cfbMsg(fb))}</div></div>
-      <p class="dim">绿色是圈对的${fb.must?.length ? '，红色虚线是漏掉的最要紧的' : ''}${fb.missed.length > (fb.must?.length || 0) ? '，橙色虚线是还可以圈的' : ''}${fb.extra.length ? '，灰色划掉的是和算数没关系的' : ''}。</p><button class="btn" data-a="stepgo">知道了，${Q.flow[Q.i + 1]?.type === 'build' ? '去列式' : '下一步'}</button>`
+      <p class="dim">绿色是圈对的${fb.must?.length ? '，红色虚线是漏掉的最要紧的' : ''}${fb.missed.length > (fb.must?.length || 0) ? '，橙色虚线是还可以圈的' : ''}${fb.extra.length ? '，灰色划掉的是和算数没关系的' : ''}。</p><p class="dim">${fb.penalty ? `漏圈核心关键词，本题奖励扣 ${fb.penalty} 金币（最低为 0）。先看看红色标记。` : ''}</p><button class="btn" data-a="stepgo" data-circle-next ${wait ? 'disabled' : ''}>${wait ? `再看 ${wait} 秒` : '知道了，继续'}</button>`
   }
-  if (b.type === 'circle') return `${qText('pick')}<p class="dim">可以点好几处，再点一下取消。圈完不会马上对答案，整道题做完再一起看。</p><button class="btn" data-a="stepgo" ${Q.sel.size ? '' : 'disabled'}>圈好了，${Q.flow[Q.i + 1]?.type === 'build' ? '去列式' : '下一步'}</button>`
+  if (b.type === 'circle') return `${qText('pick')}<p class="dim">可以点好几处，再点一下取消。圈完会一起检查关键词。漏掉核心词时，先看 5 秒提示，再继续做题。</p><button class="btn" data-a="stepgo" ${Q.sel.size ? '' : 'disabled'}>圈好了，${Q.flow[Q.i + 1]?.type === 'build' ? '去列式' : '下一步'}</button>`
   if (b.type === 'goal') return `${qText()}<div class="opts">${b.opts.map((o, i) => `<button class="${i === Q.fx.strike ? 'struck' : ''}" data-a="pickgo" data-v="${i}" ${i === Q.fx.strike ? 'disabled' : ''}>${esc(o)}</button>`).join('')}</div>`
   if (b.type === 'build') {
     const gi = fi('goal'), head = b.head ? `<div class="bubble plain good">${esc(b.head)}</div>` : gi >= 0 ? `<div class="bubble plain good">先求：${esc(it.flow[gi].opts[Q.rec[gi]?.i] ?? '')}</div>` : ''
@@ -596,6 +616,7 @@ function vQResult(g) {
     ${habits ? `<div class="conds">${habits}</div>` : ''}
     <div class="card items">${(d.items || []).map(x => `<div class="${x.good}"><i>${mark[x.good]}</i><span>${esc(x.msg)}${x.good !== 'y' ? sk(x.cat) : ''}</span></div>`).join('')}${extra}</div>
     ${d.ok ? '' : `<div class="right"><b>正确做法</b><br>${d.lines.map(esc).join('<br>')}${d.explain ? `<br><span class="dim">${esc(d.explain)}</span>` : ''}</div>`}
+    ${d.keywordPenalty ? `<p class="dim">核心关键词漏圈扣 ${d.keywordPenalty} 金币，本题实际少得 ${d.penaltyApplied} 金币，已计入上方奖励。</p>` : ''}
     <p class="dim">${d.ok ? [d.bonus ? '连续 5 题第一次就对，再加 5。' : '', d.l2 ? '用了 2 级帮忙，这题没有过程奖。' : d.pb ? `过程奖 ＋${d.pb} 已算在里面。` : '', d.patrol ? '今天没有急着答错的题，得到 1 个「巡逻」技能点。' : '', d.extra ? '加练的题金币减半。' : ''].join('') : (d.flash ? '太快啦，还没看清题。接下来几题我们慢慢来。' : (d.c ? `做对的部分给了 ${d.c} 金币，错的那一处看看正确做法。过两天它会换个样子再来。` : '这题没有做对的部分，所以没有金币。过两天它会换个样子再来。'))}</p>
     ${d.day ? `<div class="bubble plain">今天的任务做完了，${name()}已经陪你 ${d.day} 天。</div>` : ''}
     ${d.grew ? `<div class="bubble plain">${name()}长大了，现在是${STAGES[d.grew].n}！${PLACES.find(p => p.st === d.grew) ? `${PLACES.find(p => p.st === d.grew).n}开放了，` : ''}回小屋看看。</div>` : ''}
@@ -649,7 +670,7 @@ const QA = {
   key(k) {
     if (page === 'login') { pin = k === '⌫' ? pin.slice(0, -1) : (pin + k).slice(0, adminMode ? 8 : 4); return }
     if (Q?.walk) { Q.walk.input = k === '⌫' ? Q.walk.input.slice(0, -1) : (Q.walk.input + k).slice(0, 5); Q.walk.bad = false; return }
-    if (!Q || Q.cover || Q.fin || Q.catch) return
+    if (!Q || Q.cover || Q.fin || Q.catch || circleWait()) return
     const b = step(), edit = v => k === '⌫' ? v.slice(0, -1) : (v + k).slice(0, 5)
     if (b.type === 'blanks' || b.type === 'check' || (b.type === 'fill' && b.rem) || (b.type === 'say' && b.cells)) { Q.vals[Q.cur] = edit(Q.vals[Q.cur]); return }
     if (b.type === 'chain' && Q.op == null) { sayPet('先点你要先算的那个符号。'); return }
@@ -684,6 +705,10 @@ const QA = {
   },
   admtoday(v) { const id = ADT.user.id, say = { done: '今天的题都记成做完了', redeal: '今天的题重新出了', sample: '加了一组题型样板（每种题型一道）', chal: '本周闯关重置了，周五到周日会重新出题' }[v]; return run(async () => { try { await api('/admin/users/' + id, { today: v }); admMsg = `「${ADT.user.name}」${say}。重新登录这个账号就能看到。`; ADT = await api('/admin/stats?user=' + id); await loadAdmin() } catch (e) { admMsg = e.message } }) },
   admwipe() { const id = ADT.user.id; if (!confirm(`清空「${ADT.user.name}」的存档？小狗、金币、记录都会重来。`)) return; return run(async () => { try { await api('/admin/users/' + id, { wipe: true }); admMsg = `「${ADT.user.name}」的存档清空了，下次登录重新认识小狗。`; ADT = await api('/admin/stats?user=' + id); await loadAdmin() } catch (e) { admMsg = e.message } }) },
+  recordsetting() { return run(async () => { const r = await api('/admin/settings', { recordingEnabled: ADMS.recordingEnabled === false }); ADMS = r.settings; admMsg = ADMS.recordingEnabled ? '已开启自动答题录像。' : '已关闭自动答题录像，已保存的视频保留。' }) },
+  admrecordings(user) { return run(async () => { if (RECORDS?.url) URL.revokeObjectURL(RECORDS.url); const r = await api('/admin/recordings?user=' + encodeURIComponent(user)); RECORDS = { user, clips: r.clips, url: null }; ADS = null; setTimeout(() => document.querySelector('.recordings')?.scrollIntoView({ block: 'start' }), 0) }) },
+  recordplay(id) { return run(async () => { const r = RECORDS, clip = r.clips.find(c => c.id === id); if (!clip?.ready) return; r.loading = true; render(); try { const blob = await recordingBlob(api, r.user, clip); if (r.url) URL.revokeObjectURL(r.url); r.url = URL.createObjectURL(blob); r.play = clip; setTimeout(() => document.querySelector('.practice-video')?.scrollIntoView({ block: 'center' }), 0) } finally { r.loading = false } }) },
+  recorddelete(id) { if (!confirm('删除这段答题录像？请先下载需要保留的视频。')) return; return run(async () => { await api(`/admin/recordings/${id}/delete?user=${encodeURIComponent(RECORDS.user)}`, {}); if (RECORDS.play?.id === id && RECORDS.url) { URL.revokeObjectURL(RECORDS.url); RECORDS.url = null; RECORDS.play = null } RECORDS.clips = RECORDS.clips.filter(c => c.id !== id); admMsg = '录像已删除。' }) },
   admdaily() { const n = document.getElementById('adm-daily')?.value; return run(async () => { try { const r = await api('/admin/settings', { daily: n }); admMsg = `每天题量改成 ${r.settings.daily} 题了。`; await loadAdmin() } catch (e) { admMsg = e.message } }) },
   admstats(id) { return run(async () => { try { ADS = await api('/admin/stats?user=' + encodeURIComponent(id)); window.scrollTo(0, 0) } catch (e) { admMsg = e.message } }) },
   admback() { ADS = null },
@@ -703,7 +728,7 @@ const QA = {
   },
   admoff(id) { const u = ADM.find(x => x.id === id); return run(async () => { try { await api('/admin/users/' + id, { off: !u.off }); admMsg = `「${u.name}」${u.off ? '启用' : '停用'}了。`; await loadAdmin() } catch (e) { admMsg = e.message } }) },
   stepgo() {
-    if (!Q || Q.cover || Q.fin || Q.catch) return
+    if (!Q || Q.cover || Q.fin || Q.catch || circleWait()) return
     const b = step()
     if (b.type === 'fill' && b.rem) { if (Q.vals.some(v => v === '')) return sayPet('商和余数都要填。'); save({ vs: Q.vals.map(Number) }); return next() }
     if (b.type === 'fill') { if (!Q.input) return sayPet('还没填得数呢。'); save({ v: Number(Q.input) }); return next() }
@@ -1037,11 +1062,11 @@ const NAV = [['home', '小屋'], ['map', '地图'], ['quests', '任务'], ['skil
 const NAV_OF = { result: 'home', story: 'home', diary: 'home', book: 'home', place: 'map' }
 let lastPage = ''
 function render() {
-  if (page === 'admin' && ADM) { app.innerHTML = ADS ? vAdmStats() : vAdmin(); return }
+  if (page === 'admin' && ADM) { practice.sync(null, ''); app.innerHTML = ADS ? vAdmStats() : vAdmin(); return }
   // 小屋的名字跟着小狗的名字走（浏览器标签和登录页也是，这台设备记住上一次的）
   if (V?.state?.name && ls.get('kid-pet', '') !== V.state.name) ls.set('kid-pet', V.state.name)
   document.title = house(page === 'login' || !V ? ls.get('kid-pet', '') : V.state?.name)
-  if (page === 'login' || !V) { app.innerHTML = vLogin(); return }
+  if (page === 'login' || !V) { practice.sync(null, ''); app.innerHTML = vLogin(); return }
   const v = { home: vHome, quests: vQuests, q: vQ, result: vResult, skills: vSkills, shop: vShop, story: vStory, diary: vDiary, map: vMap, place: vPlace, book: vBook }[page]()
   app.innerHTML = v + (page === 'q' ? '' : `<div class="nav">${NAV.map(([k, n]) => `<button class="${page === k || NAV_OF[page] === k ? 'on' : ''}" data-a="go" data-v="${k}">${n}</button>`).join('')}</div>`)
     + vSheet() + vGrad()
@@ -1051,6 +1076,8 @@ function render() {
   lastPage = page
   if (page === 'q' && Q && !Q.demo) { const all = drafts(); if (Q.fin) delete all[Q.id]; else all[Q.id] = { i: Q.i, rec: Q.rec }; ls.set('kid-draft', { date: V.date, all }) }
   if (Q?.scratch) initScratch()
+  const recordingUser = V.rest?.seed || ''
+  practice.sync(page === 'q' && Q && !Q.demo ? { key: `${recordingUser}:${V.date}:${Q.id}`, user: recordingUser, item: Q.id, date: V.date, title: curItem().text || curItem().segs?.map(x => x.t).join('') || Q.id, enabled: V.recordingEnabled !== false, element: app } : null, recordingUser)
   touchedItem = ''
   if (!pose) act = ''
   cere = null; if (Q) { Q.mood = ''; Q.fire = null }
@@ -1122,3 +1149,6 @@ setInterval(() => { if (V && page === 'home' && !busy && !sheet && !pose && !mee
   }
   render()
 })()
+
+// 只更新倒计时按钮，避免每秒重绘答题区或打断录像。
+setInterval(() => { const b = document.querySelector('[data-circle-next]'); if (b) { const wait = circleWait(); b.disabled = !!wait; b.textContent = wait ? `再看 ${wait} 秒` : '知道了，继续' } }, 200)

@@ -82,7 +82,7 @@ export function bedtimeMinutes(date, seed = 'main') {
   let h = 2166136261
   for (const c of `${seed}:${date}:bed`) h = Math.imul(h ^ c.charCodeAt(0), 16777619)
   h ^= h >>> 16
-  return 20 * 60 + 30 + (h >>> 0) % 61
+  return 21 * 60 + 30 + (h >>> 0) % 61
 }
 export function petRest(ms, seed = 'main') {
   const local = new Date(Number(ms) + 8 * 3600000), date = local.toISOString().slice(0, 10)
@@ -527,7 +527,7 @@ export function buildPack(bank, week) {
     return items
   })
   report.days = packDays({ groups: bank.groups, items })
-  return { pack: { format: PACK_FORMAT, v: PACK_VERSION, week, created: new Date().toISOString(), tuning: { unit_hint: 1, blank_hint: 1, slow: 1, bedtime: '20:30', ...bank.tuning }, groups: bank.groups, items }, report }
+  return { pack: { format: PACK_FORMAT, v: PACK_VERSION, week, created: new Date().toISOString(), tuning: { unit_hint: 1, blank_hint: 1, slow: 1, bedtime: '21:30', ...bank.tuning }, groups: bank.groups, items }, report }
 }
 
 /**

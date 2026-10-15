@@ -534,3 +534,14 @@ table.dash tr.idle td{color:#a5ad9f}
 @media(prefers-reduced-motion:reduce){.prop-hit.touched{animation:none}}
 .wear .prop-hit{pointer-events:auto;min-width:44px;min-height:44px}
 .room .pillow,.room .lantern{z-index:1}
+
+/* 陪伴状态保持紧凑；夜间操作紧贴图片，文字反馈留在同一屏。 */
+.home-status{gap:12px}.home-status .grow{padding:10px 14px}.home-status .grow>b{font-size:20px;margin-bottom:3px}.home-status .grow .bar{height:7px;margin:5px 0}.home-status .conds{gap:4px}.home-status .cond{font-size:13px;padding:2px 7px}.home-status .grow .dim{font-size:14px;line-height:1.4}
+.night-acts button{min-height:56px;padding:9px 6px}.night-acts+p.dim{font-size:13px;line-height:1.5}
+@media(max-width:600px){.home-status{gap:8px}.home-status .grow{padding:8px 12px}.home-status .grow>b{font-size:18px}.home-status .grow .conds{display:flex;flex-wrap:wrap}.night-acts{gap:8px}.night-acts button{font-size:18px}.night-acts small{font-size:12px}}
+
+.record-control{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:6px 18px;margin:0 28px 8px;background:#fff5da;color:#59400e;border-radius:12px;font-size:14px;line-height:1.5}.record-control[hidden]{display:none}.record-control>span{flex:1 1 140px}.record-control button{background:#fff;color:#273f30;padding:8px 12px;border-radius:8px;min-height:44px;font:inherit;font-weight:700}
+.recordings{scroll-margin-top:20px}.record-row{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:14px 0;border-top:1px solid var(--line)}.record-row>div{flex:1 1 230px;min-width:0}.record-row b{font-size:18px;overflow-wrap:anywhere}.record-row small{display:block;color:var(--dim);font-size:14px}.record-row .link{margin:0}.practice-video{display:block;width:100%;max-height:65vh;background:#14291e;margin-top:16px;border-radius:12px}
+@media(max-width:600px){.record-control{margin:0 16px 8px;padding:6px 10px;font-size:12px}.record-row>div{flex-basis:100%}}
+/* 管理员输入和视频的固有宽度不能撑开手机页面。 */
+.body{grid-template-columns:minmax(0,1fr);min-width:0}.body>*{min-width:0}.field{min-width:0}.field input,.field select{max-width:100%}.field input[type=file]{flex-basis:100%;width:100%}

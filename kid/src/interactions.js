@@ -43,7 +43,7 @@ export const ITEM_REACTIONS = {
 export function interactionReaction({ place, item, sleeping = false, resting = false, previous = '' }, random = Math.random) {
   const entry = item ? ITEM_REACTIONS[item] : PLACE_REACTIONS[place]
   if (!entry) return null
-  if (sleeping) return { t: entry.night, act: '' }
+  if (sleeping) return { t: entry.night + (resting ? ' 它在梦里有点闷闷的，轻轻陪一会儿也很好。' : ''), act: '' }
   if (resting) return { t: entry.rest, act: 'blink' }
   const choices = entry.play.filter(([t]) => t !== previous)
   const [t, act] = choices[Math.floor(random() * choices.length)]

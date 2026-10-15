@@ -20,9 +20,9 @@ async function fixture(time = '12:00') {
   return { data, call, clock, act: body => call('/act', body) }
 }
 
-test('入睡时间在 20:30–21:30 内，同一账号同一天稳定，不同日期有变化', () => {
+test('入睡时间在 21:30–22:30 内，同一账号同一天稳定，不同日期有变化', () => {
   const times = Array.from({ length: 90 }, (_, i) => bedtimeMinutes(addDays('2026-10-01', i), 'kid-a'))
-  assert.ok(times.every(t => t >= 1230 && t <= 1290)); assert.ok(new Set(times).size > 30)
+  assert.ok(times.every(t => t >= 1290 && t <= 1350)); assert.ok(new Set(times).size > 30)
   assert.equal(bedtimeMinutes('2026-10-11', 'kid-a'), bedtimeMinutes('2026-10-11', 'kid-a'))
   assert.notDeepEqual(times, Array.from({ length: 90 }, (_, i) => bedtimeMinutes(addDays('2026-10-01', i), 'kid-b')))
 })
@@ -38,16 +38,16 @@ test('三项必须都低于 30；任一项恢复到 30 即退出', () => {
   for (const k of ['full', 'mood', 'clean']) assert.equal(needsRest({ full: 29, mood: 29, clean: 29, [k]: 30 }), false)
 })
 test('夜间互动每种每晚只奖励一次，重复和午夜后不会重复奖励', async () => {
-  const f = await fixture('22:00')
+  const f = await fixture('23:00')
   let r = await f.act({ kind: 'quiet', k: 'blanket' }); assert.equal(r.act, 'sleep'); assert.match(r.msg, /心情 ＋3/)
   r = await f.act({ kind: 'quiet', k: 'blanket' }); assert.doesNotMatch(r.msg, /心情 ＋3/)
   r = await f.act({ kind: 'quiet', k: 'hum' }); assert.match(r.msg, /心情 ＋3/)
   r = await f.act({ kind: 'pat' }); assert.match(r.msg, /心情 ＋3/)
   await f.clock('00:30', '2026-10-12'); r = await f.act({ kind: 'quiet', k: 'pat' }); assert.doesNotMatch(r.msg, /心情 ＋3/)
-  await f.clock('22:00', '2026-10-12'); r = await f.act({ kind: 'quiet', k: 'pat' }); assert.match(r.msg, /心情 ＋3/)
+  await f.clock('23:00', '2026-10-12'); r = await f.act({ kind: 'quiet', k: 'pat' }); assert.match(r.msg, /心情 ＋3/)
 })
 test('睡着后活跃互动不消耗库存、不扣金币、不增加户外记录', async () => {
-  const f = await fixture('22:00'), before = structuredClone(f.data.get('state'))
+  const f = await fixture('23:00'), before = structuredClone(f.data.get('state'))
   for (const kind of ['food', 'soap', 'toy', 'trip', 'hide', 'cup', 'event']) {
     const r = await f.act({ kind, k: kind === 'toy' ? 'ball' : 'yard' }); assert.equal(r.act, 'sleep')
   }
@@ -59,8 +59,8 @@ test('白天夜间动作无奖励；三低状态喂食回应温和，数值照�
   r = await f.act({ kind: 'food', k: 'rice' }); assert.match(r.msg, /慢慢恢复精神/); assert.equal(r.view.state.bag.rice, 0); assert.ok(r.view.state.needs.full >= 59); assert.equal(needsRest(r.view.state.needs), false)
 })
 test('三低状态夜间回应不催促立即喂食洗澡', async () => {
-  const f = await fixture('22:00'); Object.assign(f.data.get('state').needs, { full: 25, mood: 25, clean: 25 })
-  const r = await f.act({ kind: 'quiet', k: 'hum' }); assert.match(r.msg, /醒来再吃一点/); assert.doesNotMatch(r.msg, /难过|不理|饿坏|赶快/)
+  const f = await fixture('23:00'); Object.assign(f.data.get('state').needs, { full: 25, mood: 25, clean: 25 })
+  const r = await f.act({ kind: 'quiet', k: 'hum' }); assert.match(r.msg, /闷闷|没精神|不太开心/); assert.doesNotMatch(r.msg, /难过|不理|饿坏|赶快/)
 })
 test('旧存档穿戴兼容，可以换领结、摘下并保留购买记录', async () => {
   const f = await fixture(); assert.equal(wornAccessory(f.data.get('state'), 'neck'), 'scarf')
