@@ -2,7 +2,7 @@
 // 存储只要有 get(key) / set(key, value) 两个方法：线上是 Netlify Blobs（kid/functions/kid.mjs），本地开发是文件（kid/vite.config.js）。
 import { FORMATS, needsRest, petRest, bedtimeMinutes, MIN_SECONDS, SKILLS, SKILL_COST, GOODS, DECAY, NEED_FLOOR, PATS_PER_DAY, LEVELS, LEVEL_MIX, STORY_PAGES, BOSS_SIZE, BOSS_PASS, BOSS_COINS, BOSS_RATE, EXTRA_STEP, STAGES,
   SEASON, PLACES, POSTCARDS, POSTCARD_DAYS, JAR, TRIP_MOOD, EVENT_COINS, coinsFor, maxCoins, publicItem, stageOf, placeOpen, eventOf, cleanName, addDays, dayDiff,
-  SKILL_EVERY, SKILL_USES, SKILL_AT, SKILL_L2, FLOWS, STEP_NAME, flowOf, dailyOf, packDays, checkPack, packKeys, LOG_FORMAT, toTokens, showExpr, validExpr, exprValue, exprSteps, sameNums, stripParens, nextOp, canTap, calcOp, reduceAt } from '../../shared/contract.js'
+  SKILL_EVERY, SKILL_USES, SKILL_AT, SKILL_L2, FLOWS, STEP_NAME, flowOf, dailyOf, DAILY_TOTAL, packDays, checkPack, packKeys, LOG_FORMAT, toTokens, showExpr, validExpr, exprValue, exprSteps, sameNums, stripParens, nextOp, canTap, calcOp, reduceAt } from '../../shared/contract.js'
 
 const DAY = 86400000
 const today = (now = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(now)
@@ -15,7 +15,7 @@ const MONSTERS = 3      // 本周闯关的像素怪兽有几种（按周轮换�
 const EXTRA = { id: 'extra', name: '再练一会儿', sub: '想多练就做，金币减半', bucket: '加练', extra: true }
 /** 测试账号：用户名以 test 开头，或者管理员标成测试的。只有测试账号能拨日期、改小狗参数 */
 const isTest = u => !!u && (u.test ?? /^test/i.test(u.name || ''))
-const DAILY_CAP = 12      // 每天题量默认值（管理员页可以改）
+const DAILY_CAP = DAILY_TOTAL      // 每天题量默认值（管理员页可以改）
 const FRIDAY = { id: 'friday', name: '本周闯关', sub: `周五到周日开放，每周一次。答对 ${BOSS_PASS} 题打败怪兽，解锁一页故事`, bucket: '本周重点', boss: true, friday: true }
 /** ISO 周，如 2026-W41 */
 const isoWeek = date => { const d = new Date(date + 'T00:00:00Z'), w = d.getUTCDay() || 7; d.setUTCDate(d.getUTCDate() + 4 - w); const y = d.getUTCFullYear(); return `${y}-W${String(Math.ceil(((d - Date.UTC(y, 0, 1)) / DAY + 1) / 7)).padStart(2, '0')}` }

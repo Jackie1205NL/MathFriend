@@ -19,8 +19,10 @@ export const EXTRA_STEP = 5                                   // 加练一次加
 // 每次同步的题库至少够做多少天（按孩子每天都来算）。家长偶尔没及时更新，孩子也有新题做
 export const PACK_DAYS = 14
 export const PACK_MARGIN = 1.5                                // 本周闯关和加练也从里面抽，多留五成
-/** 每组每天抽几题：模板没写 daily 时，口算热身（已掌握保温）6 题，其他 4 题 */
-export const dailyOf = g => g.daily || (g.bucket === '已掌握保温' ? 6 : 4)
+export const DAILY_TOTAL = 14                                 // 每天的题量：口算热身 3 + 五个重点组各 2 + 关底题 1（含，本周闯关另算）
+export const BOSS_DAILY_MAX = 42                              // 每天的关底题最高金币（含过程奖 +2），本周闯关的 7 成价不受影响
+/** 每组每天抽几题：模板没写 daily 时，口算热身（已掌握保温）3 题，其他 2 题 */
+export const dailyOf = g => g.daily || (g.bucket === '已掌握保温' ? 3 : 2)
 // 围巾戴在哪：各阶段站立图里项圈的位置（占图片宽高的百分比），由 kid/public/pet/s1～s4.webp 量出来
 export const SCARF_AT = { 1: { x: 41.1, y: 60.4, w: 37 }, 2: { x: 31.7, y: 57.3, w: 32.8 }, 3: { x: 34.2, y: 57.2, w: 36.8 }, 4: { x: 32.1, y: 54, w: 32.8 } }
 export const DIFF = { 同构: 1, 略变: 1.3, 综合: 1.6 }
@@ -168,7 +170,9 @@ export function coinsFor(price, q, pb = 0) {
   const core = q ? Math.max(1, Math.round(price * q)) : 0
   return { core, c: core + (q ? pb : 0) }
 }
-export const priceOf = (format, level, bucket, boost) => BASE[format] * (DIFF[level] || 1) * (bucket === '本周重点' && boost ? boost : SRC[bucket] || 1)
+export const priceOf = (format, level, bucket, boost, boss) => boss
+  ? Math.min(BASE[format] * (DIFF[level] || 1), BOSS_DAILY_MAX - (HAS_PROCESS_BONUS.includes(format) ? 2 : 0))   // 关底题不乘「本周重点」1.5：综合难度的挑战题 25 × 1.6 = 40，加过程奖最高 42
+  : BASE[format] * (DIFF[level] || 1) * (bucket === '本周重点' && boost ? boost : SRC[bucket] || 1)
 export const maxCoins = it => Math.round(it.price) + (HAS_PROCESS_BONUS.includes(it.format) ? 2 : 0)
 
 // ---------- 模板实例化 ----------
@@ -552,7 +556,7 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
     if (seen.has(key)) { bad('重复'); continue }
     seen.add(key)
     items.push({ id: `${week.slice(5)}-${t.id}-${String(items.length + 1).padStart(3, '0')}`, tpl: t.id, group: group.id, bucket: group.bucket,
-      kp: t.knowledge_point, err: t.error_type, price: Math.round(priceOf(t.format, t.level, group.bucket, boost) * 100) / 100, ...item })
+      kp: t.knowledge_point, err: t.error_type, price: Math.round(priceOf(t.format, t.level, group.bucket, boost, group.boss) * 100) / 100, ...item })
   }
   return { items, problems, keys }
 }
@@ -600,7 +604,7 @@ export function buildPack(bank, week) {
     return items
   })
   report.days = packDays({ groups: bank.groups, items })
-  return { pack: { format: PACK_FORMAT, v: PACK_VERSION, week, created: new Date().toISOString(), tuning: { unit_hint: 1, blank_hint: 1, slow: 1, bedtime: '21:30', ...bank.tuning }, groups: bank.groups, items }, report }
+  return { pack: { format: PACK_FORMAT, v: PACK_VERSION, week, created: new Date().toISOString(), tuning: { unit_hint: 1, blank_hint: 1, slow: 1, bedtime: '21:30', daily_total: DAILY_TOTAL, ...bank.tuning }, groups: bank.groups, items }, report }
 }
 
 /**
