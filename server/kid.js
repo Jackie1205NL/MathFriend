@@ -42,7 +42,7 @@ export function uncovered(week, bank) {
   const miss = {}
   for (const d of weeks.slice(-4).map(readWeek)) for (const e of d.entries) {
     const key = `${e.knowledge_point}|${e.error_type}`
-    if (e.verdict !== 'wrong' || e.ahead || have.has(key) || state[key]?.state === '已改善') continue
+    if (e.verdict !== 'wrong' || e.ahead || e.error_type === '待确认' || have.has(key) || state[key]?.state === '已改善') continue
     ;(miss[key] ||= { knowledge_point: e.knowledge_point, title: state[key]?.title || e.knowledge_point, error_type: e.error_type, n: 0 }).n++
   }
   return Object.values(miss).sort((a, b) => b.n - a.n)

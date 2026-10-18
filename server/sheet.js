@@ -1,7 +1,7 @@
 // 本周辅导单 PDF（PRD 5.7 / 5.8）：概览、重点问题、持续跟踪、下周预习、练习卷、答案页。
 // 练习由 /weekly sheet skill 出，存在 错题/周.md 的「练习」段；这里只验算和排版，页面上的按钮可随时重建 PDF。
 //   npm run sheet plan 2026-W37                   打印重点问题与预习知识点，供 skill 出题
-//   npm run sheet practice 2026-W37 <json 文件>    验算并写入练习，然后生成 PDF（set 带 day 时按天分卷）
+//   npm run sheet practice 2026-W37 <json 文件>    验算并写入练习，然后生成 PDF（json 可为练习数组，或 { review, sets }；set 带 day 时按天分卷）
 //   npm run sheet build 2026-W37                  只生成 PDF
 import fs from 'node:fs'
 import path from 'node:path'
@@ -30,9 +30,11 @@ export function plan(week) {
   return { progress, data, knowledge, preview, focus: rows.filter((r, i) => i < 3 || entriesFor(r).length >= 2).slice(0, 5).map(r => ({ ...r, entries: entriesFor(r) })) }
 }
 
-/** 把 skill 出的练习验算后写入周 md。返回丢弃的题数。 */
-export function savePractice(week, sets) {
+/** 把 skill 出的练习（和可选的全知识点复盘）验算后写入周 md。返回丢弃的题数。 */
+export function savePractice(week, input) {
   const data = readWeek(week)
+  const sets = Array.isArray(input) ? input : input?.sets
+  if (!Array.isArray(input)) data.review = (input?.review || []).map(r => ({ ...r, text: plain(r.text) }))
   let dropped = 0
   data.practice = (sets || []).map(s => ({ topic: plain(s.topic), scope: s.scope === '预习' ? '预习' : '错题', ...(s.day ? { day: Number(s.day) } : {}), items: (s.items || []).filter(it => { const ok = verifyItem(it); if (!ok) dropped++; return ok }).map(it => ({ ...it, text: plain(it.text), hint: plain(it.hint) })) }))
   writeWeek(data)
@@ -68,7 +70,26 @@ export async function buildSheet(week) {
     p(`屏幕练习（${scr.week}）：做了 ${n} 题，第一次就对 ${Math.round(ok / n * 100)}%${fu ? `，忘写单位 ${fu} 次` : ''}。${down.length ? `需要家长讲一讲：${down.join('、')}。` : ''}`)
   }
 
-  // 2 重点问题
+  // 2 全部知识点错题复盘：统计取截至本周的所有周，「待确认」是批改存疑，不算错因
+  if (data.review?.length) {
+    h('全部知识点错题复盘')
+    const all = listWeeks().filter(w => w <= week).map(readWeek)
+    const stat = kp => {
+      const attempts = all.reduce((n, w) => n + (w.attempts[kp] || 0), 0)
+      const wrongs = all.flatMap(w => w.entries).filter(e => e.knowledge_point === kp && e.verdict === 'wrong')
+      const types = {}; for (const e of wrongs) if (e.error_type !== '待确认') types[e.error_type] = (types[e.error_type] || 0) + 1
+      const doubt = wrongs.length - Object.values(types).reduce((a, b) => a + b, 0)
+      return `累计 ${wrongs.length - doubt}/${attempts} 错　${Object.entries(types).sort((a, b) => b[1] - a[1]).map(([t, n]) => `${t} ${n}`).join('、')}${doubt ? `　批改存疑 ${doubt}` : ''}`
+    }
+    data.review.forEach(r => {
+      const node = r.knowledge_point && knowledge.nodes.find(n => n.id === r.knowledge_point)
+      doc.font('cnb').fontSize(12).text(node ? `${node.id} ${node.title}` : r.title || '')
+      if (node) doc.font('cn').fontSize(9.5).fillColor('#666').text(stat(node.id)).fillColor('black')
+      p(r.text); doc.moveDown(0.4)
+    })
+  }
+
+  // 3 重点问题
   h('本周重点问题')
   if (!focus.length) p('本周没有需要重点辅导的问题。')
   focus.forEach((f, i) => {
@@ -83,7 +104,7 @@ export async function buildSheet(week) {
     doc.moveDown(0.5)
   })
 
-  // 3 持续跟踪
+  // 4 持续跟踪
   h('持续跟踪')
   if (!prevFocus.length) p(progress.baseline === week ? '起点周，下周开始跟踪。' : '上周没有重点问题。')
   for (const pf of prevFocus) {
@@ -91,7 +112,7 @@ export async function buildSheet(week) {
     p(`${pf.title} [${pf.error_type}]：${row ? row.state : '未验证'}${row?.current?.attempts ? `（本周 ${row.current.mistakes}/${row.current.attempts}）` : ''}`)
   }
 
-  // 4 下周预习
+  // 5 下周预习
   if (preview.length) {
     h('下周预习')
     preview.forEach(n => {
@@ -104,11 +125,11 @@ export async function buildSheet(week) {
     })
   }
 
-  // 5 课外拓展与超前
+  // 6 课外拓展与超前
   const ahead = data.entries.filter(e => e.ahead || String(e.knowledge_point).startsWith('EX'))
   if (ahead.length) { h('课外与超前'); p([...new Set(ahead.map(e => `${e.knowledge_point} ${knowledge.nodes.find(n => n.id === e.knowledge_point)?.title || ''}`))].join('；') + '。这些内容不计入本周主要问题。') }
 
-  // 6 练习卷（每天独立分页）+ 7 答案页
+  // 7 练习卷（每天独立分页）+ 8 答案页
   const days = [...new Set(sets.map(s => s.day || 0))].sort()
   const dayTitle = d => d ? `第 ${d} 天` : ''
   // 每天的练习卷不超过两页（rules.md 第 8 节），超了就提示出题方删题

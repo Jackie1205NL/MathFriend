@@ -25,6 +25,11 @@ export const SECTION_NAMES = [
   { name: '小侦探出动', sub: '看清条件，找出线索' }, { name: '动脑筋时间', sub: '想一想，再动笔' }, { name: '柴犬的任务单', sub: '帮小狗完成今天的任务' },
   { name: '数学探险队', sub: '一关一关往前走' }, { name: '稳稳算一算', sub: '一步一步，算对为止' }, { name: '数字魔法屋', sub: '变一变，算出来' },
   { name: '爪印大挑战', sub: '每一步都不能漏' }, { name: '超级小管家', sub: '把数字整理清楚' },
+  { name: '柴犬小课堂', sub: '和小狗一起学本领' }, { name: '骨头寻宝站', sub: '做对一题，离骨头近一步' }, { name: '汪汪闯关', sub: '一道一道往前冲' },
+  { name: '脑力加油站', sub: '给小脑袋加点油' }, { name: '算术小火车', sub: '一站一站开过去' }, { name: '星星任务', sub: '每做对一题摘一颗星' },
+  { name: '聪明小帮手', sub: '帮小狗解决小问题' }, { name: '魔法算盘', sub: '拨一拨，算出来' }, { name: '小狗训练营', sub: '练好本领再出发' },
+  { name: '解题大冒险', sub: '遇到难题也不怕' }, { name: '彩虹小路', sub: '一步一步走到头' }, { name: '勇敢小勇士', sub: '再难的题也要试一试' },
+  { name: '数学小侦探社', sub: '仔细看，慢慢想' }, { name: '快乐加油站', sub: '做完这一站，奖励多多' }, { name: '尾巴摇一摇', sub: '做对了就摇尾巴' }, { name: '森林小探险', sub: '带着小狗去探路' },
 ]
 export const BOSS_DAILY_MAX = 42                              // 每天的关底题最高金币（含过程奖 +2），本周闯关的 7 成价不受影响
 /** 每组每天抽几题：模板没写 daily 时，口算热身（已掌握保温）3 题，其他 2 题 */
@@ -183,6 +188,8 @@ export const maxCoins = it => Math.round(it.price) + (HAS_PROCESS_BONUS.includes
 
 // ---------- 模板实例化 ----------
 const hashStr = s => { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.codePointAt(0), 16777619); return h >>> 0 }
+/** 选项按题目 id 固定打乱（同一道题每次顺序一样）：模板里正确项写在哪都行，孩子不能靠「选第一个」蒙对 */
+const mix = (a, key) => a.map((x, i) => [hashStr(`${key}|${i}`), x]).sort((p, q) => p[0] - q[0]).map(p => p[1])
 const rng = seed => () => { seed = (seed + 0x6D2B79F5) >>> 0; let t = seed; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296 }
 
 /** 只允许数字、四则运算、括号和比较，算式里的 × ÷ − 会先换成 JS 写法。 */
@@ -561,7 +568,11 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
     const key = JSON.stringify([item.vals, item.nums, item.text, item.tokens, item.segs?.map(s => s.t), item.lines?.map(l => l.pre + l.a), item.shown, item.blanks?.map(b => b.t)])
     if (seen.has(key)) { bad('重复'); continue }
     seen.add(key)
-    items.push({ id: `${week.slice(5)}-${t.id}-${String(items.length + 1).padStart(3, '0')}`, tpl: t.id, group: group.id, bucket: group.bucket,
+    // 三选一的算式、「先求什么」、单位键都打乱后再存进题库包：页面和判分用的是同一份顺序，下标天然对得上
+    const id = `${week.slice(5)}-${t.id}-${String(items.length + 1).padStart(3, '0')}`
+    for (const k of ['choices', 'goals', 'units']) if (Array.isArray(item[k])) item[k] = mix(item[k], id + k)
+    for (const [j, x] of [...(item.format === 'multistep' ? item.parts : []), ...(item.asks || [])].entries()) if (Array.isArray(x.units)) x.units = mix(x.units, `${id}u${j}`)
+    items.push({ id, tpl: t.id, group: group.id, bucket: group.bucket,
       kp: t.knowledge_point, err: t.error_type, price: Math.round(priceOf(t.format, t.level, group.bucket, boost, group.boss) * 100) / 100, ...item })
   }
   return { items, problems, keys }

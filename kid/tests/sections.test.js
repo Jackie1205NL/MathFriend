@@ -37,9 +37,14 @@ test('每天 14 题分进 3 个题型，关底题另算，题型里金币从少�
 })
 
 test('题型名字每天换；没写 sections 的老题库照旧按分组显示', async () => {
-  const seen = new Set()
-  for (const d of ['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22']) seen.add((await today(d, { sections: 3, section_names: SECTION_NAMES })).slice(0, 3).map(g => g.name).join())
-  assert.ok(seen.size >= 3)
+  const seen = new Set(), dates = ['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24', '2026-10-25', '2026-10-26']
+  let prev = []
+  for (const d of dates) {
+    const names = (await today(d, { sections: 3, section_names: SECTION_NAMES })).slice(0, 3).map(g => g.name)
+    assert.ok(!names.some(n => prev.includes(n)), '连着两天不重名')
+    seen.add(names.join()); prev = names
+  }
+  assert.equal(seen.size, dates.length)
   const old = await today('2026-10-20', {})
   assert.deepEqual(old.map(g => g.name), ['口算热身', 'A', 'B', 'C', 'D', 'E', '关底题'])
 })

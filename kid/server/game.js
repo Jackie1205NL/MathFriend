@@ -136,7 +136,7 @@ function pickToday(pack, log, date, ladder, cap) {
 }
 /**
  * 题库 tuning.sections ≥ 2 时，今天各组抽到的题（关底题除外）重新发进几个题型：一道一道轮流发，每个题型里什么题都有；
- * 每个题型里先口算热身、再按金币从少到多。题型名字从 tuning.section_names 里按日期挑，每天不一样。
+ * 每个题型里先口算热身、再按金币从少到多。题型名字从 tuning.section_names 里按日期轮着挑，连着两天不重名。
  */
 function sectionize(pack, groups, date) {
   const k = Number(pack.tuning?.sections) || 0, names = (pack.tuning?.section_names || []).filter(n => n?.name)
@@ -144,7 +144,9 @@ function sectionize(pack, groups, date) {
   const boss = new Set(pack.groups.filter(g => g.boss).map(g => g.id)), byId = Object.fromEntries(pack.items.map(it => [it.id, it]))
   const secs = Array.from({ length: k }, () => []), warm = id => byId[id].bucket === '已掌握保温' ? 0 : 1
   groups.filter(g => !boss.has(g.id)).flatMap(g => g.items).forEach((id, i) => secs[i % k].push(id))
-  const pick = [...names].sort((a, b) => hash(date + a.name) - hash(date + b.name)).slice(0, k)
+  // 名字先按固定顺序打乱，再按日期往后数 k 个：连着两天不重名，名字够多时一个周期内不重样
+  const order = [...names].sort((a, b) => hash(a.name) - hash(b.name)), day = Math.floor(Date.parse(date + 'T00:00:00Z') / 864e5)
+  const pick = Array.from({ length: k }, (_, j) => order[(day * k + j) % order.length])
   return [...secs.map((items, i) => ({ id: `s${i + 1}`, sec: true, name: pick[i].name, sub: pick[i].sub || '', items: items.sort((a, b) => warm(a) - warm(b) || byId[a].price - byId[b].price) })), ...groups.filter(g => boss.has(g.id))]
 }
 /** 本周闯关：周五到周日开放，每周一次，在每天的题之外。挑最难、最长的题（避开今天已经出的），固定 4 题 */
