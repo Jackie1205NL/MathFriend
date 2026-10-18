@@ -1,10 +1,8 @@
-import { recordings } from './recordings.js'
-import { recordingPlan } from './recording-plan.js'
 // 孩子端后端：判分、金币、照顾、存档都在这里，页面拿不到答案。
 // 存储只要有 get(key) / set(key, value) 两个方法：线上是 Netlify Blobs（kid/functions/kid.mjs），本地开发是文件（kid/vite.config.js）。
 import { FORMATS, needsRest, petRest, bedtimeMinutes, MIN_SECONDS, SKILLS, SKILL_COST, GOODS, DECAY, NEED_FLOOR, PATS_PER_DAY, LEVELS, LEVEL_MIX, STORY_PAGES, BOSS_SIZE, BOSS_PASS, BOSS_COINS, BOSS_RATE, EXTRA_STEP, STAGES,
   SEASON, PLACES, POSTCARDS, POSTCARD_DAYS, JAR, TRIP_MOOD, EVENT_COINS, coinsFor, maxCoins, publicItem, stageOf, placeOpen, eventOf, cleanName, addDays, dayDiff,
-  SKILL_EVERY, SKILL_USES, SKILL_AT, SKILL_L2, FLOWS, STEP_NAME, flowOf, dailyOf, packDays, checkPack, LOG_FORMAT, toTokens, showExpr, validExpr, exprValue, exprSteps, sameNums, stripParens, nextOp, canTap, calcOp, reduceAt } from '../../shared/contract.js'
+  SKILL_EVERY, SKILL_USES, SKILL_AT, SKILL_L2, FLOWS, STEP_NAME, flowOf, dailyOf, packDays, checkPack, packKeys, LOG_FORMAT, toTokens, showExpr, validExpr, exprValue, exprSteps, sameNums, stripParens, nextOp, canTap, calcOp, reduceAt } from '../../shared/contract.js'
 
 const DAY = 86400000
 const today = (now = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(now)
@@ -71,20 +69,21 @@ async function migrate(s, load, date) {
   s.st = Math.max(stageOf(s, date), s.minStage); s.season = SEASON.id
   return s
 }
-/** 藏骨头：三只杯子各一个算式，线索是其中一个的得数。稳稳爪 2 级可以选「难一点」（两步算式）。 */
+/** 藏骨头：三只杯子各一个算式，线索是其中一个的得数。平时是乘加、退位减、进位加（一步到两步）；稳稳爪 2 级可以选「难一点」（三步、两个乘法、括号）。 */
 function makeHide(date, hard) {
   for (let salt = 0; ; salt++) {
     const r = k => (hash(date + salt + k) % 1000) / 1000, n = (k, lo, hi) => lo + Math.floor(r(k) * (hi - lo + 1)), cups = []
+    let tidy = true      // 退位减、进位加要真的退位、进位（试到第 50 次还凑不出就不再强求）
     if (hard) {
-      const a = n('a', 3, 9), b = n('b', 3, 9), c = n('c', 5, 30); cups.push({ e: `${a} × ${b} + ${c}`, v: a * b + c })
-      const d = n('d', 50, 90), e = n('e', 2, 5), f = n('f', 3, 9); cups.push({ e: `${d} − ${e} × ${f}`, v: d - e * f })
-      const g = n('g', 10, 30), h = n('h', 10, 30), i = n('i', 2, 3); cups.push({ e: `(${g} + ${h}) × ${i}`, v: (g + h) * i })
+      const a = n('a', 3, 9), b = n('b', 3, 9), c = n('c', 3, 9), d = n('d', 3, 9); cups.push({ e: `${a} × ${b} + ${c} × ${d}`, v: a * b + c * d })
+      const e = n('e', 100, 200), f = n('f', 3, 9), g = n('g', 4, 9); cups.push({ e: `${e} − ${f} × ${g}`, v: e - f * g })
+      const h = n('h', 15, 45), i = n('i', 15, 45), j = n('j', 3, 4); cups.push({ e: `(${h} + ${i}) × ${j}`, v: (h + i) * j })
     } else {
-      const a = n('a', 3, 8), b = n('b', 4, 8); cups.push({ e: `${a} × ${b}`, v: a * b })
-      const c = n('c', 40, 79), d = n('d', 11, 30); cups.push({ e: `${c} − ${d}`, v: c - d })
-      const e = n('e', 12, 41), f = n('f', 9, 28); cups.push({ e: `${e} + ${f}`, v: e + f })
+      const a = n('a', 4, 9), b = n('b', 4, 9), c = n('c', 5, 25); cups.push({ e: `${a} × ${b} + ${c}`, v: a * b + c })
+      const d = n('d', 110, 190), e = n('e', 27, 78); cups.push({ e: `${d} − ${e}`, v: d - e }); tidy &&= d % 10 < e % 10
+      const f = n('f', 36, 79), g = n('g', 27, 68); cups.push({ e: `${f} + ${g}`, v: f + g }); tidy &&= f % 10 + g % 10 >= 10
     }
-    if (new Set(cups.map(x => x.v)).size < 3 && salt < 50) continue
+    if ((new Set(cups.map(x => x.v)).size < 3 || !tidy) && salt < 50) continue
     cups.sort((p, q) => hash(date + p.e) - hash(date + q.e))
     return { date, cups, target: cups[hash(date + 't') % 3].v, open: [], win: false, hard: !!hard }
   }
@@ -221,20 +220,14 @@ export function createApi(base, env) {
     const cap = Number(settings.daily) || Number(pack?.tuning?.daily_total) || DAILY_CAP
     const fresh = day && !Object.values(day.items).some(r => r.fin) && day.cap !== cap
     if (pack && (!day || fresh || day.week !== pack.week || day.groups.some(g => g.items.some(id => !ids.has(id))))) { day = { date, week: pack.week, cap, groups: pickToday(pack, log, date, state.ladder, cap), items: {}, flash: 0, done: false }; await S.set(`day:${date}`, day) }
-    // 本周闯关：周五到周日，每周一次。这周第一次进来时出题，记在 state.chal 里（跨天接着做）；做完了这周就不再出现
+    // 本周闯关：周五到周日，每周一次。这周第一次进来时出题，记在 state.chal 里（跨天接着做）；做完了这周就不再出现（done 一直留到下一周）
     if (pack && day && chalDay(date) && !day.groups.some(g => g.id === 'friday')) {
       const wk = isoWeek(date)
-      if (state.chal?.week !== wk || state.chal.items.some(id => !ids.has(id))) state.chal = { week: wk, ...pickChallenge(pack, log, date, day.groups.flatMap(g => g.items)), recs: {}, done: false }
+      // 打完了的这一周不再出新题（这周中间换了题库也一样）；没打完又换了题库的，重新出
+      if (state.chal?.week !== wk || (!state.chal.done && state.chal.items.some(id => !ids.has(id)))) state.chal = { week: wk, ...pickChallenge(pack, log, date, day.groups.flatMap(g => g.items)), recs: {}, done: false }
       if (!state.chal.done && state.chal.items.length) { day.groups.push({ id: 'friday', items: state.chal.items, pass: state.chal.pass }); await S.set(`day:${date}`, day) }
     }
-    // 独立于 day 保存：重抽每日任务或替换题库也不能重抽录像名额。
-    let videoPlan = await S.get(`recording-plan:${date}`)
-    if (!videoPlan && day) {
-      const candidates = new Set(day.groups.filter(g => g.id !== 'sample').flatMap(g => g.items).filter(id => !day.items[id]?.fin && !state.chal?.recs?.[id]))
-      videoPlan = recordingPlan(pack.items.filter(it => candidates.has(it.id)), date, user.id)
-      await S.set(`recording-plan:${date}`, videoPlan)
-    }
-    return { S, pack, state, date, log, day, now, recordingItems: videoPlan?.items || [], recordingEnabled: settings.recordingEnabled !== false, rest: petRest(now, user.id), c0: state.coins }      // c0：这次请求开始时的金币（早安礼物已经单独记了），存档时算出赚了还是花了
+    return { S, pack, state, date, log, day, now, rest: petRest(now, user.id), c0: state.coins }      // c0：这次请求开始时的金币（早安礼物已经单独记了），存档时算出赚了还是花了
   }
   /** 记得你：小狗说话时能用上的几件事 */
   function facts({ pack, state, date, log }) {
@@ -248,7 +241,7 @@ export function createApi(base, env) {
     const st = stageOf(s, date), ev = s.hatched && s.event !== date ? eventOf(date, s.skill['概念不清'] >= 2) : null
     const H = s.hide?.date === date ? s.hide : null
     return {
-      date, now: ctx.now, rest: ctx.rest, recordingEnabled: ctx.recordingEnabled, recordingItems: ctx.recordingItems,
+      date, now: ctx.now, rest: ctx.rest,
       state: { ...s, hide: undefined, stage: st, good: good(s), finale: date >= SEASON.finale, graduated: !!s.grad, pcPending: POSTCARD_DAYS.some(d => d > (s.pcLast || '') && d <= date) },
       week: pack?.week || null, tuning: pack?.tuning || {},
       today: day ? day.groups.map(dg => ({ ...(dg.id === 'friday' ? { ...FRIDAY, pass: dg.pass ?? BOSS_PASS, monster: hash(isoWeek(date)) % MONSTERS, sub: `周五到周日开放，每周一次。答对 ${dg.pass ?? BOSS_PASS} 题打败怪兽，解锁一页故事` } : dg.id === 'extra' ? EXTRA : dg.id === 'sample' ? SAMPLE : pack.groups.find(g => g.id === dg.id)), items: dg.items.map(id => { const it = byId[id], r = day.items[id] || {}; return { ...publicItem(it, { tier: s.tiers?.[`${it.kp}|${it.err}`]?.lv ?? 0 }), ...(dg.id === 'friday' ? { max: Math.round(maxCoins(it) * BOSS_RATE) } : {}), circle: r.circle ? circleFeedback(it, r) : null, done: r.fin || (dg.id === 'friday' && s.chal?.recs?.[id]) || null, guard: r.guard || null, caught: r.caught || null, l2: !!r.l2, help: r.help || [] } }) })) : [],
@@ -859,7 +852,7 @@ export function createApi(base, env) {
     if (b.kind === 'learn') {
       const k = b.k, lv = s.skill[k]; if (lv == null || lv >= 3 || s.pts[k] < SKILL_COST[lv]) return { msg: '技能点还不够。' }
       const sk = SKILLS.find(x => x.k === k)
-      s.pts[k] -= SKILL_COST[lv]; s.skill[k]++; mark(s, date, `学会了「${sk.n}」第 ${lv + 1} 级`); return { msg: `我学会「${sk.n}」第 ${lv + 1} 级啦！${lv === 0 ? '多了一个把戏，点「把戏」看我表演。' : ''}`, act: 'wag' }
+      s.pts[k] -= SKILL_COST[lv]; s.skill[k]++; mark(s, date, `学会了「${sk.n}」第 ${lv + 1} 级`); return { msg: `我学会「${sk.n}」第 ${lv + 1} 级啦！`, act: 'wag' }
     }
     if (b.kind === 'event') {
       const ev = s.hatched && s.event !== date && eventOf(date, s.skill['概念不清'] >= 2); if (!ev) return { msg: '' }
@@ -934,12 +927,13 @@ export function createApi(base, env) {
   async function savePack(pack, S) {
     const bad = checkPack(pack)
     if (bad.length) return json({ error: '题库包格式不对：' + bad.join('；'), problems: bad }, 400)
+    const keys = packKeys(pack, { fix: true })      // 导入时统一核对关键词标记：不管题库是谁出的，列式要用的数和问题一定是必圈
     await store.set('pack', pack)
     const weeks = (await store.get('pack-weeks')) || []        // 导入过哪些周：管理员导出答题记录时选
     if (!weeks.includes(pack.week)) await store.set('pack-weeks', [...weeks, pack.week].sort().slice(-12))
     const t = pack.tuning || {}, st = await S.get('state')
     if (st && (cleanName(t.kid_name) || cleanName(t.pet_name))) { if (cleanName(t.kid_name)) st.kid = cleanName(t.kid_name); if (cleanName(t.pet_name)) st.name = cleanName(t.pet_name); await S.set('state', st) }
-    return json({ ok: true, week: pack.week, items: pack.items.length, days: Math.min(...packDays(pack).filter(g => pack.items.some(it => it.group === g.id)).map(g => g.days)) })
+    return json({ ok: true, week: pack.week, items: pack.items.length, keys: { fixed: keys.fixed, warned: keys.warned }, days: Math.min(...packDays(pack).filter(g => pack.items.some(it => it.group === g.id)).map(g => g.days)) })
   }
 
   // ---------- 账号管理（管理员） ----------
@@ -958,19 +952,7 @@ export function createApi(base, env) {
     if (p === '/admin/settings' && req.method === 'POST') {
       const cur = (await store.get('settings')) || {}, next = { ...cur }
       if ('daily' in body) { const n = Math.round(Number(body.daily)); if (!(n >= 5 && n <= 40)) return json({ error: '每天题量要在 5 到 40 之间' }, 400); next.daily = n }
-      if ('recordingEnabled' in body) { if (typeof body.recordingEnabled !== 'boolean') return json({ error: '录像设置无效' }, 400); next.recordingEnabled = body.recordingEnabled }
       await store.set('settings', next); return json({ ok: true, settings: next })
-    }
-    if (p === '/admin/recordings' || p.startsWith('/admin/recordings/')) {
-      const url = new URL(req.url), u = list.find(x => x.id === url.searchParams.get('user'))
-      if (!u) return json({ error: '没有这个账号' }, 404)
-      const service = recordings(scoped(store, u.id)), parts = p.split('/')
-      try {
-        if (req.method === 'GET' && parts.length === 3) return json({ clips: await service.list() }, 200, { 'cache-control': 'no-store' })
-        if (req.method === 'GET' && parts.length === 5) return json(await service.data(parts[3], Number(parts[4])), 200, { 'cache-control': 'no-store' })
-        if (req.method === 'POST' && parts[4] === 'delete') return json(await service.remove(parts[3]))
-      } catch (e) { return json({ error: e.message }, e.status || 500) }
-      return json({ error: '不支持的录像操作' }, 400)
     }
     // 看板：一个账号的小狗现在的样子 + 最近 14 天每天的使用情况
     if (p === '/admin/stats' && req.method === 'GET') {
@@ -1115,27 +1097,6 @@ export function createApi(base, env) {
     }
     if (req.method !== 'POST') return json({ error: '不支持' }, 405)
     const body = await req.json().catch(() => ({}))
-    if (p === '/recordings' || p.startsWith('/recordings/')) {
-      const service = recordings(S), parts = p.split('/')
-      try {
-        if (p === '/recordings') {
-          if (!ctx.recordingEnabled) return json({ error: '管理员已关闭答题录像' }, 403)
-          const date = /^\d{4}-\d{2}-\d{2}$/.test(body.date || '') ? body.date : ''
-          if (!date || date > ctx.date || dayDiff(date, ctx.date) > 30) return json({ error: '录像日期无效' }, 400)
-          const day = await S.get(`day:${date}`)
-          if (!day?.groups?.some(g => g.items.includes(body.item))) return json({ error: '录像题目不属于这个账号的任务' }, 400)
-          // 已创建的片段允许幂等补传，不受后来重抽任务或抽样升级影响。
-          if (/^[a-f0-9-]{36}$/.test(body.clientId || '') && await S.get(`recording:${body.clientId}`)) return json(await service.start({ ...body, date }))
-          const plan = await S.get(`recording-plan:${date}`)
-          if (!plan?.items.includes(body.item)) return json({ error: '这道题未被选入当天的录像抽样，片段可保留在本地', code: 'RECORDING_NOT_SELECTED' }, 403)
-          return json(await service.start({ ...body, date, title: String(body.title || body.item).slice(0, 200) }))
-        }
-        if (parts.length === 4 && parts[3] === 'status') return json(await service.read(parts[2]))
-        if (parts.length === 4 && parts[3] === 'finish') return json(await service.finish(parts[2], body.count))
-        if (parts.length === 4) return json(await service.chunk(parts[2], Number(parts[3]), body.data))
-      } catch (e) { return json({ error: e.message }, e.status || 500) }
-      return json({ error: '不支持的录像操作' }, 400)
-    }
     if (p === '/answer') {
       if (!ctx.pack) return json({ error: '还没有题库' }, 400)
       let res

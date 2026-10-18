@@ -300,13 +300,85 @@ export function midSegs(seg) {
   return out.map(x => ({ t: x.t, ...(seg.k && x.key ? { k: 1 } : {}), ...(seg.n ? { n: 1 } : {}) }))
 }
 /**
+ * 圈关键词的客观依据：标记是谁写的（模板、别的 AI、手工）都不能只信，要拿题目本身核对。
+ * 依据只有两条：列式要用的数写在题干哪一段（数字卡对应的段，噪音句不算），问的是什么在哪一段。
+ * 返回 { nums: [段号], ask: 段号 | -1 }；没有算式可依据的题型（统计表、钟面等）返回 null。
+ */
+export function segAnchors(it) {
+  const segs = it.segs
+  if (!Array.isArray(segs) || !segs.length) return null
+  let nums
+  if (it.chips) nums = it.chips.map(c => c.v)
+  else if (it.parts) nums = it.parts.flatMap(P => (P.tk || []).filter((x, i) => typeof x === 'number' && i !== P.prevAt))
+  else return null
+  const used = new Set(), at = new Set()
+  for (const n of nums) {
+    const i = segs.findIndex((sg, j) => !sg.n && !used.has(j) && new RegExp(`(^|\\D)${n}(\\D|$)`).test(sg.t))
+    if (i >= 0) { used.add(i); at.add(i) }
+  }
+  let ask = -1; segs.forEach((sg, j) => { if (!sg.n && /多少|几/.test(sg.t)) ask = j })
+  return { nums: [...at].sort((a, b) => a - b), ask }
+}
+const JUSTIFIED = new RegExp(`${HIT.source}|倍|共|送|剩|差|平均|半|每|比(?!赛|较|如)|超过|不到|不足|至少|最多|最少|多出|少了|多了|增加|减少`)
+const DECISIVE = /一共|总共|每隔|几倍|平均分|还剩|剩下|还差|至少|最多|最少/
+const plain = t => t.replace(/[\s，。,.；;？?！!]/g, '')
+/**
+ * 核对一道题的关键词标记。fix 是可以直接改的（客观依据明确），warn 只提醒（要回去看模板）。
+ * - 列式要用的数、问的是什么没标必圈 → 补上必圈（漏标：孩子漏圈了也被夸「圈得好」）
+ * - 必圈的段里既没有数、也没有决定怎么算的词 → 降成帮助理解（误标：孩子漏圈会被无故扣金币）
+ */
+export function auditSegs(it) {
+  const segs = it.segs, fix = [], warn = []
+  if (!Array.isArray(segs) || !segs.length) return { fix, warn }
+  const A = segAnchors(it), anchor = new Set(A ? [...A.nums, ...(A.ask >= 0 ? [A.ask] : [])] : [])
+  if (A) {
+    A.nums.forEach(i => { if (segs[i].k !== 2) fix.push({ i, k: 2, why: '列式要用的数没标必圈' }) })
+    if (A.ask >= 0 && segs[A.ask].k !== 2) fix.push({ i: A.ask, k: 2, why: '问的是什么没标必圈' })
+    segs.forEach((sg, i) => { if (sg.k === 2 && !anchor.has(i) && !JUSTIFIED.test(sg.t)) fix.push({ i, k: 1, why: '必圈的段里没有数，也没有决定怎么算的词' }) })
+    const nums = new Set((it.chips || []).map(c => c.v))
+    segs.forEach(sg => { if (sg.n && [...nums].some(n => new RegExp(`(^|\\D)${n}(\\D|$)`).test(sg.t))) warn.push('噪音句里的数和列式要用的数一样，孩子分不清') })
+  }
+  const after = segs.map((sg, i) => { const f = fix.find(x => x.i === i); return f ? { ...sg, k: f.k } : sg })
+  const must = after.filter(sg => sg.k === 2)
+  if (it.format !== 'stat' && it.format !== 'clock') {
+    if (must.length > 6) warn.push(`必圈有 ${must.length} 处，太多了（一般 3～5 处）`)
+    else if (A && must.length < 2) warn.push('必圈不到 2 处')
+    if (must.some(sg => plain(sg.t).length > 16)) warn.push('有必圈的段太长（整句都当关键词），再切短一点')
+    const all = after.reduce((n, sg) => n + plain(sg.t).length, 0), key = after.reduce((n, sg) => n + (sg.k ? plain(sg.t).length : 0), 0)
+    if (all && key / all > 0.7) warn.push('句句都是关键词，圈了等于没圈')
+    if (['word', 'plan', 'multistep'].includes(it.format) && !after.some(sg => sg.n)) warn.push('没有噪音句（n）')
+    if (A && A.ask < 0) warn.push('没找到「问的是什么」那一段（要含「多少」或「几」）')
+    after.forEach(sg => { if (!sg.k && !sg.n && DECISIVE.test(sg.t) && !/\d/.test(sg.t)) warn.push(`「${sg.t.trim()}」像是决定怎么算的词，没标必圈`) })
+  }
+  return { fix, warn: [...new Set(warn)] }
+}
+/** 照 auditSegs 的 fix 改 it.segs，返回改了什么 */
+export function calibrateSegs(it) {
+  const { fix, warn } = auditSegs(it), done = []
+  for (const f of fix) { const sg = it.segs[f.i]; if (sg.k === f.k) continue; sg.k = f.k; done.push(f.why) }
+  return { fixed: done, warn }
+}
+/** 一批题（题库包）的关键词核对：按模板汇总。fix 为真时直接改题目里的标记 */
+export function packKeys(pack, { fix = false } = {}) {
+  const byTpl = {}, add = (o, msg, eg) => { (o[msg] ||= { n: 0, eg }).n++ }
+  let fixed = 0, warned = 0
+  for (const it of pack.items || []) {
+    if (!Array.isArray(it.segs)) continue
+    const r = fix ? calibrateSegs(it) : (a => ({ fixed: a.fix.map(f => f.why), warn: a.warn }))(auditSegs(it)), T = byTpl[it.tpl || it.id] ||= { fixed: {}, warn: {} }, eg = it.segs.map(x => x.t).join('')
+    r.fixed.forEach(m => { add(T.fixed, m, eg); fixed++ }); r.warn.forEach(m => { add(T.warn, m, eg); warned++ })
+  }
+  return { fixed, warned, byTpl }
+}
+
+/**
  * 把一个模板实例化成多道题。返回 { items, problems }，problems 是出不来题的原因（给 Claude 看着改模板）。
  * slots：[lo, hi] 两个整数是整数范围；其他数组是从里面挑一个；"=表达式" 是派生值（按书写顺序计算）。
  */
 export function instantiate(t, group, week, boost, n = t.count || 25) {
   const r = rng(hashStr(`${week}|${t.id}`)), pick = a => a[Math.floor(r() * a.length)]
-  const items = [], seen = new Set(), problems = {}
+  const items = [], seen = new Set(), problems = {}, keys = { fixed: {}, warn: {} }      // keys：关键词标记自动校正了哪些、哪些可疑（给 Claude 回头改模板看）
   const bad = why => { problems[why] = (problems[why] || 0) + 1 }
+  const note = (o, msg, eg) => { (o[msg] ||= { n: 0, eg }).n++ }
   if (!FORMATS.includes(t.format)) return { items, problems: { [`题型 ${t.format} 还不支持`]: 1 } }
   for (let tries = 0; items.length < n && tries < n * 80; tries++) {
     const v = {}
@@ -463,7 +535,7 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
         item.answer = item.answers[0].a
       }
       if (!exprSteps(okT) && !item.remDiv) { bad('正确算式算不下去（除不尽或出现负数）'); continue }
-      const used = new Set(), segOf = n => { const i = (item.segs || []).findIndex((sg, j) => !used.has(j) && new RegExp(`(^|\\D)${n}(\\D|$)`).test(sg.t)); if (i >= 0) used.add(i); return i }
+      const used = new Set(), segOf = n => { const i = (item.segs || []).findIndex((sg, j) => !sg.n && !used.has(j) && new RegExp(`(^|\\D)${n}(\\D|$)`).test(sg.t)); if (i >= 0) used.add(i); return i }
       item.chips = okT.filter(x => typeof x === 'number').map(n => ({ v: n, seg: segOf(n) }))
       const have = new Set(item.chips.map(c => c.v))
       const noise = (item.segs || []).flatMap((sg, i) => sg.n ? (sg.t.match(/\d+/g) || []).map(n => ({ v: +n, seg: i })) : []).find(c => !have.has(c.v))
@@ -475,13 +547,14 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
       if (!(item.answers || [{ unit: t.unit }]).every(x => t.units?.includes(x.unit))) { bad('units 里没有正确单位'); continue }
     }
     if (!okAnswer(item.answer)) { bad('答案不是万以内的非负整数'); continue }
+    if (item.segs) { const r = calibrateSegs(item), eg = item.segs.map(x => x.t).join(''); r.fixed.forEach(m => note(keys.fixed, m, eg)); r.warn.forEach(m => note(keys.warn, m, eg)) }
     const key = JSON.stringify([item.vals, item.nums, item.text, item.tokens, item.segs?.map(s => s.t), item.lines?.map(l => l.pre + l.a), item.shown, item.blanks?.map(b => b.t)])
     if (seen.has(key)) { bad('重复'); continue }
     seen.add(key)
     items.push({ id: `${week.slice(5)}-${t.id}-${String(items.length + 1).padStart(3, '0')}`, tpl: t.id, group: group.id, bucket: group.bucket,
       kp: t.knowledge_point, err: t.error_type, price: Math.round(priceOf(t.format, t.level, group.bucket, boost) * 100) / 100, ...item })
   }
-  return { items, problems }
+  return { items, problems, keys }
 }
 
 /** 这份题库按每天都来做，每组够做几天（不重复），返回 [{ id, name, days }]，关底题组每天只抽 1 题 */
@@ -522,8 +595,8 @@ export function buildPack(bank, week) {
   const items = bank.templates.flatMap(t => {
     const g = bank.groups.find(x => x.id === t.group)
     if (!g) { report.push({ id: t.id, made: 0, problems: { [`没有分组 ${t.group}`]: 1 } }); return [] }
-    const { items, problems } = instantiate(t, g, week, Number(bank.tuning?.focus_boost) || 0, t.count || perTpl(g))
-    report.push({ id: t.id, made: items.length, problems })
+    const { items, problems, keys } = instantiate(t, g, week, Number(bank.tuning?.focus_boost) || 0, t.count || perTpl(g))
+    report.push({ id: t.id, made: items.length, problems, keys })
     return items
   })
   report.days = packDays({ groups: bank.groups, items })
@@ -550,7 +623,7 @@ export function publicItem(it, o = {}) {
     }
     if (type === 'column' && it.op === '÷') return { type, a: it.a, op: '÷', b: it.b, qcols: it.div.q.map(x => x != null), rows: it.div.rows.map(r => ({ kind: r.kind, len: String(r.v).length, col: r.col })) }
     if (type === 'check') return { type, kind: it.check, a: it.a, op: it.op, b: it.b }
-    if (type === 'column') return { type, a: it.a, op: it.op, b: it.b, width: Math.max(...it.cells.filter(c => c.kind === 'digit').map(c => c.col), String(it.a).length - 1) + 1 + (it.op === '−' ? 0 : 1) }
+    if (type === 'column') return { type, a: it.a, op: it.op, b: it.b, carries: it.cells.filter(c => c.kind === 'carry').map(c => c.col), width: Math.max(...it.cells.filter(c => c.kind === 'digit').map(c => c.col), String(it.a).length - 1) + 1 + (it.op === '−' ? 0 : 1) }
     if (it.format === 'multistep') {
       const k = it.stepOf[j], P = it.parts[k], last = k === it.parts.length - 1
       if (type === 'goal') return { type, opts: it.goals.map(g => g.t) }

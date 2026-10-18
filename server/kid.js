@@ -18,7 +18,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { readWeek, writeWeek, listWeeks, loadSettings, saveSettings, computeProgress, readKnowledge, DIRS } from './store.js'
 import { verifyItem } from './sheet.js'
-import { buildPack, packDays, checkPack, dailyOf, LEVELS, PACK_DAYS, LOG_FORMAT } from '../shared/contract.js'
+import { buildPack, packDays, checkPack, packKeys, dailyOf, LEVELS, PACK_DAYS, LOG_FORMAT } from '../shared/contract.js'
 
 /** 生成题库包；正确答案再用辅导单那套 verifyItem 验一遍，验不过的题丢掉。 */
 export function makePack(week) {
@@ -79,8 +79,14 @@ function printDays(pack) {
   if (short.length) console.log(`⚠ 不够 ${PACK_DAYS} 天：${short.map(g => `${g.name}（${g.days} 天）`).join('、')}。给这一组多写一两个模板，或者放宽取值范围`)
   return min
 }
+/** 关键词核对结果：自动校正了什么（模板该回头改）、哪里可疑。每个模板最多各列 3 条，带一个例子 */
+function printKeys(byTpl) {
+  const line = (o, mark) => Object.entries(o || {}).slice(0, 3).map(([m, x]) => `${mark}${m} ×${x.n}（例：${x.eg.slice(0, 40)}）`)
+  for (const [id, k] of Object.entries(byTpl)) for (const l of [...line(k.fixed, '关键词已校正：'), ...line(k.warn, '⚠ 关键词存疑：')]) console.log(`  ${String(id).padEnd(6)} ${l}`)
+}
 function printReport(report, dropped) {
   for (const r of report) console.log(`${r.id.padEnd(6)} 生成 ${String(r.made).padStart(3)} 道${Object.keys(r.problems).length ? '　跳过：' + Object.entries(r.problems).map(([k, n]) => `${k} ×${n}`).join('、') : ''}${r.made < 10 ? '　⚠ 少于 10 道，放宽取值范围或换写法' : ''}`)
+  printKeys(Object.fromEntries(report.filter(r => r.keys && (Object.keys(r.keys.fixed).length || Object.keys(r.keys.warn).length)).map(r => [r.id, r.keys])))
   if (dropped) console.log(`复核验算丢弃 ${dropped} 道`)
 }
 
@@ -219,6 +225,15 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     if (!process.env.KID_URL) throw new Error('体验题库只推到 dev：KID_URL=https://dev--mathfriend.netlify.app npm run kid demo，或者 npm run kid demo <周> <文件> 写成文件，在孩子端用 admin 登录「导入题库」')
     const r = await sync('PUT', '/pack', pack)
     console.log(`已把体验题库推到 ${process.env.KID_URL}：${r.week}，${r.items} 道题`)
+  }
+  else if (cmd === 'keys') {
+    // 核对任意一个题库包里的关键词标记（别的 AI 出的、手工改过的都行）：npm run kid keys <题库.json> [fix]。加 fix 就把能确定的直接改在文件里
+    const file = week, pack = JSON.parse(fs.readFileSync(file, 'utf8')), bad = checkPack(pack)
+    if (bad.length) throw new Error('不是有效的题库包：' + bad.join('；'))
+    const fix = arg === 'fix', r = packKeys(pack, { fix }), n = pack.items.filter(it => Array.isArray(it.segs)).length
+    printKeys(r.byTpl)
+    console.log(`${n} 道有关键词的题：${fix ? '已校正' : '需要校正'} ${r.fixed} 处标记，存疑 ${r.warned} 处${fix ? '' : '（加 fix 参数直接改在文件里）'}`)
+    if (fix && r.fixed) { fs.writeFileSync(file, JSON.stringify(pack)); console.log(`已写回 ${file}`) }
   }
   else if (cmd === 'check') {
     // /weekly 推题库前先确认连得上：没设地址退出码 2，连不上退出码 1
