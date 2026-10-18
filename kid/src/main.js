@@ -130,7 +130,7 @@ function room() {
     <span class="tag">${!stage() ? '小窝' : late() ? '梦乡里 · 早上 7 点醒来' : needsRest(s.needs) ? '慢慢恢复精神 · 从一件小事开始' : s.good ? '状态好 · 明早有小礼物' : winter() ? '窗外在下雪' : '窗外是秋天'}</span></div>${ev && !late() ? `<button class="room-event" data-a="event"><span>${esc(ev.t)}</span><u>${esc(ev.b)}</u></button>` : ''}`
 }
 // ---------- 登录和账号管理 ----------
-let loginName = ls.get('kid-user', ''), adminMode = false, ADM = null, ADMP = null, ADMW = [], ADMS = {}, admMsg = '', admEdit = null
+let loginName = ls.get('kid-user', ''), adminMode = false, ADM = null, ADMP = null, ADMW = [], admMsg = '', admEdit = null
 function vLogin() {
   const n = adminMode ? 8 : 4
   return `<div class="top"><h1>${adminMode ? '管理员登录' : house(ls.get('kid-pet', ''))}</h1></div><div class="body login">
@@ -150,8 +150,6 @@ function vAdmin() {
     <div class="card"><b>新建孩子账号</b><p class="dim">每个账号有自己的小狗和存档，题目大家共用。用户名最多 12 个字，密码是 4 位数字。</p>
       <div class="field"><input id="adm-name" maxlength="12" placeholder="用户名" aria-label="用户名"><input id="adm-pin" inputmode="numeric" maxlength="4" placeholder="4 位密码" aria-label="密码"><button class="btn" data-a="admadd">新建</button></div></div>
     ${us.map(row).join('') || '<p class="dim">还没有账号。</p>'}
-    <div class="card"><b>每天题量</b><p class="dim">所有账号每天做几题（题型一组不少，按比例分，每组至少 1 题；本周闯关题也跟着少）。现在是 ${ADMS.daily ?? 14} 题。改了以后，今天还没开始做的马上按新题量，已经开始做的明天生效。</p>
-      <div class="field"><input id="adm-daily" type="number" inputmode="numeric" min="5" max="40" value="${ADMS.daily ?? 14}" aria-label="每天题量"><button class="btn" data-a="admdaily">保存</button></div></div>
     <div class="card"><b>导入题库</b><p class="dim">${ADMP ? `现在是 ${esc(ADMP.week)} 的题库（${ADMP.created ? md(ADMP.created.slice(0, 10)) + ' ' : ''}生成），${ADMP.items} 道题，按每天都来做够 ${ADMP.days} 天${ADMP.days < 14 ? '（不够两周）' : ''}。` : '还没有题库，孩子进来会看到「还没有题」。'}每周家长端归集完，会在数据文件夹的「孩子端题库」里生成 <code>pack-周.json</code>，选它导入。导入新的就换掉旧的，孩子的存档不受影响。</p>
       <div class="field"><input id="adm-pack" type="file" accept=".json,application/json" aria-label="题库文件"><button class="btn" data-a="admpack">导入</button></div></div>
     <div class="card"><b>导出答题记录</b><p class="dim">每周归集前导出，放进家长端的「孩子端题库」文件夹，家长端会读入，用来决定哪些题要再练。</p>
@@ -196,7 +194,7 @@ function vAdmTest() {
     <div class="tbtns"><button class="buy" data-a="admtoday" data-v="done">今天的题全部做完</button><button class="buy" data-a="admtoday" data-v="redeal">重新出今天的题</button><button class="buy" data-a="admtoday" data-v="sample">加一组题型样板</button><button class="buy" data-a="admtoday" data-v="chal">重置本周闯关</button></div>
     <button class="link" data-a="admtest" data-v="">收起</button></div>`
 }
-async function loadAdmin() { const r = await api('/admin/users'); ADM = r.users; ADMP = r.pack; ADMW = r.weeks || []; ADMS = r.settings || {}; page = 'admin' }
+async function loadAdmin() { const r = await api('/admin/users'); ADM = r.users; ADMP = r.pack; ADMW = r.weeks || []; page = 'admin' }
 function vHome() {
   const s = S(), n = s.needs, st = stage(), sleeping = late(), low = needsRest(n), bag = kind => GOODS.filter(g => g.kind === kind).reduce((a, g) => a + (s.bag[g.k] || 0), 0)
   const pats = s.pats.date === D() ? s.pats.n : 0
@@ -680,7 +678,6 @@ const QA = {
   },
   admtoday(v) { const id = ADT.user.id, say = { done: '今天的题都记成做完了', redeal: '今天的题重新出了', sample: '加了一组题型样板（每种题型一道）', chal: '本周闯关重置了，周五到周日会重新出题' }[v]; return run(async () => { try { await api('/admin/users/' + id, { today: v }); admMsg = `「${ADT.user.name}」${say}。重新登录这个账号就能看到。`; ADT = await api('/admin/stats?user=' + id); await loadAdmin() } catch (e) { admMsg = e.message } }) },
   admwipe() { const id = ADT.user.id; if (!confirm(`清空「${ADT.user.name}」的存档？小狗、金币、记录都会重来。`)) return; return run(async () => { try { await api('/admin/users/' + id, { wipe: true }); admMsg = `「${ADT.user.name}」的存档清空了，下次登录重新认识小狗。`; ADT = await api('/admin/stats?user=' + id); await loadAdmin() } catch (e) { admMsg = e.message } }) },
-  admdaily() { const n = document.getElementById('adm-daily')?.value; return run(async () => { try { const r = await api('/admin/settings', { daily: n }); admMsg = `每天题量改成 ${r.settings.daily} 题了。`; await loadAdmin() } catch (e) { admMsg = e.message } }) },
   admstats(id) { return run(async () => { try { ADS = await api('/admin/stats?user=' + encodeURIComponent(id)); window.scrollTo(0, 0) } catch (e) { admMsg = e.message } }) },
   admback() { ADS = null },
   admsave() { const v = document.getElementById('adm-v')?.value, e = admEdit; return run(async () => { try { const r = await api('/admin/users/' + e.id, { [e.k]: v }); admMsg = { pin: `「${r.user.name}」的密码改好了，告诉孩子新密码。`, name: `用户名改成了：${r.user.name}`, kid: `「${r.user.name}」里孩子的名字改好了。`, pet: `「${r.user.name}」的小狗改名了，小屋的名字也跟着变。` }[e.k]; admEdit = null; await loadAdmin() } catch (er) { admMsg = er.message } }) },

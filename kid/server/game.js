@@ -15,7 +15,7 @@ const MONSTERS = 3      // 本周闯关的像素怪兽有几种（按周轮换�
 const EXTRA = { id: 'extra', name: '再练一会儿', sub: '想多练就做，金币减半', bucket: '加练', extra: true }
 /** 测试账号：用户名以 test 开头，或者管理员标成测试的。只有测试账号能拨日期、改小狗参数 */
 const isTest = u => !!u && (u.test ?? /^test/i.test(u.name || ''))
-const DAILY_CAP = DAILY_TOTAL      // 每天题量默认值（管理员页可以改）
+const DAILY_CAP = DAILY_TOTAL      // 每天题量默认值（题库包的 tuning.daily_total 优先）
 const FRIDAY = { id: 'friday', name: '本周闯关', sub: `周五到周日开放，每周一次。答对 ${BOSS_PASS} 题打败怪兽，解锁一页故事`, bucket: '本周重点', boss: true, friday: true }
 /** ISO 周，如 2026-W41 */
 const isoWeek = date => { const d = new Date(date + 'T00:00:00Z'), w = d.getUTCDay() || 7; d.setUTCDate(d.getUTCDate() + 4 - w); const y = d.getUTCFullYear(); return `${y}-W${String(Math.ceil(((d - Date.UTC(y, 0, 1)) / DAY + 1) / 7)).padStart(2, '0')}` }
@@ -94,7 +94,7 @@ function makeHide(date, hard) {
  * 三种难度按该「知识点 × 错因」的难度档位加权抽。本周闯关另外出（pickChallenge），不占每天的题。
  */
 /**
- * 每组今天出几题：题型（组）一个不少，总数压到 cap 以内（管理员页设的「每天题量」）。按各组 daily 的比例分，每组至少 1 题。
+ * 每组今天出几题：题型（组）一个不少，总数压到 cap 以内（题库包的 tuning.daily_total）。按各组 daily 的比例分，每组至少 1 题。
  * 返回 { 组 id: 题数 } 和缩放比例（本周闯关的题数也按这个比例缩）
  */
 export function shareDaily(groups, cap, friday) {
@@ -215,9 +215,8 @@ export function createApi(base, env) {
     const log = pack ? await load(`log:${pack.week}`, []) : []
     let day = await S.get(`day:${date}`)
     const ids = new Set(pack?.items.map(it => it.id))   // 家长重新推送后题号对不上，就重抽今天的题
-    // 每天题量：管理员页设的优先，其次题库包的 tuning.daily_total，默认 12。改了以后，今天还没开始做的会按新题量重抽
-    const settings = await load('settings', {})
-    const cap = Number(settings.daily) || Number(pack?.tuning?.daily_total) || DAILY_CAP
+    // 每天题量：题库包的 tuning.daily_total，老题库没写就是 14。换了题量以后，今天还没开始做的会按新题量重抽
+    const cap = Number(pack?.tuning?.daily_total) || DAILY_CAP
     const fresh = day && !Object.values(day.items).some(r => r.fin) && day.cap !== cap
     if (pack && (!day || fresh || day.week !== pack.week || day.groups.some(g => g.items.some(id => !ids.has(id))))) { day = { date, week: pack.week, cap, groups: pickToday(pack, log, date, state.ladder, cap), items: {}, flash: 0, done: false }; await S.set(`day:${date}`, day) }
     // 本周闯关：周五到周日，每周一次。这周第一次进来时出题，记在 state.chal 里（跨天接着做）；做完了这周就不再出现（done 一直留到下一周）
@@ -946,13 +945,7 @@ export function createApi(base, env) {
       const out = []
       for (const u of list) { const st = await scoped(store, u.id).get('state'); out.push({ ...pub(u), pet: st?.name || '', kid: st?.kid || '', days: st?.days || 0, today: st?.daily?.[today(new Date(nowMs() + (isTest(u) ? u.clock || 0 : 0)))] || null }) }
       const pack = await store.get('pack'), days = pack && packDays(pack).filter(g => pack.items.some(it => it.group === g.id))
-      return json({ settings: { daily: DAILY_CAP, ...((await store.get('settings')) || {}) }, users: out, weeks: (await store.get('pack-weeks')) || (pack ? [pack.week] : []), pack: pack ? { week: pack.week, created: pack.created, items: pack.items.length, days: Math.min(...days.map(g => g.days)), groups: days } : null })
-    }
-    // 设置：每天题量（所有账号共用；今天还没开始做的账号马上按新题量重抽）
-    if (p === '/admin/settings' && req.method === 'POST') {
-      const cur = (await store.get('settings')) || {}, next = { ...cur }
-      if ('daily' in body) { const n = Math.round(Number(body.daily)); if (!(n >= 5 && n <= 40)) return json({ error: '每天题量要在 5 到 40 之间' }, 400); next.daily = n }
-      await store.set('settings', next); return json({ ok: true, settings: next })
+      return json({ users: out, weeks: (await store.get('pack-weeks')) || (pack ? [pack.week] : []), pack: pack ? { week: pack.week, created: pack.created, items: pack.items.length, days: Math.min(...days.map(g => g.days)), groups: days } : null })
     }
     // 看板：一个账号的小狗现在的样子 + 最近 14 天每天的使用情况
     if (p === '/admin/stats' && req.method === 'GET') {
