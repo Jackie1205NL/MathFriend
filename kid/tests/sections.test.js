@@ -36,10 +36,10 @@ test('每天 14 题分进 3 个题型，关底题另算，题型里金币从少�
   for (const g of t.slice(0, 3)) assert.ok(g.items.slice(1).every((it, i) => it.max >= g.items[i].max || g.items[i].id.startsWith('g1-')), '题型里热身在前，其余金币从少到多')
 })
 
-test('题型名字每天换；没写 sections 的老题库照旧按分组显示', async () => {
-  const seen = new Set()
-  for (const d of ['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22']) seen.add((await today(d, { sections: 3, section_names: SECTION_NAMES })).slice(0, 3).map(g => g.name).join())
-  assert.ok(seen.size >= 3)
+test('相邻两天的题型名字不重复；没写 sections 的老题库照旧按分组显示', async () => {
+  const days = []
+  for (const d of ['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24', '2026-10-25']) days.push((await today(d, { sections: 3, section_names: SECTION_NAMES })).slice(0, 3).map(g => g.name))
+  for (let i = 1; i < days.length; i++) assert.ok(days[i].every(n => !days[i - 1].includes(n)), `第 ${i + 1} 天的名字和前一天有重复：${days[i - 1]} / ${days[i]}`)
   const old = await today('2026-10-20', {})
   assert.deepEqual(old.map(g => g.name), ['口算热身', 'A', 'B', 'C', 'D', 'E', '关底题'])
 })
