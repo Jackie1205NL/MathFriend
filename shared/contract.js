@@ -20,6 +20,12 @@ export const EXTRA_STEP = 5                                   // 加练一次加
 export const PACK_DAYS = 14
 export const PACK_MARGIN = 1.5                                // 本周闯关和加练也从里面抽，多留五成
 export const DAILY_TOTAL = 14                                 // 每天的题量：口算热身 3 + 五个重点组各 2 + 关底题 1（含，本周闯关另算）
+export const DAILY_SECTIONS = 3                               // 每天的题分成 3 个题型显示（关底题另算），题型名字从下面的名字里按日期轮换
+export const SECTION_NAMES = [
+  { name: '小侦探出动', sub: '看清条件，找出线索' }, { name: '动脑筋时间', sub: '想一想，再动笔' }, { name: '柴犬的任务单', sub: '帮小狗完成今天的任务' },
+  { name: '数学探险队', sub: '一关一关往前走' }, { name: '稳稳算一算', sub: '一步一步，算对为止' }, { name: '数字魔法屋', sub: '变一变，算出来' },
+  { name: '爪印大挑战', sub: '每一步都不能漏' }, { name: '超级小管家', sub: '把数字整理清楚' },
+]
 export const BOSS_DAILY_MAX = 42                              // 每天的关底题最高金币（含过程奖 +2），本周闯关的 7 成价不受影响
 /** 每组每天抽几题：模板没写 daily 时，口算热身（已掌握保温）3 题，其他 2 题 */
 export const dailyOf = g => g.daily || (g.bucket === '已掌握保温' ? 3 : 2)
@@ -574,6 +580,8 @@ export function checkPack(pack) {
   if (!Array.isArray(pack.items) || !pack.items.length) bad.push('没有 items（题目）')
   if (bad.length) return bad
   const gids = new Set(pack.groups.map(g => g?.id)), ids = new Set()
+  const sec = pack.tuning?.sections
+  if (sec && !(Number.isInteger(sec) && sec >= 2 && Array.isArray(pack.tuning.section_names) && pack.tuning.section_names.filter(n => n?.name).length >= sec)) bad.push('tuning.sections 要是 2 以上的整数，并且 tuning.section_names 至少写 sections 个名字（{ name, sub }）')
   for (const g of pack.groups) if (!g?.id || !g.name) bad.push(`有分组缺 id 或 name`)
   for (const it of pack.items) {
     const who = `题目 ${it?.id ?? '（没有 id）'}`
@@ -604,7 +612,7 @@ export function buildPack(bank, week) {
     return items
   })
   report.days = packDays({ groups: bank.groups, items })
-  return { pack: { format: PACK_FORMAT, v: PACK_VERSION, week, created: new Date().toISOString(), tuning: { unit_hint: 1, blank_hint: 1, slow: 1, bedtime: '21:30', daily_total: DAILY_TOTAL, ...bank.tuning }, groups: bank.groups, items }, report }
+  return { pack: { format: PACK_FORMAT, v: PACK_VERSION, week, created: new Date().toISOString(), tuning: { unit_hint: 1, blank_hint: 1, slow: 1, bedtime: '21:30', daily_total: DAILY_TOTAL, sections: DAILY_SECTIONS, section_names: SECTION_NAMES, ...bank.tuning }, groups: bank.groups, items }, report }
 }
 
 /**

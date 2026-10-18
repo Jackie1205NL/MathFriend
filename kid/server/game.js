@@ -132,7 +132,20 @@ function pickToday(pack, log, date, ladder, cap) {
     mix.forEach((it, j) => rr.splice(Math.min(rr.length, Math.round((j + 1) * (rr.length + 1) / (mix.length + 1))), 0, it))
     return { id: g.id, items: rr.map(it => it.id) }
   }).filter(g => g.items.length)
-  return groups
+  return sectionize(pack, groups, date)
+}
+/**
+ * 题库 tuning.sections ≥ 2 时，今天各组抽到的题（关底题除外）重新发进几个题型：一道一道轮流发，每个题型里什么题都有；
+ * 每个题型里先口算热身、再按金币从少到多。题型名字从 tuning.section_names 里按日期挑，每天不一样。
+ */
+function sectionize(pack, groups, date) {
+  const k = Number(pack.tuning?.sections) || 0, names = (pack.tuning?.section_names || []).filter(n => n?.name)
+  if (k < 2 || names.length < k) return groups
+  const boss = new Set(pack.groups.filter(g => g.boss).map(g => g.id)), byId = Object.fromEntries(pack.items.map(it => [it.id, it]))
+  const secs = Array.from({ length: k }, () => []), warm = id => byId[id].bucket === '已掌握保温' ? 0 : 1
+  groups.filter(g => !boss.has(g.id)).flatMap(g => g.items).forEach((id, i) => secs[i % k].push(id))
+  const pick = [...names].sort((a, b) => hash(date + a.name) - hash(date + b.name)).slice(0, k)
+  return [...secs.map((items, i) => ({ id: `s${i + 1}`, sec: true, name: pick[i].name, sub: pick[i].sub || '', items: items.sort((a, b) => warm(a) - warm(b) || byId[a].price - byId[b].price) })), ...groups.filter(g => boss.has(g.id))]
 }
 /** 本周闯关：周五到周日开放，每周一次，在每天的题之外。挑最难、最长的题（避开今天已经出的），固定 4 题 */
 function pickChallenge(pack, log, date, today) {
@@ -243,7 +256,7 @@ export function createApi(base, env) {
       date, now: ctx.now, rest: ctx.rest,
       state: { ...s, hide: undefined, stage: st, good: good(s), finale: date >= SEASON.finale, graduated: !!s.grad, pcPending: POSTCARD_DAYS.some(d => d > (s.pcLast || '') && d <= date) },
       week: pack?.week || null, tuning: pack?.tuning || {},
-      today: day ? day.groups.map(dg => ({ ...(dg.id === 'friday' ? { ...FRIDAY, pass: dg.pass ?? BOSS_PASS, monster: hash(isoWeek(date)) % MONSTERS, sub: `周五到周日开放，每周一次。答对 ${dg.pass ?? BOSS_PASS} 题打败怪兽，解锁一页故事` } : dg.id === 'extra' ? EXTRA : dg.id === 'sample' ? SAMPLE : pack.groups.find(g => g.id === dg.id)), items: dg.items.map(id => { const it = byId[id], r = day.items[id] || {}; return { ...publicItem(it, { tier: s.tiers?.[`${it.kp}|${it.err}`]?.lv ?? 0 }), ...(dg.id === 'friday' ? { max: Math.round(maxCoins(it) * BOSS_RATE) } : {}), circle: r.circle ? circleFeedback(it, r) : null, done: r.fin || (dg.id === 'friday' && s.chal?.recs?.[id]) || null, guard: r.guard || null, caught: r.caught || null, l2: !!r.l2, help: r.help || [] } }) })) : [],
+      today: day ? day.groups.map(dg => ({ ...(dg.id === 'friday' ? { ...FRIDAY, pass: dg.pass ?? BOSS_PASS, monster: hash(isoWeek(date)) % MONSTERS, sub: `周五到周日开放，每周一次。答对 ${dg.pass ?? BOSS_PASS} 题打败怪兽，解锁一页故事` } : dg.id === 'extra' ? EXTRA : dg.id === 'sample' ? SAMPLE : dg.sec ? { id: dg.id, name: dg.name, sub: dg.sub, bucket: '' } : pack.groups.find(g => g.id === dg.id)), items: dg.items.map(id => { const it = byId[id], r = day.items[id] || {}; return { ...publicItem(it, { tier: s.tiers?.[`${it.kp}|${it.err}`]?.lv ?? 0 }), ...(dg.id === 'friday' ? { max: Math.round(maxCoins(it) * BOSS_RATE) } : {}), circle: r.circle ? circleFeedback(it, r) : null, done: r.fin || (dg.id === 'friday' && s.chal?.recs?.[id]) || null, guard: r.guard || null, caught: r.caught || null, l2: !!r.l2, help: r.help || [] } }) })) : [],
       uses: usesLeft(s, date),
       allDone: !!day?.done,
       wish: pack?.tuning?.wish ? { text: String(pack.tuning.wish), need: Number(pack.tuning.wish_days) || 4, got: s.att.week === isoWeek(date) ? s.att.days.length : 0 } : null,
