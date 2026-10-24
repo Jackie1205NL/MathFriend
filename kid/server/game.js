@@ -781,7 +781,7 @@ export function createApi(base, env) {
     let refund = ''
     if (rec.guard) { const U = s.uses?.[rec.guard]; if (U && U.w3 > 0) U.w3--; refund = SKILLS.find(x => x.k === rec.guard).n; rec.guard = null }
     rec.fin = { c, core, keywordPenalty, penaltyApplied, ok, part: ok ? 1 : Math.round(frac * 100) / 100, partsOk: J.partsOk || null, pb, bonus, points, point: points[0] || '', extra: !!extra, grew: 0, items: J.items, habits: J.habits, caught: rec.caught || null, help: rec.help || [], refund, l2: !!rec.l2, ...solution(it), walk: ok ? null : walk(it) }
-    ctx.log.push(row(ctx, it, { try: rec.caught ? 2 : 1, correct: ok, given: J.given, coins: c, keyword_penalty: keywordPenalty, penalty_applied: penaltyApplied, trap_error_type: ok ? null : J.items.find(x => x.good === 'n')?.cat || it.err,
+    ctx.log.push(row(ctx, it, { try: rec.caught ? 2 : 1, correct: ok, given: J.given, ...(J.idxFix ? { idx_fix: J.idxFix } : {}), coins: c, keyword_penalty: keywordPenalty, penalty_applied: penaltyApplied, trap_error_type: ok ? null : J.items.find(x => x.good === 'n')?.cat || it.err,
       step_failed: ok ? null : J.unitMiss && J.items.filter(x => x.good === 'n').length === 1 ? '忘写单位' : STEP_NAME[flowOf(it)[J.items.find(x => x.good === 'n')?.i]] || null,
       ms: rec.ms, help: rec.help?.length ? rec.help : null, steps: flowOf(it).map((_, i) => J.items.filter(x => x.i === i).every(x => x.good === 'y') ? 1 : 0).join('') }))
     const all = ctx.day.groups.filter(g => !['friday', 'sample'].includes(g.id)).flatMap(g => g.items)      // 本周闯关和测试用的题型样板不算今天的任务
@@ -816,6 +816,21 @@ export function createApi(base, env) {
     return { ok: true, fin: rec.fin }
   }
   const row = (ctx, it, x) => ({ item: it.id, tpl: it.tpl, kp: it.kp, err: it.err, format: it.format, level: it.level, bucket: it.bucket, day: ctx.date, at: new Date(ctx.now).toISOString(), trap_error_type: null, step_failed: null, ms: null, ...x })
+  /**
+   * 选择类的步骤（先求什么、选算式、估一估、单选）页面除了发第几个，还发孩子点的那个选项上的字。
+   * 页面里的顺序和后端对不上时（旧页面没刷新、存档里的草稿），以孩子点的字为准，不让「点了第二个按第一个判」。返回改了几处。
+   */
+  function pickByText(it, steps) {
+    let n = 0
+    flowOf(it).forEach((type, i) => {
+      const a = steps[i]
+      if (!a || typeof a.t !== 'string' || !a.t || a.i == null) return
+      const texts = type === 'goal' ? it.goals?.map(g => g.t) : type === 'build' ? it.choices?.map(c => c.t) : type === 'range' ? it.ranges?.map(r => r.t) : type === 'choose' && it.mode !== 'multi' ? it.opts?.map(o => o.t) : type === 'pickcat' ? it.cats : null
+      const j = texts ? texts.indexOf(a.t) : -1
+      if (j >= 0 && j !== Number(a.i)) { steps[i] = { ...a, i: j, was: a.i }; n++ }
+    })
+    return n
+  }
   function answer(ctx, body) {
     const it = ctx.pack?.items.find(x => x.id === body.item)
     if (!it || !ctx.day.groups.some(g => g.items.includes(it.id))) return json({ error: '这道题不在今天的任务里' }, 400)
@@ -830,7 +845,9 @@ export function createApi(base, env) {
     dayStat(ctx.state, ctx.date).ms += Math.min(ms, 300000)
     const steps = Array.isArray(body.steps) ? [...body.steps] : [], ci = flowOf(it).indexOf('circle')
     if (rec.circle && ci >= 0) steps[ci] = { sel: rec.circle }      // 圈关键词按点评时定下来的算
+    const idxFix = pickByText(it, steps)
     const J = judge(it, steps)
+    if (idxFix) J.idxFix = idxFix
     // 3 级守护：错在它管的地方，先拦下来，回去改那一步再交（这次不算首答正确）
     const first = J.items.find(x => x.good === 'n' && !(rec.circle && x.i === ci))     // 圈关键词已经点评过、改不了，守护不拦它
     if (!J.ok && rec.guard && first && first.cat === rec.guard) {

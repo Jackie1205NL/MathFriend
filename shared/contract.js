@@ -710,7 +710,7 @@ export function publicItem(it, o = {}) {
     if (it.format === 'multistep') {
       const k = it.stepOf[j], P = it.parts[k], last = k === it.parts.length - 1
       if (type === 'goal') return { type, opts: it.goals.map(g => g.t) }
-      if (type === 'build') return { type, ms: k, head: `第${'一二三四'[k]}步：求${P.ask}`, tier: 1, chips: P.tk.flatMap((x, i) => typeof x === 'number' ? [{ v: i === P.prevAt ? null : x, from: i === P.prevAt ? k - 1 : null, seg: -1 }] : []) }
+      if (type === 'build') return { type, ms: k, head: `第${'一二三四'[k]}步${it.goals && !k ? '' : `：求${P.ask}`}`, tier: 1, chips: P.tk.flatMap((x, i) => typeof x === 'number' ? [{ v: i === P.prevAt ? null : x, from: i === P.prevAt ? k - 1 : null, seg: -1 }] : []) }
       if (type === 'say') return { type, ms: k, ask: last ? it.ask : P.pre, units: last ? it.units : P.units, tail: '', mid: !last }
     }
     if (type === 'tapnum') return { type, text: it.text || `下面这些数里，${{ over: '超过', under: '少于', atleast: '不少于' }[it.kind]} ${it.over} 的有几个？先点出来，再数一数。`, nums: it.nums, ask: it.ask, units: it.units }

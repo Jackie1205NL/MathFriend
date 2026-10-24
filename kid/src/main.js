@@ -321,10 +321,11 @@ const lastStep = () => Q.i === Q.flow.length - 1
 const sayPet = (t, kind = '') => { Q.say = t; Q.sk = kind }
 const TIPS = { draw: '拖一拖红点，也可以用旁边的按钮一毫米一毫米地调。', choose: '想一想，再选。', bins: '先点一个数，再点它该放的那一栏。', fill: '算好了填进去。', first: '点一下你觉得要先算的那个符号。', clock: '点钟面边上的小圆点，时针就会指过去。', range: '先不急着算。估一估，得数大概在哪一段？', chain: '每一行先点你要先算的符号，再填得数。',
   spot: '这是小狗做的题，有一步算错了。点出最先出错的那一行。', blanks: '点一个空再填数。每个空都要填。', circle: '你觉得哪些地方最要紧，就点哪里，可以点好几处。', goal: '这道题一步算不出来。要先求出什么？', build: '点下面的数和符号，自己拼出算式。', say: '把答句写完整。' }
+const sigOf = flow => JSON.stringify(flow.map(b => b.opts || b.choices || null))
 function startQ(g, it) {
   Q = { gid: g.id, id: it.id, flow: it.flow, i: 0, rec: [], t0: Date.now(), say: '', sk: '', menu: null, fire: null, fin: null, catch: null, cover: false, mood: '', guard: it.guard, caught: it.caught }
-  const d = drafts()[it.id]       // 刷新页面前、或者跳过之前做到一半的，接着做
-  if (d && d.i < it.flow.length) Object.assign(Q, { rec: d.rec || [], i: d.i })
+  const d = drafts()[it.id]       // 刷新页面前、或者跳过之前做到一半的，接着做（题库换过、选项顺序不一样了就不接）
+  if (d && d.sig === sigOf(it.flow) && d.i < it.flow.length) Object.assign(Q, { rec: d.rec || [], i: d.i })
   if (it.circle) {
     const ci = it.flow.findIndex(b => b.type === 'circle')
     if (ci >= 0) { Q.rec[ci] = { sel: it.circle.sel, cfb: it.circle }; if (it.circle.readyAt > now().getTime()) Q.i = ci }
@@ -505,7 +506,7 @@ function vStep() {
   if (b.type === 'circle') return `${qText('pick')}<p class="dim">可以点好几处，再点一下取消。圈完会一起检查关键词。漏掉核心词时，先看 5 秒提示，再继续做题。</p><button class="btn" data-a="stepgo" ${Q.sel.size ? '' : 'disabled'}>圈好了，${Q.flow[Q.i + 1]?.type === 'build' ? '去列式' : '下一步'}</button>`
   if (b.type === 'goal') return `${qText()}<div class="opts">${b.opts.map((o, i) => `<button class="${i === Q.fx.strike ? 'struck' : ''}" data-a="pickgo" data-v="${i}" ${i === Q.fx.strike ? 'disabled' : ''}>${esc(o)}</button>`).join('')}</div>`
   if (b.type === 'build') {
-    const gi = fi('goal'), head = b.head ? `<div class="bubble plain good">${esc(b.head)}</div>` : gi >= 0 ? `<div class="bubble plain good">先求：${esc(it.flow[gi].opts[Q.rec[gi]?.i] ?? '')}</div>` : ''
+    const gi = fi('goal'), head = b.head ? `<div class="bubble plain good">${esc(b.head + (gi >= 0 && !b.ms && Q.rec[gi]?.i != null ? `：求${it.flow[gi].opts[Q.rec[gi].i]}` : ''))}</div>` : gi >= 0 ? `<div class="bubble plain good">先求：${esc(it.flow[gi].opts[Q.rec[gi]?.i] ?? '')}</div>` : ''
     if (b.tier === 0) return `${qText()}${head}<p class="dim">选一个算式。选了直接进下一步，交卷后再看对不对。</p><div class="opts">${b.choices.map((o, i) => `<button data-a="pickgo" data-v="${i}">${esc(o)}</button>`).join('')}</div>`
     // 数字卡只写数，不注明是哪一类、哪一步、有没有圈过：每个数的意思让孩子自己记住
     const chips = b.chips.map((c, i) => `<button class="chip" data-a="chip" data-v="${i}" ${Q.expr.some(e => e.chip === i) ? 'disabled' : ''}>${b.stat || c.from != null ? esc(Number.isFinite(chipVal(b, i)) ? chipVal(b, i) : '？') : c.v}</button>`).join('')
@@ -771,7 +772,7 @@ const QA = {
   bn(j) { if (Q.fin || Q.catch) return; j = +j; Q.hold = Q.hold === j ? null : j },
   bb(k) { if (Q.fin || Q.catch || Q.hold == null) return; Q.put[Q.hold] = +k; Q.hold = null },
   bx(j) { if (Q.fin || Q.catch) return; Q.put[+j] = -1; Q.hold = null },
-  pickgo(i) { if (Q.fin || Q.catch) return; save({ i: +i }); return next() },
+  pickgo(i, el) { if (Q.fin || Q.catch) return; const t = el?.textContent?.trim(); save({ i: +i, ...(t ? { t: t.slice(0, 80) } : {}) }); return next() },
   zone(z) { Q.zone = +z },
   blank(i) { Q.cur = +i },
   seg(i) { i = +i; if (greyed(i)) return; Q.sel.has(i) ? Q.sel.delete(i) : Q.sel.add(i) },
@@ -1086,7 +1087,7 @@ function render() {
     + (toast ? `<div class="toast" role="status">${esc(toast)}</div>` : '')
   if (page !== lastPage) { if (page === 'map') document.getElementById('now')?.scrollIntoView({ block: 'center' }); else if (page !== 'q') window.scrollTo(0, 0) }
   lastPage = page
-  if (page === 'q' && Q && !Q.demo) { const all = drafts(); if (Q.fin) delete all[Q.id]; else all[Q.id] = { i: Q.i, rec: Q.rec }; ls.set('kid-draft', { date: V.date, all }) }
+  if (page === 'q' && Q && !Q.demo) { const all = drafts(); if (Q.fin) delete all[Q.id]; else all[Q.id] = { i: Q.i, rec: Q.rec, sig: sigOf(Q.flow) }; ls.set('kid-draft', { date: V.date, all }) }
   if (Q?.scratch) initScratch()
   touchedItem = ''
   if (!pose) act = ''
@@ -1141,7 +1142,7 @@ const onAct = e => {
   if (t.classList.contains('sheet') && e.target !== t) return        // 点弹层里面不关
   const restore = e.detail === 0 && ['item', 'explore', 'tap'].includes(t.dataset.a) && document.activeElement === t
   const selector = `[data-a="${t.dataset.a}"]${t.dataset.v ? `[data-v="${t.dataset.v}"]` : ''}`
-  const r = A[t.dataset.a]?.(t.dataset.v)
+  const r = A[t.dataset.a]?.(t.dataset.v, t)
   if (!(r instanceof Promise)) { render(); if (restore) document.querySelector(`${selector}[tabindex],button${selector}`)?.focus({ preventScroll: true }) }
 }
 document.addEventListener('click', onAct)
