@@ -25,10 +25,10 @@ export function makePack(week) {
   const bank = withMix(week, readWeek(week).bank)
   if (!bank?.templates?.length) throw new Error(`错题/${week}.md 里还没有「题库」，先运行 npm run kid bank`)
   const { pack, report } = buildPack(bank, week)
-  // 钟面、多空题、统计表、整理数据、竖式、分步题、有余数的题没有单一的整除算式，实例化时已经逐题检查过
+  // 钟面、多空题、统计表、整理数据、竖式、分步题、画线段、选择题、分段分类、有余数的题没有单一的整除算式，实例化时已经逐题检查过
   const okExpr = it => (['word', 'plan'].includes(it.format) ? it.choices.find(c => c.ok).t : it.format === 'first' ? it.tokens.join('') : it.text).replace(/−/g, '-')
   const before = pack.items.length
-  pack.items = pack.items.filter(it => ['clock', 'multi', 'stat', 'data', 'column', 'multistep'].includes(it.format) || it.rem != null || it.remDiv || verifyItem({ expression: okExpr(it), answer: it.answer }))
+  pack.items = pack.items.filter(it => ['clock', 'multi', 'stat', 'data', 'column', 'multistep', 'draw', 'choice', 'bins'].includes(it.format) || it.rem != null || it.remDiv || verifyItem({ expression: okExpr(it), answer: it.answer }))
   return { pack, report, dropped: before - pack.items.length }
 }
 
