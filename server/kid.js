@@ -251,6 +251,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       if (src?.format !== LOG_FORMAT || !/^\d{4}-W\d{2}$/.test(src.week || '') || !Array.isArray(src.log)) throw new Error(`${path.basename(file)} 不是答题记录文件（要用孩子端管理员页面「导出答题记录」得到的文件）`)
       if (isWeek && src.week !== week) throw new Error(`${path.basename(file)} 是 ${src.week} 的答题记录，不是 ${week}`)
       console.log(`读入 ${path.basename(file)}（账号「${src.user}」，${src.made?.slice(0, 10) || ''} 导出）`)
+      if (src.ops?.length) console.log(`  文件里还有操作日志（${src.ops.length} 批，${src.ops.reduce((n, b) => n + b.ev.length, 0)} 条事件），留在原文件里，分析时直接读它。`)
       savePull(src)
     } else if (online) {
       const w = isWeek ? week : saved.kidLastPush

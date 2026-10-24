@@ -7,6 +7,7 @@ import { STORY } from './story.js'
 import { itemArt, itemIcon, itemScene } from './pet-items.js'
 import { postcardSource } from './postcards.js'
 import { interactionReaction } from './interactions.js'
+import * as ops from './oplog.js'
 
 const app = document.getElementById('app')
 let V = null, page = 'home', Q = null, say = '', act = '', pose = '', poseTimer = 0, sel = '审题', pin = '', loginErr = '', busy = false, taps = [], cere = null
@@ -22,8 +23,10 @@ const md = d => `${+d.slice(5, 7)}/${+d.slice(8, 10)}`
 const cnDate = d => `${+d.slice(5, 7)} 月 ${+d.slice(8, 10)} 日 星期${'日一二三四五六'[new Date(d + 'T00:00:00Z').getUTCDay()]}`
 
 async function api(path, body) {
+  const t = Date.now()
   const r = await fetch('/api/kid' + path, body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {})
   const d = await r.json().catch(() => ({ error: '网络不太好，再试一次。' }))
+  ops.api(path, Date.now() - t, r.status)
   if (r.status === 401 && path !== '/login') { V = null; page = 'login'; if (path.startsWith('/admin')) ADM = null }
   if (!r.ok) { const error = new Error(d.error || '出错了，再试一次。'); error.status = r.status; error.code = d.code; throw error }
   const v = d.view || (path === '/state' ? d : null)
@@ -664,7 +667,7 @@ const QA = {
     })
   },
   adminmode() { adminMode = !adminMode; pin = ''; loginErr = '' },
-  logout() { return run(async () => { await api('/logout', {}).catch(() => {}); V = null; Q = null; page = 'login'; loginName = ''; ls.set('kid-user', ''); ls.set('kid-pet', ''); ls.set('kid-draft', null); ls.set('kid-skip', null); pin = '' }) },
+  logout() { return run(async () => { ops.stop(); await api('/logout', {}).catch(() => {}); V = null; Q = null; page = 'login'; loginName = ''; ls.set('kid-user', ''); ls.set('kid-pet', ''); ls.set('kid-draft', null); ls.set('kid-skip', null); pin = '' }) },
   admout() { return run(async () => { await api('/admin/logout', {}).catch(() => {}); ADM = null; ADS = null; ADT = null; adminMode = false; page = 'login' }) },
   admadd() { const name = document.getElementById('adm-name')?.value, p2 = document.getElementById('adm-pin')?.value; return run(async () => { try { const r = await api('/admin/users', { name, pin: p2 }); admMsg = `建好了：${r.user.name}`; await loadAdmin() } catch (e) { admMsg = e.message } }) },
   admedit(v) { const [id, k] = v.split(':'); admEdit = { id, k } },
@@ -691,7 +694,7 @@ const QA = {
     return run(async () => { try {
       const d = await api(`/admin/log?user=${encodeURIComponent(u)}&week=${encodeURIComponent(w)}`)
       const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(d)], { type: 'application/json' })); a.download = `log-${w}-${u}.json`; document.body.append(a); a.click(); setTimeout(() => { a.remove(); URL.revokeObjectURL(a.href) }, 1000)
-      admMsg = `导出了「${name}」${w} 的答题记录（${d.log.length} 条，文件 log-${w}-${u}.json）。放进家长端的「孩子端题库」文件夹。`
+      admMsg = `导出了「${name}」${w} 的答题记录（${d.log.length} 条，操作日志 ${(d.ops || []).reduce((n, b) => n + b.ev.length, 0)} 条事件，文件 log-${w}-${u}.json）。放进家长端的「孩子端题库」文件夹。`
     } catch (e) { admMsg = e.message } })
   },
   admoff(id) { const u = ADM.find(x => x.id === id); return run(async () => { try { await api('/admin/users/' + id, { off: !u.off }); admMsg = `「${u.name}」${u.off ? '启用' : '停用'}了。`; await loadAdmin() } catch (e) { admMsg = e.message } }) },
@@ -1030,6 +1033,7 @@ const NAV = [['home', '小屋'], ['map', '地图'], ['quests', '任务'], ['skil
 const NAV_OF = { result: 'home', story: 'home', diary: 'home', book: 'home', place: 'map' }
 let lastPage = ''
 function render() {
+  V ? ops.start() : ops.stop()          // 孩子登录着就记操作日志（见 oplog.js）
   if (page === 'admin' && ADM) { app.innerHTML = ADS ? vAdmStats() : vAdmin(); return }
   // 小屋的名字跟着小狗的名字走（浏览器标签和登录页也是，这台设备记住上一次的）
   if (V?.state?.name && ls.get('kid-pet', '') !== V.state.name) ls.set('kid-pet', V.state.name)
@@ -1047,6 +1051,8 @@ function render() {
   touchedItem = ''
   if (!pose) act = ''
   cere = null; if (Q) { Q.mood = ''; Q.fire = null }
+  const q = page === 'q' && Q && !Q.demo ? Q : null
+  ops.state({ page, sheet: typeof sheet === 'string' ? sheet : sheet ? 'open' : '', q: q?.id, gid: q?.gid, step: q?.i, type: q ? q.flow[q.i]?.type : '', n: q?.flow.length, fin: !!q?.fin, ok: q?.fin?.ok, caught: !!q?.catch })
 }
 
 const A = {
@@ -1090,6 +1096,7 @@ const A = {
 }
 const onAct = e => {
   const t = e.target.closest('[data-a]')
+  if (t) ops.act(t.dataset.a, t.dataset.v, t.disabled || (Q?.cover && page === 'q' && t.dataset.a !== 'go'))
   if (!t || t.disabled || (Q?.cover && page === 'q' && t.dataset.a !== 'go')) return
   if (t.classList.contains('sheet') && e.target !== t) return        // 点弹层里面不关
   const restore = e.detail === 0 && ['item', 'explore', 'tap'].includes(t.dataset.a) && document.activeElement === t

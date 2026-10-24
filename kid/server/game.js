@@ -173,6 +173,45 @@ const scoped = (base, id) => { const pre = id === 'main' ? '' : `u:${id}:`, key 
 const pinOk = pin => /^\d{4}$/.test(String(pin ?? ''))
 const userName = v => [...String(v ?? '').replace(/[\u0000-\u001f<>&"'`\s]/g, '')].slice(0, 12).join('')
 
+// ---------- 操作日志 ----------
+// 页面把做题时的点按、填写、滑动、停留攒成一批批发来（见 kid/src/oplog.js），按题库包的周存，管理员导出答题记录时一起导出。
+// 存储只有 get / set：一周的日志分成多块 ops:周:序号，每块不超过 OPS_CHUNK 字节，ops-meta:周 记当前块号、已用字节和每个会话收到的最后一批序号（重发的批次靠它去重）。
+const OPS_CHUNK = 150000, OPS_MAX_CHUNKS = 40
+/** 一条事件只留扁平的数字 / 短字符串 / 布尔，防止页面发来乱七八糟的东西占地方 */
+function cleanOp(e) {
+  if (!e || typeof e !== 'object' || Array.isArray(e) || typeof e.k !== 'string' || !Number.isFinite(e.t)) return null
+  const out = {}
+  for (const [k, v] of Object.entries(e).slice(0, 14)) {
+    if (!/^[\w.]{1,12}$/.test(k)) continue
+    if (typeof v === 'number' && Number.isFinite(v)) out[k] = Math.round(v * 10) / 10
+    else if (typeof v === 'boolean') out[k] = v
+    else if (typeof v === 'string') out[k] = v.slice(0, 40)
+  }
+  return out.k && out.t != null ? out : null
+}
+async function saveOps(S, b) {
+  if (!b || !/^[\w-]{4,40}$/.test(b.sid || '') || !Number.isInteger(b.seq) || !Array.isArray(b.ev) || !b.ev.length) return json({ error: '操作日志的格式不对' }, 400)
+  const week = (await S.get('pack'))?.week || isoWeek(today()), mk = `ops-meta:${week}`, meta = (await S.get(mk)) || { n: 0, size: 0, last: {} }
+  if ((meta.last[b.sid] ?? -1) >= b.seq) return json({ ok: true, dup: true })
+  const batch = { sid: b.sid, seq: b.seq, t0: Number.isFinite(b.t0) ? Math.round(b.t0) : 0, at: new Date().toISOString(), ev: b.ev.slice(0, 400).map(cleanOp).filter(Boolean) }
+  const size = JSON.stringify(batch).length
+  if (!batch.ev.length) return json({ error: '操作日志的格式不对' }, 400)
+  if (meta.size && meta.size + size > OPS_CHUNK) { meta.n++; meta.size = 0 }
+  if (meta.n >= OPS_MAX_CHUNKS) return json({ error: '这一周的操作日志满了' }, 413)
+  const key = `ops:${week}:${meta.n}`, cur = meta.size ? (await S.get(key)) || [] : []
+  await S.set(key, [...cur, batch])
+  meta.size += size; meta.last[b.sid] = b.seq
+  const sids = Object.keys(meta.last); if (sids.length > 30) for (const s of sids.slice(0, sids.length - 30)) delete meta.last[s]
+  await S.set(mk, meta)
+  return json({ ok: true })
+}
+/** 一周的操作日志：按会话分批，按先后排好。导出答题记录时放在 ops 字段里 */
+async function readOps(S, week) {
+  const meta = await S.get(`ops-meta:${week}`), out = []
+  for (let i = 0; meta && i <= meta.n; i++) out.push(...((await S.get(`ops:${week}:${i}`)) || []))
+  return out.sort((a, b) => (a.t0 + (a.ev[0]?.t || 0)) - (b.t0 + (b.ev[0]?.t || 0)))
+}
+
 export function createApi(base, env) {
   const store = base
   const load = async (k, d) => (await store.get(k)) ?? d
@@ -984,7 +1023,7 @@ export function createApi(base, env) {
       const st = await S.get('state')
       // 使用情况：最近 21 天每天的记录（在线时段、做题用时、题数、第一次就对、差一点、答错、金币赚花按来源分），调金币用
       const usage = Object.entries(st?.daily || {}).sort().slice(-21).map(([date, d]) => ({ date, ...d }))
-      return json({ format: LOG_FORMAT, week, user: u.name, made: new Date().toISOString(), log: (await S.get(`log:${week}`)) ?? [], usage, state: st })
+      return json({ format: LOG_FORMAT, week, user: u.name, made: new Date().toISOString(), log: (await S.get(`log:${week}`)) ?? [], ops: await readOps(S, week), usage, state: st })
     }
     // 上传题库包：家长端 npm run kid pack <周> <文件> 生成的文件。命令行推不上去时（比如站点开了 Netlify 登录保护）用
     if (p === '/admin/pack' && req.method === 'POST') return savePack(body.pack, scoped(store, 'main'))
@@ -1067,7 +1106,7 @@ export function createApi(base, env) {
       if (who && !u) return json({ error: `没有叫「${who}」的账号` }, 404)
       const S = scoped(store, u?.id || 'main')
       if (p === '/pack' && req.method === 'PUT') return savePack(await req.json().catch(() => null), S)
-      if (p === '/log' && req.method === 'GET') { const st = await S.get('state'); return json({ format: LOG_FORMAT, week: url.searchParams.get('week'), user: u?.name || null, log: (await S.get(`log:${url.searchParams.get('week')}`)) ?? [], usage: Object.entries(st?.daily || {}).sort().slice(-21).map(([date, d]) => ({ date, ...d })), state: st }) }
+      if (p === '/log' && req.method === 'GET') { const st = await S.get('state'); return json({ format: LOG_FORMAT, week: url.searchParams.get('week'), user: u?.name || null, log: (await S.get(`log:${url.searchParams.get('week')}`)) ?? [], ops: await readOps(S, url.searchParams.get('week')), usage: Object.entries(st?.daily || {}).sort().slice(-21).map(([date, d]) => ({ date, ...d })), state: st }) }
       return json({ error: '不支持' }, 405)
     }
     // 拨时钟：本地开发随便拨；dev 分支部署（env.CLOCK）要带同步令牌；正式站没有这个接口
@@ -1098,6 +1137,7 @@ export function createApi(base, env) {
     }
     if (!me.user) return json({ error: me.admin ? '管理员账号不能养小狗，换孩子的账号登录' : '请先登录' }, 401)
     const S = scoped(store, me.user.id)
+    if (p === '/oplog' && req.method === 'POST') return saveOps(S, await req.json().catch(() => null))     // 只存日志，不碰存档，不用算 context
     const ctx = await context(S, me.user)
     if (p === '/state' && req.method === 'GET') {
       if (me.user.seen !== ctx.date) { const list = await users(), u = list.find(x => x.id === me.user.id); if (u) { u.seen = ctx.date; await store.set('users', list) } }
