@@ -573,8 +573,50 @@ export function createApi(base, env) {
           const want = [b.a].flat(), got = want.map(() => { const x = vals[n++]; return String(x ?? '') === '' ? null : Number(x) }), t = b.t.replace(/□/g, '（ ）')
           if (got.every((x, j) => x === want[j])) add(i, 'y', `${t}：${got.join('、')}，对`)
           else if (got.some(x => x == null)) { ok = false; blankMiss = true; add(i, 'n', `${t}：有空着没填`, '漏题') }
-          else { ok = false; add(i, 'n', `${t}：应该是 ${want.join('、')}，你写了 ${got.join('、')}`, '计算失误') }
+          else {
+            ok = false
+            // 尺子没从 0 刻度开始量：把终点的读数当成了长度
+            const hint = it.fig?.kind === 'ruler' && it.fig.from > 0 && got.length === 2 && got[0] * 10 + got[1] === it.fig.to ? '。尺子没有从 0 开始，要用终点的读数减去起点的读数' : ''
+            add(i, 'n', `${t}：应该是 ${want.join('、')}，你写了 ${got.join('、')}${hint}`, '计算失误')
+          }
         })
+      } else if (type === 'draw') {
+        const e = a.mm == null || a.mm === '' ? NaN : Number(a.mm), cm = mm => `${Math.floor(mm / 10)} 厘米 ${mm % 10} 毫米`
+        given.push(Number.isFinite(e) ? `画到 ${cm(e)}` : '没画')
+        if (e === it.answer) { habits.add('计算失误'); return add(i, 'y', `从 ${cm(it.from)} 画到 ${cm(it.answer)}，长 ${cm(it.len)}，对`) }
+        ok = false
+        if (!Number.isFinite(e) || e === it.from) return add(i, 'n', '线段还没画', '漏题')
+        const d = e - it.answer
+        add(i, 'n', it.from > 0 && e === it.len ? `线段要从 ${cm(it.from)} 的刻度开始画，不是从 0 开始，应该画到 ${cm(it.answer)}`
+          : d % 10 === 0 ? `整厘米数错了 ${Math.abs(d) / 10} 厘米，应该画到 ${cm(it.answer)}，你画到了 ${cm(e)}。再数一遍大格`
+          : Math.abs(d) < 10 ? `厘米数对了，毫米差了 ${Math.abs(d)} 毫米，应该画到 ${cm(it.answer)}。数一数小格`
+          : `应该画到 ${cm(it.answer)}，你画到了 ${cm(e)}`, it.err)
+      } else if (type === 'choose') {
+        const name = k => it.opts[k]?.t || `第 ${k + 1} 个`, right = it.opts.flatMap((o, k) => o.ok ? [k] : [])
+        if (it.mode === 'multi') {
+          const sel = [...new Set((Array.isArray(a.sel) ? a.sel : []).map(Number).filter(k => Number.isInteger(k) && k >= 0 && k < it.opts.length))].sort((p, q) => p - q)
+          given.push(sel.map(name).join('、') || '没选')
+          if (sel.length === right.length && sel.every((k, j) => k === right[j])) return add(i, 'y', `选对了：${right.map(name).join('、')}`)
+          ok = false
+          if (!sel.length) return add(i, 'n', '一个都没选', '漏题')
+          const extra = sel.filter(k => !it.opts[k].ok), miss = right.filter(k => !sel.includes(k))
+          if (extra.length) add(i, 'n', `多选了「${name(extra[0])}」：${it.opts[extra[0]].say || '它不符合题目的要求'}`, it.opts[extra[0]].err || it.err)
+          if (miss.length) add(i, 'n', `漏选了「${miss.map(name).join('、')}」，要选出全部符合的`, '漏题')
+        } else {
+          const k = a.i == null ? NaN : Number(a.i), o = it.opts[k]; given.push(o ? name(k) : '没选')
+          if (o?.ok) return add(i, 'y', it.stem ? `${it.stem.l} ${o.t} ${it.stem.r}，对` : `选「${name(k)}」，对`)
+          ok = false
+          add(i, 'n', it.stem ? `${it.stem.l} ○ ${it.stem.r}：应该是 ${name(right[0])}。${o?.say || ''}` : `应该选「${name(right[0])}」，你选了「${o ? name(k) : '？'}」。${o?.say || ''}`.replace(/。$/, ''), o?.err || it.err)
+        }
+      } else if (type === 'bins') {
+        const put = Array.isArray(a.put) ? a.put.map(x => x == null || x === '' ? -1 : Number(x)) : [], valid = k => Number.isInteger(k) && k >= 0 && k < it.bins.length
+        given.push(it.nums.map((x, j) => `${x}→${valid(put[j]) ? it.bins[put[j]].t : '没放'}`).join(' '))
+        const miss = it.nums.filter((_, j) => !valid(put[j])).length, wrong = it.nums.flatMap((_, j) => valid(put[j]) && put[j] !== it.binOf[j] ? [j] : [])
+        if (!miss && !wrong.length) return add(i, 'y', '每个数都放对了栏')
+        ok = false
+        if (miss) add(i, 'n', `还有 ${miss} 个数没放进栏里`, '漏题')
+        for (const j of wrong.slice(0, 3)) add(i, 'n', `${it.nums[j]} 应该放在「${it.bins[it.binOf[j]].t}」，你放在了「${it.bins[put[j]].t}」。每一栏的两头也算在这一栏里`, it.err)
+        if (wrong.length > 3) add(i, 'n', `还有 ${wrong.length - 3} 个数放错了栏`, it.err)
       } else if (type === 'circle') {
         const c = judgeCircle(it, a); kw = c.kw
         if (kw === 2) habits.add('审题')
@@ -659,11 +701,16 @@ export function createApi(base, env) {
     if (it.format === 'stat') return { explain: it.explain, lines: [it.cats.map((c, j) => `${c} ${it.vals[j]}`).join('，') + `，合计 ${it.answer}`,
       ...it.asks.map((q, j) => `（${j + 1}）${q.flow[0] === 'pickcat' ? `${q.kind === 'max' ? '最多' : '最少'}的是${it.cats[q.ans]}` : `${it.vals[q.use[0]]} ${q.use[1]} ${it.vals[q.use[2]]} = ${q.ans}（${q.unit}）  ${q.pre} ${q.ans} ${q.unit}`}`)] }
     if (it.format === 'data') { const t = { over: x => x > it.over, under: x => x < it.over, atleast: x => x >= it.over }[it.kind]; return { explain: it.explain, lines: [`符合的是 ${it.nums.filter(t).join('、')}`, `${it.ask} ${it.answer} ${it.unit}`] } }
+    const cm = mm => `${Math.floor(mm / 10)} 厘米 ${mm % 10} 毫米`
+    if (it.format === 'draw') return { explain: it.explain, lines: [`从 ${cm(it.from)} 的刻度画到 ${cm(it.answer)}，线段长 ${cm(it.len)}`] }
+    if (it.format === 'choice') return { explain: it.explain, lines: [it.stem ? `${it.stem.l} ${it.opts.find(o => o.ok).t} ${it.stem.r}` : `正确答案：${it.opts.filter(o => o.ok).map(o => o.t || '图').join('、')}`] }
+    if (it.format === 'bins' && !it.blanks) return { explain: it.explain, lines: it.bins.map((b, j) => `${b.t}：${it.nums.filter((_, k) => it.binOf[k] === j).join('、') || '没有'}`) }
     const t = it.choices ? toTokens(it.choices.find(c => c.ok).t) : ['steps', 'oral', 'estimate', 'fix'].includes(it.format) ? toTokens(it.text) : null
     const lines = t && exprSteps(t)?.length > 1 ? [showExpr(t), ...exprSteps(t).map(st => '= ' + showExpr(reduceAt(st.t, st.k, st.v)))] : t ? [`${showExpr(t)} = ${it.answer}`] : []
     if (it.format === 'first') lines.push(`先算 ${it.tokens[it.first]}`)
     if (it.format === 'clock') lines.push(`时针指在 ${it.minute ? `${Math.floor(it.answer / 2) || 12} 和 ${Math.floor(it.answer / 2) % 12 + 1} 的正中间` : `${Math.floor(it.answer / 2) || 12}`}`)
-    if (it.format === 'multi') lines.push(...it.blanks.map(b => [b.a].flat().reduce((t, x) => t.replace('□', x), b.t)))
+    if (it.fig?.kind === 'ruler') lines.push(`尺子上从 ${it.fig.from / 10} 厘米量到 ${it.fig.to / 10} 厘米，长度是 ${cm(it.fig.to - it.fig.from)}${it.fig.from ? '（终点的读数减起点的读数）' : ''}`)
+    if (it.format === 'multi' || it.format === 'bins') lines.push(...it.blanks.map(b => [b.a].flat().reduce((t, x) => t.replace('□', x), b.t)))
     if (it.format === 'fix') lines.unshift(`最先错的是第 ${it.bad + 1} 行`)
     if (it.format === 'plan') lines.unshift(`先求：${it.goals.find(g => g.ok).t}`)
     if (it.rem != null) lines.splice(0, lines.length, `${it.text} = ${it.answer} …… ${it.rem}`, `验算：${it.answer} × ${it.div} + ${it.rem} = ${it.answer * it.div + it.rem}`)
@@ -683,7 +730,7 @@ export function createApi(base, env) {
     else if (it.format === 'multistep') it.parts.forEach((P, k) => out.push({ q: `第${'一二三四'[k]}步：${P.e} = □`, a: P.v, unit: P.unit, units: P.units }))
     else if (it.answers) it.answers.forEach((x, j) => out.push({ q: it.answers.reduce((t, y, m) => t.replace('□', m < j ? `${y.a} ${y.unit}` : m === j ? '\u0000' : '……'), it.ask).replace('\u0000', '□'), a: x.a, unit: x.unit, units: it.units }))
     else if (it.rem != null) out.push({ q: `${it.text} = □ …… ${it.rem}（先填商）`, a: it.answer }, { q: `${it.text} = ${it.answer} …… □`, a: it.rem })
-    else if (it.format === 'multi') it.blanks.forEach(b => [b.a].flat().forEach((x, j) => out.push({ q: [b.a].flat().reduce((t, y, m) => t.replace('□', m === j ? '\u0001' : m < j ? y : '…'), b.t).replace('\u0001', '□'), a: x })))
+    else if (it.format === 'multi' || (it.format === 'bins' && it.blanks)) it.blanks.forEach(b => [b.a].flat().forEach((x, j) => out.push({ q: [b.a].flat().reduce((t, y, m) => t.replace('□', m === j ? '\u0001' : m < j ? y : '…'), b.t).replace('\u0001', '□'), a: x })))
     else if (it.choices) { chainOf(toTokens(it.choices.find(c => c.ok).t)); out.push({ q: `${it.ask} □ ${it.tail || ''}`, a: it.answer, unit: it.unit, units: it.units }) }
     else if (['steps', 'oral', 'estimate', 'fix'].includes(it.format)) { const t = toTokens(it.text); if (exprSteps(t)?.length > 1) chainOf(t); else out.push({ q: `${it.text} = □`, a: it.answer }) }
     return out.length ? out : null

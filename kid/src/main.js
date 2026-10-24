@@ -319,7 +319,7 @@ function startDemo(k) {
 const step = () => Q.flow[Q.i]
 const lastStep = () => Q.i === Q.flow.length - 1
 const sayPet = (t, kind = '') => { Q.say = t; Q.sk = kind }
-const TIPS = { fill: '算好了填进去。', first: '点一下你觉得要先算的那个符号。', clock: '点钟面边上的小圆点，时针就会指过去。', range: '先不急着算。估一估，得数大概在哪一段？', chain: '每一行先点你要先算的符号，再填得数。',
+const TIPS = { draw: '拖一拖红点，也可以用旁边的按钮一毫米一毫米地调。', choose: '想一想，再选。', bins: '先点一个数，再点它该放的那一栏。', fill: '算好了填进去。', first: '点一下你觉得要先算的那个符号。', clock: '点钟面边上的小圆点，时针就会指过去。', range: '先不急着算。估一估，得数大概在哪一段？', chain: '每一行先点你要先算的符号，再填得数。',
   spot: '这是小狗做的题，有一步算错了。点出最先出错的那一行。', blanks: '点一个空再填数。每个空都要填。', circle: '你觉得哪些地方最要紧，就点哪里，可以点好几处。', goal: '这道题一步算不出来。要先求出什么？', build: '点下面的数和符号，自己拼出算式。', say: '把答句写完整。' }
 function startQ(g, it) {
   Q = { gid: g.id, id: it.id, flow: it.flow, i: 0, rec: [], t0: Date.now(), say: '', sk: '', menu: null, fire: null, fin: null, catch: null, cover: false, mood: '', guard: it.guard, caught: it.caught }
@@ -343,6 +343,7 @@ function enter() {
   Object.assign(Q, { input: r.v != null ? String(r.v) : '', unit: r.unit ?? null, sel: new Set(r.sel || []), pick: r.i ?? null, expr: (r.expr || []).map((x, j) => ({ x, chip: r.chips?.[j] })), zone: r.zone ?? null,
     vals: r.vals ? [...r.vals] : r.vs ? r.vs.map(String) : Array(b.blanks ? b.blanks.join('').split('□').length - 1 : b.type === 'check' ? (b.kind === 'mul' ? 4 : b.kind === 'back' ? 3 : 2) : b.cells || (b.rem ? 2 : 0)).fill(''), units: r.units ? [...r.units] : [], cur: 0, lines: null, op: null, fx: {},
     cells: r.cells ? (Array.isArray(r.cells) ? [...r.cells] : { ...r.cells }) : b.type === 'column' ? {} : (b.cats || []).map(() => '').concat(''), pos: 0 })
+  Object.assign(Q, { mm: r.mm ?? (b.type === 'draw' ? b.from : null), put: r.put ? [...r.put] : b.type === 'bins' ? b.nums.map(() => -1) : [], hold: null })
   if (b.type === 'column' && b.op === '÷') { Q.seq = divSeq(b); Q.pos = Math.max(0, Q.seq.findIndex(k => Q.cells[k] == null)) }
   else if (b.type === 'column') { Q.seq = colSeq(b); Q.pos = Math.max(0, Q.seq.findIndex(k => k[0] === 'd' && Q.cells[k] == null)) }
   sayPet(TIPS[b.type] || '')
@@ -431,8 +432,39 @@ function statTable(b, cells, live) {
   return `<div class="card stab"><p class="dim">${esc(curItem().title)}统计表</p><table><tr><th>种类</th>${b.cats.map(c => `<th>${esc(c)}</th>`).join('')}<th>合计</th></tr><tr><th>${esc(b.head || '数量')}</th>${b.cats.map((_, i) => td(i)).join('')}${td(n)}</tr></table></div>`
 }
 const box = (v, cur = true, cls = '') => `<span class="box ${cur ? 'cur' : ''} ${cls}">${v === '' || v == null ? '&nbsp;' : esc(v)}</span>`
+// ---------- 尺子和数表 ----------
+const RW = 680, RP = 24         // 尺子图的宽度和左右留白（viewBox 单位）
+/** 一把 cm 厘米的尺子。o.to：上面放一个物体，从 o.from 量到 o.to（毫米）；o.draw：让孩子拖红点画线段 */
+function rulerSvg(cm, o = {}) {
+  const u = (RW - 2 * RP) / (cm * 10), X = mm => +(RP + mm * u).toFixed(1)
+  let ticks = '', nums = '', top = ''
+  for (let m = 0; m <= cm * 10; m++) ticks += `<line class="rtick" x1="${X(m)}" y1="76" x2="${X(m)}" y2="${76 + (m % 10 === 0 ? 26 : m % 5 === 0 ? 18 : 11)}"/>`
+  for (let c = 0; c <= cm; c++) nums += `<text class="rnum" x="${X(c * 10)}" y="124">${c}</text>`
+  if (o.to != null) {
+    const a = X(o.from || 0), z = X(o.to)
+    top = (o.obj === 'pencil' ? `<polygon class="robj" points="${a},22 ${z - 22},22 ${z},38 ${z - 22},54 ${a},54"/><polygon class="rtip" points="${z - 22},22 ${z},38 ${z - 22},54"/>` : `<rect class="robj" x="${a}" y="22" width="${z - a}" height="32" rx="4"/>`)
+      + `<line class="rguide" x1="${a}" y1="54" x2="${a}" y2="76"/><line class="rguide" x1="${z}" y1="54" x2="${z}" y2="76"/>`
+  }
+  if (o.draw) { const a = X(o.draw.from), z = X(o.draw.mm); top = `<line class="rguide" x1="${a}" y1="40" x2="${a}" y2="76"/><line id="dg" class="rguide" x1="${z}" y1="40" x2="${z}" y2="76"/><line id="dline" class="rline" x1="${a}" y1="40" x2="${z}" y2="40"/><circle class="rstart" cx="${a}" cy="40" r="8"/><circle id="dh" class="rhandle" cx="${z}" cy="40" r="17"/>` }
+  return `<svg class="rsvg" viewBox="0 0 ${RW} 140" ${o.draw ? 'data-ruler="1"' : ''} role="img" aria-label="一把尺子"><rect class="rbody" x="${RP - 12}" y="70" width="${RW - 2 * RP + 24}" height="64" rx="8"/>${ticks}${nums}${top}</svg>`
+}
+/** 题目上方的图：尺子上放着物体，或者一排要数的数 */
+const figure = f => f.kind === 'ruler' ? `<div class="card fig">${rulerSvg(f.cm, f)}</div>` : f.kind === 'nums' ? `<div class="card numfig">${f.nums.map(n => `<b>${esc(n)}</b>`).join('')}</div>` : ''
+const optLabel = o => `${o.svg ? `<span class="osvg">${o.svg}</span>` : ''}${o.t ? esc(o.t) : ''}`
 function vStep() {
   const it = curItem(), b = step(), go = lastStep() ? '交卷' : '下一步'
+  if (b.type === 'draw') return `${qText()}<div class="card fig">${rulerSvg(b.cm, { draw: { from: b.from, mm: Q.mm } })}<div class="mmbtns"><button data-a="mm" data-v="-10">« 1 厘米</button><button data-a="mm" data-v="-1">‹ 1 毫米</button><button data-a="mm" data-v="1">1 毫米 ›</button><button data-a="mm" data-v="10">1 厘米 »</button></div></div><p class="dim">拖一拖红点，或者用按钮一点一点调，调到你要画到的刻度。</p><button class="btn" data-a="stepgo" ${Q.mm > b.from ? '' : 'disabled'}>${go}</button>`
+  if (b.type === 'choose') {
+    const pic = b.svg ? `<div class="card fig">${b.svg}</div>` : ''
+    if (b.mode === 'multi') return `${qText()}${pic}<div class="opts copts">${b.opts.map((o, i) => `<button class="${Q.sel.has(i) ? 'on' : ''}" data-a="tog" data-v="${i}" aria-pressed="${Q.sel.has(i)}">${optLabel(o)}</button>`).join('')}</div><p class="dim">可以选好几个，再点一下就取消。</p><button class="btn" data-a="stepgo" ${Q.sel.size ? '' : 'disabled'}>${go}</button>`
+    return `${qText()}${b.stem ? `<div class="card q big cmp"><span>${esc(b.stem.l)}</span><i>○</i><span>${esc(b.stem.r)}</span></div>` : ''}${pic}<div class="opts copts ${b.stem ? 'sym' : ''}">${b.opts.map((o, i) => `<button data-a="pickgo" data-v="${i}">${optLabel(o)}</button>`).join('')}</div>`
+  }
+  if (b.type === 'bins') {
+    const chip = (j, cls, a) => `<button class="nchip ${cls}" data-a="${a}" data-v="${j}">${esc(b.nums[j])}</button>`, pool = b.nums.flatMap((_, j) => Q.put[j] < 0 ? [chip(j, Q.hold === j ? 'sel' : '', 'bn')] : [])
+    return `${qText()}<div class="card pool"><div class="chips">${pool.join('') || '<span class="dim">都放好了，再看一遍就交卷。</span>'}</div></div>
+      <div class="bins">${b.bins.map((t, k) => `<div class="bin ${Q.hold != null ? 'ready' : ''}" data-a="bb" data-v="${k}"><h4>${esc(t)}</h4><div class="chips">${b.nums.flatMap((_, j) => Q.put[j] === k ? [chip(j, 'in', 'bx')] : []).join('')}</div></div>`).join('')}</div>
+      <p class="dim">先点一个数，再点它该放的那一栏。放错了，点一下这个数就能拿回来。栏的两头也算在这一栏里。</p><button class="btn" data-a="stepgo">${go}</button>`
+  }
   if (b.type === 'column' && b.op === '÷') return `<div class="card q">用竖式计算 ${b.a} ÷ ${b.b}。</div><p class="dim">从最高位除起，商写在上面；一位不够除，商就写 0。下面一行写乘积，一行写减下来的数和落下来的一位。</p>${divGrid(b)}${pad(null, go, 'stepgo')}`
   if (b.type === 'check') {
     const tpl = { mul: '□ × □ + □ = □', back: it.op === '+' ? '□ − □ = □' : '□ + □ = □', estimate: `□ × ${b.b} ≈ □` }[b.kind], parts = tpl.split('□')
@@ -462,7 +494,7 @@ function vStep() {
     let g = 0
     const rows = b.blanks.map(t => { const parts = t.split('□'), start = g; g += parts.length - 1
       return `<div class="mrow ${Q.cur >= start && Q.cur < g ? 'cur' : ''}">${parts.map((x, j) => esc(x) + (j < parts.length - 1 ? `<button class="bx ${Q.fx.flash && Q.vals[start + j] === '' ? 'bad' : ''}" data-a="blank" data-v="${start + j}">${box(Q.vals[start + j], Q.cur === start + j)}</button>` : '')).join('')}</div>` }).join('')
-    return `${qText()}<div class="card multi">${rows}</div><p class="dim">点一个空再填数。每个空都要填。</p>${pad(null, go, 'stepgo')}`
+    return `${qText()}${b.fig ? figure(b.fig) : ''}<div class="card multi">${rows}</div><p class="dim">点一个空再填数。每个空都要填。</p>${pad(null, go, 'stepgo')}`
   }
   if (b.type === 'circle' && Q.rec[Q.i]?.cfb) {
     // 圈完马上点评：绿色是圈对的，橙色虚线是漏圈的，灰色划掉的是不用圈的。点评过就定下来了，回到这一步只能看
@@ -705,6 +737,9 @@ const QA = {
     if (b.type === 'fill') { if (!Q.input) return sayPet('还没填得数呢。'); save({ v: Number(Q.input) }); return next() }
     if (b.type === 'first') { save({ i: Q.pick }); return next() }
     if (b.type === 'clock') { save({ zone: Q.zone }); return next() }
+    if (b.type === 'draw') { if (!(Q.mm > b.from)) return sayPet('先把红点拖到你要画到的刻度上。'); save({ mm: Q.mm }); return next() }
+    if (b.type === 'choose') { if (!Q.sel.size) return sayPet('至少要选一个。'); save({ sel: [...Q.sel] }); return next() }
+    if (b.type === 'bins') { const left = Q.put.filter(x => x < 0).length; if (left && V.tuning.blank_hint) return sayPet(`还有 ${left} 个数没放进栏里，放完再交卷。`); save({ put: [...Q.put] }); return next() }
     if (b.type === 'blanks') { const empty = Q.vals.filter(v => v === '').length; if (empty && V.tuning.blank_hint) return sayPet(`还有 ${empty} 个空没填，填完再交卷。`); save({ vals: Q.vals }); return next() }
     if (b.type === 'circle') {
       if (Q.rec[Q.i]?.cfb || Q.demo) { if (!Q.rec[Q.i]?.cfb) save({ sel: [...Q.sel] }); return next() }
@@ -731,6 +766,11 @@ const QA = {
     if (b.type === 'tapnum') { if (!Q.input) return sayPet('还没填个数呢。'); save({ sel: [...Q.sel], v: Number(Q.input), unit: Q.unit }); return next() }
   },
   pick(i) { Q.pick = +i },
+  tog(i) { if (Q.fin || Q.catch) return; i = +i; Q.sel.has(i) ? Q.sel.delete(i) : Q.sel.add(i) },
+  mm(d) { if (Q.fin || Q.catch) return; const b = step(); Q.mm = Math.max(b.from, Math.min(b.cm * 10, Q.mm + +d)) },
+  bn(j) { if (Q.fin || Q.catch) return; j = +j; Q.hold = Q.hold === j ? null : j },
+  bb(k) { if (Q.fin || Q.catch || Q.hold == null) return; Q.put[Q.hold] = +k; Q.hold = null },
+  bx(j) { if (Q.fin || Q.catch) return; Q.put[+j] = -1; Q.hold = null },
   pickgo(i) { if (Q.fin || Q.catch) return; save({ i: +i }); return next() },
   zone(z) { Q.zone = +z },
   blank(i) { Q.cur = +i },
@@ -1105,6 +1145,20 @@ const onAct = e => {
   if (!(r instanceof Promise)) { render(); if (restore) document.querySelector(`${selector}[tabindex],button${selector}`)?.focus({ preventScroll: true }) }
 }
 document.addEventListener('click', onAct)
+// 画线段：在尺子上按住拖，红点跟着手指走（拖的时候只改图，不重绘整页，松手再重绘）
+let dragging = null
+function dragTo(e) {
+  const b = Q && !Q.fin && !Q.catch && step(), r = dragging.getBoundingClientRect()
+  if (b?.type !== 'draw') return
+  const u = (RW - 2 * RP) / (b.cm * 10), mm = Math.max(b.from, Math.min(b.cm * 10, Math.round(((e.clientX - r.left) * RW / r.width - RP) / u))), z = +(RP + mm * u).toFixed(1)
+  Q.mm = mm
+  document.getElementById('dline')?.setAttribute('x2', z); document.getElementById('dh')?.setAttribute('cx', z)
+  for (const k of ['x1', 'x2']) document.getElementById('dg')?.setAttribute(k, z)
+}
+document.addEventListener('pointerdown', e => { const s = e.target.closest?.('svg[data-ruler]'); if (!s || !Q || Q.fin || Q.catch) return; dragging = s; s.setPointerCapture?.(e.pointerId); dragTo(e) })
+document.addEventListener('pointermove', e => { if (dragging) dragTo(e) })
+const endDrag = () => { if (dragging) { dragging = null; render() } }
+document.addEventListener('pointerup', endDrag); document.addEventListener('pointercancel', endDrag)
 document.addEventListener('input', e => { if (e.target.id === 'login-name') loginName = e.target.value })
 document.addEventListener('keydown', e => {
   if (sheet === 'postcard' && e.key === 'Escape') { e.preventDefault(); A.close(); render(); return }

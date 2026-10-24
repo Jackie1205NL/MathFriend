@@ -5,9 +5,9 @@
 export const PACK_VERSION = 1
 // 家长端和孩子端交换的两种文件（见 rules.md 第 10 节）：题库包由家长端导出、管理员在孩子端导入；答题记录由管理员导出、家长端读入
 export const PACK_FORMAT = 'shuban-kid-pack', LOG_FORMAT = 'shuban-kid-log'
-export const FORMATS = ['oral', 'first', 'clock', 'estimate', 'steps', 'fix', 'multi', 'word', 'plan', 'stat', 'data', 'column', 'multistep']   // 孩子端遇到不认识的题型会跳过
+export const FORMATS = ['oral', 'first', 'clock', 'estimate', 'steps', 'fix', 'multi', 'word', 'plan', 'stat', 'data', 'column', 'multistep', 'draw', 'choice', 'bins']   // 孩子端遇到不认识的题型会跳过
 export const FORMAT_NAME = { oral: '口算闪答', first: '先算哪一步', clock: '拨钟面', estimate: '先估后算', steps: '递等式分步', fix: '小老师改错', multi: '多空题交卷', word: '应用题三步', plan: '挑战题', stat: '统计表', data: '整理数据', column: '竖式', multistep: '分步应用题' }
-export const BASE = { oral: 1, first: 2, clock: 4, estimate: 4, steps: 6, fix: 6, multi: 6, word: 12, plan: 25, stat: 14, data: 6, column: 5, multistep: 25 }   // 题越长，每分钟赚得略多
+export const BASE = { oral: 1, first: 2, clock: 4, estimate: 4, steps: 6, fix: 6, multi: 6, word: 12, plan: 25, stat: 14, data: 6, column: 5, multistep: 25, draw: 6, choice: 4, bins: 8 }   // 题越长，每分钟赚得略多
 export const MIN_SECONDS = { oral: 2, first: 3, clock: 4, estimate: 3, steps: 4, fix: 5, multi: 8, word: 8, plan: 10, stat: 20, data: 8, column: 8, multistep: 15 }   // 比这还快又答错，算「急着答错」
 export const HAS_PROCESS_BONUS = ['word', 'steps', 'estimate', 'multi', 'plan', 'column', 'multistep']   // 这些题型过程做全有 +2
 export const LEVELS = ['同构', '略变', '综合']
@@ -57,10 +57,10 @@ export const SKILL_USES = { 1: 3, 2: 1, 3: 1 }
 export const SKILL_AT = { 审题: ['circle', 'build', 'goal', 'pickcat', 'tapnum'], 概念不清: ['build', 'chain'], 计算失误: ['chain', 'say', 'fill', 'range', 'blanks', 'table', 'column', 'check'], 格式规范: ['say', 'tapnum'], 漏题: ['say', 'blanks', 'spot', 'table', 'tapnum', 'column', 'check'], 策略缺失: ['goal', 'build'] }
 export const SKILL_L2 = { 审题: ['circle'], 概念不清: ['chain'], 计算失误: ['chain', 'say', 'fill', 'table', 'column'], 格式规范: ['say'], 漏题: ['say', 'blanks', 'table', 'tapnum', 'column'], 策略缺失: ['goal'] }
 // 题型默认由哪些积木拼成；word / plan 的模板可以写 flow 改（只能从默认里删步骤，不能换顺序）
-export const FLOWS = { oral: ['fill'], first: ['first'], clock: ['clock'], estimate: ['range', 'fill'], steps: ['chain'], fix: ['spot', 'fill'], multi: ['blanks'], word: ['circle', 'build', 'chain', 'say'], plan: ['circle', 'goal', 'build', 'chain', 'say'], data: ['circle', 'tapnum'], column: ['column'] }   // stat 的积木按小问由模板定
+export const FLOWS = { oral: ['fill'], first: ['first'], clock: ['clock'], estimate: ['range', 'fill'], steps: ['chain'], fix: ['spot', 'fill'], multi: ['blanks'], word: ['circle', 'build', 'chain', 'say'], plan: ['circle', 'goal', 'build', 'chain', 'say'], data: ['circle', 'tapnum'], column: ['column'], draw: ['draw'], choice: ['choose'], bins: ['bins'] }   // stat 的积木按小问由模板定；bins 的 count 模式在题上写 flow: ['blanks']
 /** 一道题实际的积木：没有分段的旧题（比如以前生成的挑战题）跳过圈关键词 */
 export const flowOf = it => (it.flow || FLOWS[it.format]).filter(b => b !== 'circle' || it.segs)
-export const STEP_NAME = { fill: '填得数', first: '先算哪一步', clock: '拨时针', range: '估一估', chain: '一行一行算', spot: '找错行', blanks: '填空', circle: '圈关键词', goal: '先求什么', build: '列式', say: '写答句', table: '填统计表', pickcat: '选一类', tapnum: '找出来再数', column: '列竖式', check: '验算' }
+export const STEP_NAME = { fill: '填得数', first: '先算哪一步', clock: '拨时针', range: '估一估', chain: '一行一行算', spot: '找错行', blanks: '填空', circle: '圈关键词', goal: '先求什么', build: '列式', say: '写答句', table: '填统计表', pickcat: '选一类', tapnum: '找出来再数', column: '列竖式', check: '验算', draw: '画一画', choose: '选一选', bins: '分一分' }
 export const GOODS = [
   { k: 'cookie', n: '骨头饼干', d: '饱食 ＋10', p: 10, kind: 'food', full: 10 },
   { k: 'rice', n: '鸡肉蔬菜饭', d: '饱食 ＋35', p: 40, kind: 'food', full: 35 },
@@ -190,6 +190,8 @@ export const maxCoins = it => Math.round(it.price) + (HAS_PROCESS_BONUS.includes
 const hashStr = s => { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.codePointAt(0), 16777619); return h >>> 0 }
 /** 选项按题目 id 固定打乱（同一道题每次顺序一样）：模板里正确项写在哪都行，孩子不能靠「选第一个」蒙对 */
 const mix = (a, key) => a.map((x, i) => [hashStr(`${key}|${i}`), x]).sort((p, q) => p[0] - q[0]).map(p => p[1])
+/** 选择题选项里的小图：只收一小段纯 svg，不能有脚本、事件、链接、嵌入内容 */
+export const svgOk = s => /^<svg[\s>]/.test(s.trim()) && s.length <= 3000 && !/<script|<foreignObject|<image|<use|\son\w+\s*=|javascript:|href\s*=/i.test(s)
 const rng = seed => () => { seed = (seed + 0x6D2B79F5) >>> 0; let t = seed; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296 }
 
 /** 只允许数字、四则运算、括号和比较，算式里的 × ÷ − 会先换成 JS 写法。 */
@@ -528,6 +530,62 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
       if (item.blanks.some(b => (Array.isArray(b.a) ? b.a : [b.a]).some(x => !okAnswer(x)))) { bad('某个空的答案不是万以内的非负整数'); continue }
       if (item.blanks.some(b => (b.t.match(/□/g) || []).length !== (Array.isArray(b.a) ? b.a.length : 1))) { bad('□ 的个数和 e 的个数对不上'); continue }
       item.answer = [item.blanks[0].a].flat()[0]
+      if (t.fig) {
+        // 尺子读数：from、to 是毫米，物体从 from 量到 to；尺子总长 cm 不写就取够用的
+        const f = t.fig, from = f.from == null ? 0 : evalExpr(fill(f.from, v)), to = evalExpr(fill(f.to, v))
+        if (f.kind !== 'ruler' || !Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to <= from || to > 190) { bad('fig 要写 kind: "ruler"，from、to 是毫米整数，0 ≤ from < to ≤ 190'); continue }
+        item.fig = { kind: 'ruler', from, to, obj: f.obj === 'pencil' ? 'pencil' : 'bar', cm: Math.max(Number(f.cm) || 0, Math.ceil(to / 10) + 1, 6) }
+      }
+    } else if (t.format === 'draw') {
+      // 画线段：在尺子上从 from 画 len 毫米，孩子把端点拖到 from + len 的刻度上
+      const from = t.from == null ? 0 : evalExpr(fill(t.from, v)), len = evalExpr(fill(t.len, v))
+      if (!Number.isInteger(from) || !Number.isInteger(len) || from < 0 || len < 1 || from + len > 190) { bad('from 是 0 以上的整数毫米，len 是 1 以上的整数毫米，from + len 不超过 190'); continue }
+      Object.assign(item, { text: fill(t.text, v), from, len, answer: from + len, cm: Math.max(Number(t.cm) || 0, Math.ceil((from + len) / 10) + 1, 6) })
+      if (!item.text) { bad('draw 要写 text'); continue }
+    } else if (t.format === 'choice') {
+      // 选择题：one 单选，multi 多选（选对全部且不多选才对），compare 比大小（按钮固定是 ＞ ＜ ＝，程序自己比）
+      const mode = ['one', 'multi', 'compare'].includes(t.mode) ? t.mode : 'one', say0 = x => fill(x, v)
+      item.mode = mode; item.text = say0(t.text) || (mode === 'compare' ? '比一比，在 ○ 里选一个。' : '')
+      if (mode === 'compare') {
+        const c = t.compare || {}, lv = evalExpr(fill(c.lv, v)), rv = evalExpr(fill(c.rv, v))
+        if (!c.l || !c.r || !Number.isFinite(lv) || !Number.isFinite(rv)) { bad('compare 要写 l、r（显示的文字）和 lv、rv（同一单位下的数）'); continue }
+        const right = Math.abs(lv - rv) < 1e-9 ? '＝' : lv > rv ? '＞' : '＜'
+        item.stem = { l: say0(c.l), r: say0(c.r) }
+        item.opts = ['＞', '＜', '＝'].map(sym => ({ t: sym, ...(sym === right ? { ok: 1 } : { say: say0(c.say) || '先把两边换成同样的单位，再比大小', err: t.error_type }) }))
+        item.answer = item.opts.findIndex(o => o.ok)
+      } else {
+        const opts = (t.opts || []).map(o => ({ t: say0(o.t), ...(o.ok ? { ok: 1 } : {}), ...(o.say ? { say: say0(o.say) } : {}), ...(o.error_type ? { err: o.error_type } : {}), ...(o.svg ? { svg: String(o.svg) } : {}) }))
+        const nOk = opts.filter(o => o.ok).length
+        if (opts.length < 2 || opts.length > 8 || new Set(opts.map(o => o.t)).size !== opts.length || opts.some(o => !o.t && !o.svg)) { bad('opts 要 2～8 个，每个有 t（或 svg），文字不能重复'); continue }
+        if (mode === 'one' ? nOk !== 1 : nOk < 1) { bad(mode === 'one' ? 'one 的 opts 里必须正好一个 ok' : 'multi 的 opts 里至少一个 ok'); continue }
+        if (opts.some(o => o.svg && !svgOk(o.svg)) || (t.svg && !svgOk(String(t.svg)))) { bad('svg 要以 <svg 开头、不超过 3000 字，不能有脚本、事件、链接和图片'); continue }
+        item.opts = opts; item.answer = nOk
+        if (t.svg) item.svg = String(t.svg)
+        if (t.shuffle === false) item.keepOrder = 1
+      }
+    } else if (t.format === 'bins') {
+      // 分段分类：程序按周 + 模板 id 随机出 n 个数（dec 位小数），其中 edge 个正好落在区间端点上。每一栏是闭区间 [lo, hi]，不写 lo / hi 就是没有下限 / 上限
+      const N = t.nums || {}, n = Number(N.n), dec = Number(N.dec) || 0, S = 10 ** dec, min = Math.round(Number(N.min) * S), max = Math.round(Number(N.max) * S), edge = Number(N.edge) || 0
+      if (!(n >= 3 && n <= 24) || !(max > min) || ![0, 1, 2].includes(dec) || !(Array.isArray(t.bins) && t.bins.length >= 2 && t.bins.length <= 6)) { bad('bins 要写 nums: { n: 3～24, min, max, dec: 0～2 } 和 2～6 栏的 bins'); continue }
+      const bins = t.bins.map(b => ({ t: String(b.t ?? ''), lo: b.lo == null ? null : Math.round(Number(b.lo) * S), hi: b.hi == null ? null : Math.round(Number(b.hi) * S) }))
+      if (bins.some(b => !b.t || (b.lo != null && !Number.isFinite(b.lo)) || (b.hi != null && !Number.isFinite(b.hi)))) { bad('每一栏要有 t，lo、hi 是数'); continue }
+      const inBin = (x, b) => (b.lo == null || x >= b.lo) && (b.hi == null || x <= b.hi)
+      const edges = [...new Set(bins.flatMap(b => [b.lo, b.hi]).filter(x => x != null && x >= min && x <= max))]
+      const xs = new Set()
+      for (let k = 0; k < 400 && xs.size < Math.min(edge, edges.length); k++) xs.add(edges[Math.floor(r() * edges.length)])
+      for (let k = 0; k < 4000 && xs.size < n; k++) xs.add(min + Math.floor(r() * (max - min + 1)))
+      if (xs.size < n) { bad('min 到 max 之间凑不出这么多不一样的数'); continue }
+      const list = [...xs]; for (let k = list.length - 1; k > 0; k--) { const j = Math.floor(r() * (k + 1)); [list[k], list[j]] = [list[j], list[k]] }
+      const where = list.map(x => bins.flatMap((b, j) => inBin(x, b) ? [j] : []))
+      if (where.some(w => w.length !== 1)) { bad('有数落不进任何一栏或同时落进两栏，检查 bins 的 lo、hi'); continue }
+      const strs = list.map(x => (x / S).toFixed(dec)), binOf = where.map(w => w[0])
+      item.text = fill(t.text, v) || (t.mode === 'count' ? '数一数，每一栏里有几个数。' : '把每个数放进它所在的一栏。')
+      item.nums = strs
+      if (t.mode === 'count') {
+        item.flow = ['blanks']; item.fig = { kind: 'nums', nums: strs }
+        item.blanks = bins.map((b, j) => ({ t: fill(t.ask || '{t}的有 □ 个', v).replace('{t}', b.t), a: binOf.filter(x => x === j).length }))
+        item.answer = item.blanks[0].a
+      } else Object.assign(item, { bins: bins.map(b => ({ t: b.t })), binOf, answer: n })
     } else {
       // word：圈关键词开头；plan（挑战题）：先选「要先求什么」开头。后两步都是选算式、算和答
       if (t.format === 'plan') {
@@ -565,12 +623,13 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
     }
     if (!okAnswer(item.answer)) { bad('答案不是万以内的非负整数'); continue }
     if (item.segs) { const r = calibrateSegs(item), eg = item.segs.map(x => x.t).join(''); r.fixed.forEach(m => note(keys.fixed, m, eg)); r.warn.forEach(m => note(keys.warn, m, eg)) }
-    const key = JSON.stringify([item.vals, item.nums, item.text, item.tokens, item.segs?.map(s => s.t), item.lines?.map(l => l.pre + l.a), item.shown, item.blanks?.map(b => b.t)])
+    const key = JSON.stringify([item.vals, item.nums, item.text, item.tokens, item.segs?.map(s => s.t), item.lines?.map(l => l.pre + l.a), item.shown, item.blanks?.map(b => b.t), item.fig, item.opts?.map(o => o.t), item.stem, item.len])
     if (seen.has(key)) { bad('重复'); continue }
     seen.add(key)
     // 三选一的算式、「先求什么」、单位键都打乱后再存进题库包：页面和判分用的是同一份顺序，下标天然对得上
     const id = `${week.slice(5)}-${t.id}-${String(items.length + 1).padStart(3, '0')}`
     for (const k of ['choices', 'goals', 'units']) if (Array.isArray(item[k])) item[k] = mix(item[k], id + k)
+    if (item.format === 'choice' && item.mode !== 'compare') { if (!item.keepOrder) item.opts = mix(item.opts, id + 'o'); delete item.keepOrder; if (item.mode === 'one') item.answer = item.opts.findIndex(o => o.ok) }
     for (const [j, x] of [...(item.format === 'multistep' ? item.parts : []), ...(item.asks || [])].entries()) if (Array.isArray(x.units)) x.units = mix(x.units, `${id}u${j}`)
     items.push({ id, tpl: t.id, group: group.id, bucket: group.bucket,
       kp: t.knowledge_point, err: t.error_type, price: Math.round(priceOf(t.format, t.level, group.bucket, boost, group.boss) * 100) / 100, ...item })
@@ -602,6 +661,7 @@ export function checkPack(pack) {
     else if (!gids.has(it.group)) bad.push(`${who}：分组 ${it.group} 不存在`)
     else if (!LEVELS.includes(it.level) || !it.kp || !it.err || !(it.price > 0) || it.answer == null) bad.push(`${who}：缺难度、知识点、错因、金币或答案`)
     else try { publicItem(it) } catch { bad.push(`${who}：内容不完整，孩子端出不了这道题`) }
+    if (it.format === 'choice' && [it.svg, ...(it.opts || []).map(o => o.svg)].some(x => x != null && !(typeof x === 'string' && svgOk(x)))) bad.push(`${who}：选项里的图不合格`)
     if (bad.length >= 8) { bad.push('……'); break }
   }
   return bad
@@ -633,7 +693,7 @@ export function buildPack(bank, week) {
 export function publicItem(it, o = {}) {
   const p = { id: it.id, group: it.group, format: it.format, level: it.level, err: it.err, max: maxCoins(it) }
   if (it.segs) p.segs = it.segs.map(s => ({ t: s.t }))
-  if (['plan', 'clock', 'multi', 'multistep'].includes(it.format)) p.text = it.text
+  if (['plan', 'clock', 'multi', 'multistep', 'draw', 'choice', 'bins'].includes(it.format)) p.text = it.text
   const tier = it.level === '同构' ? Math.min(1, o.tier ?? 1) : o.tier ?? 1
   if (it.format === 'stat') p.title = it.title
   p.flow = flowOf(it).map((type, j) => {
@@ -660,7 +720,10 @@ export function publicItem(it, o = {}) {
     if (type === 'range') return { type, text: it.text, opts: it.ranges.map(x => x.t) }
     if (type === 'chain') return { type, ...(it.format === 'steps' ? { start: toTokens(it.text) } : {}) }
     if (type === 'spot') return { type, text: it.text, shown: it.shown }
-    if (type === 'blanks') return { type, blanks: it.blanks.map(b => b.t) }
+    if (type === 'blanks') return { type, blanks: it.blanks.map(b => b.t), ...(it.fig ? { fig: it.fig } : {}) }
+    if (type === 'draw') return { type, from: it.from, cm: it.cm }
+    if (type === 'choose') return { type, mode: it.mode, opts: it.opts.map(o => ({ t: o.t, ...(o.svg ? { svg: o.svg } : {}) })), ...(it.stem ? { stem: it.stem } : {}), ...(it.svg ? { svg: it.svg } : {}) }
+    if (type === 'bins') return { type, nums: it.nums, bins: it.bins.map(b => b.t) }
     if (type === 'circle') return { type }
     if (type === 'goal') return { type, opts: it.goals.map(g => g.t) }
     if (type === 'build') return tier === 0 || !it.chips ? { type, tier: 0, choices: it.choices.map(c => c.t) }
