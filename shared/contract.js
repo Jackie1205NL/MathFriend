@@ -14,7 +14,7 @@ export const LEVELS = ['同构', '略变', '综合']
 // 难度阶梯：档位 0 / 1 / 2 时，抽题在三种难度上的比例
 export const LEVEL_MIX = [[0.6, 0.3, 0.1], [0.4, 0.4, 0.2], [0.2, 0.5, 0.3]]
 export const STORY_PAGES = 16
-export const BOSS_SIZE = 4, BOSS_PASS = 3, BOSS_COINS = 30, BOSS_RATE = 0.7   // 本周闯关（周五到周日，每周一次）：固定 4 题，答对 3 题算通关；每题金币按原价的 7 成，打败怪兽另加 30
+export const BOSS_SIZE = 4, BOSS_PASS = 3, BOSS_COINS = 30, BOSS_RATE = 0.7   // 本周闯关：周五到周日每天一次，通关后当周停止；固定 4 题、答对 3 题通关，每题原价 7 成，通关另加 30
 export const EXTRA_STEP = 5                                   // 加练一次加几题（金币减半）
 // 每次同步的题库至少够做多少天（按孩子每天都来算）。家长偶尔没及时更新，孩子也有新题做
 export const PACK_DAYS = 14
@@ -87,7 +87,7 @@ export const GOODS = [
   { k: 'lantern', n: '爪印福灯', d: '挂在小屋里', p: 200, kind: 'keep', month: 1 },
 ]
 export const DECAY = { full: 25, mood: 22, clean: 15 }            // 每天下降多少，照顾一天约 55 金币
-export const NEED_FLOOR = 20
+export const NEED_FLOOR = 0
 export const PATS_PER_DAY = 3
 // 每只小狗每天固定抽一个入睡时刻，刷新不会重抽。统一按北京时间，次日 07:00 起床。
 export const needsRest = needs => ['full', 'mood', 'clean'].every(k => needs[k] < 30)
@@ -117,9 +117,9 @@ export const SEASON = {
   stages: [
     { n: '小窝' },
     { n: '幼犬', days: 0, from: '2026-10-05', place: 'home' },
-    { n: '少年', days: 10, from: '2026-10-24', place: 'yard' },
-    { n: '青年', days: 26, from: '2026-11-21', place: 'park' },
-    { n: '成年', days: 42, from: '2026-12-26', place: 'snow' },
+    { n: '少年', days: 6, from: '2026-10-24', place: 'yard' },
+    { n: '青年', days: 16, from: '2026-11-21', place: 'park' },
+    { n: '成年', days: 25, from: '2026-12-26', place: 'snow' },
   ],
 }
 export const STAGES = SEASON.stages

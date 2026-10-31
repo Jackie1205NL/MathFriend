@@ -51,7 +51,8 @@ const fillNames = t => esc(t).replace(/\{name\}/g, name()).replace(/\{kid\}/g, k
 const now = () => new Date(Date.now() + clockSkew)
 const hello = () => { const h = (now().getUTCHours() + 8) % 24; return h < 12 ? '早上好' : h < 18 ? '下午好' : '晚上好' }
 const rest = () => petRest(now().getTime(), V?.rest?.seed || 'main')
-const late = () => !!V?.state?.hatched && rest().sleeping
+const away = () => !!V?.state?.away
+const late = () => !!V?.state?.hatched && !away() && rest().sleeping
 const month = () => +D().slice(5, 7)
 const winter = () => D() >= `${D().slice(0, 4)}-12-01` || month() <= 2
 const ownOn = k => S().own[k]
@@ -61,6 +62,7 @@ const propAttrs = k => `data-a="item" data-v="${k}" aria-label="摸摸${esc(GOOD
 const propClass = k => `prop-hit${touchedItem === k ? ' touched' : ''}`
 const wornAttrs = (k, interactive) => interactive ? ` ${propAttrs(k)} role="button" tabindex="0"` : ''
 function petHtml(o = {}) {
+  if (away() && !o.st) return ''
   const st = o.st ?? stage(), p = o.st ? '' : late() && !o.awake ? 'sleep' : pose, a = SCARF_AT[st]
   const src = st && p ? `/pet/s${st}-act-${p}.webp` : `/pet/s${st}.webp`
   const capOn = o.cap ?? S().graduated, still = st && !p
@@ -77,6 +79,7 @@ function petHtml(o = {}) {
 const face = k => stage() ? `/pet/s${stage()}-face-${k}.webp` : '/pet/s0.webp'
 const fact = t => t.replace('{kid}', S().kid || '小朋友').replace('{fixed}', V.facts?.fixed ?? 0).replace('{focus}', V.facts?.focus || '今天的题').replace('{days}', S().days).replace('{circled}', ls.get('kid-circled', 0)).replace('{best}', S().best)
 function chat(kind) {
+  if (away()) { say = '宠物暂时离开了小屋。完成练习攒够金币，就能把它找回来。'; act = ''; return }
   const n = S().needs, f = V.facts || {}
   let pool
   if (late()) pool = LINES[needsRest(n) ? 'rest_sleep' : 'time_late']
@@ -101,7 +104,7 @@ function strike(p, anim = '') {
 // ---------- 画面零件 ----------
 const coin = n => `<span class="pill"><i class="ico coin"></i>${n}</span>`
 const stars = () => Object.values(S().pts).reduce((a, b) => a + b, 0)
-const bar = (n, v, cls) => `<span>${n}</span><span class="bar ${cls} ${v < 40 ? 'low' : ''}"><i style="width:${v}%"></i></span><span>${Math.round(v)}</span>`
+const bar = (n, v, cls) => `<span>${n}</span><span class="bar ${cls} ${v < 40 ? 'low' : ''}"><i style="width:${v}%"></i></span><span>${Math.ceil(v)}</span>`
 const groups = () => V.today || []
 const allItems = () => groups().flatMap(g => g.items)
 const doneCount = () => allItems().filter(it => it.done).length
@@ -121,16 +124,22 @@ function explore() {
   say = line.t; strike(line.act); if (!late()) sfx('chirp')
 }
 const sceneTouch = (action, label) => `<button class="scene-touch" data-a="${action}" aria-label="${label}"></button>`
+const awayNote = () => '<div class="away-scene"><b>宠物出走</b><span>小屋等着它回来</span></div>'
+function findPetCard() {
+  if (!away()) return ''
+  const s = S(), cost = s.away.cost, left = Math.max(0, cost - s.coins)
+  return `<section class="card find-pet"><b>把${name()}找回来</b><p>这次找回需要 ${cost} 金币，现有 ${s.coins} 金币。</p><button class="btn" data-a="findPet" ${left ? 'disabled' : ''}>找回宠物 · ${cost} 金币</button><p class="dim">${left ? `还差 ${left} 金币，可以先完成练习。` : '找回来后，好好照顾它，一起继续成长。'}</p></section>`
+}
 function room() {
   const s = S(), ev = V.event
-  return `<div class="room ${late() ? 'resting' : ''}" data-a="tap">
-    ${sceneTouch('tap', late() ? '轻轻陪小狗' : '戳一戳小狗')}
+  return `<div class="room ${late() ? 'resting' : ''}" ${away() ? '' : 'data-a="tap"'}>
+    ${away() ? '' : sceneTouch('tap', late() ? '轻轻陪小狗' : '戳一戳小狗')}
     ${stage() ? `<div class="win">${fx(winter() ? 'snow' : 'leaf', 10)}</div>` : ''}
-    ${s.own.curtain ? `<button class="curtain room-item ${propClass('curtain')}" ${propAttrs('curtain')}>${itemArt('curtain')}</button>` : ''}
-    ${['lantern', 'pillow'].map(k => ownOn(k) ? `<button class="${k} room-item ${propClass(k)}" ${propAttrs(k)}>${itemArt(k)}</button>` : '').join('')}
+    ${s.own.curtain ? `<button class="curtain room-item ${propClass('curtain')}" ${propAttrs('curtain')} ${away() ? 'disabled' : ''}>${itemArt('curtain')}</button>` : ''}
+    ${['lantern', 'pillow'].map(k => ownOn(k) ? `<button class="${k} room-item ${propClass(k)}" ${propAttrs(k)} ${away() ? 'disabled' : ''}>${itemArt(k)}</button>` : '').join('')}
     ${late() ? '<span class="sleep-stars" aria-hidden="true">☾ · ✧</span>' : ''}
-    ${petHtml({ interactive: true })}
-    <span class="tag">${!stage() ? '小窝' : late() ? '梦乡里 · 早上 7 点醒来' : needsRest(s.needs) ? '慢慢恢复精神 · 从一件小事开始' : s.good ? '状态好 · 明早有小礼物' : winter() ? '窗外在下雪' : '窗外是秋天'}</span></div>${ev && !late() ? `<button class="room-event" data-a="event"><span>${esc(ev.t)}</span><u>${esc(ev.b)}</u></button>` : ''}`
+    ${away() ? awayNote() : petHtml({ interactive: true })}
+    <span class="tag">${away() ? '完成练习，攒金币找回它' : !stage() ? '小窝' : late() ? '梦乡里 · 早上 7 点醒来' : needsRest(s.needs) ? '慢慢恢复精神 · 从一件小事开始' : s.good ? '状态好 · 明早有小礼物' : winter() ? '窗外在下雪' : '窗外是秋天'}</span></div>${ev && !late() && !away() ? `<button class="room-event" data-a="event"><span>${esc(ev.t)}</span><u>${esc(ev.b)}</u></button>` : ''}`
 }
 // ---------- 登录和账号管理 ----------
 let loginName = ls.get('kid-user', ''), adminMode = false, ADM = null, ADMP = null, ADMW = [], admMsg = '', admEdit = null
@@ -199,27 +208,28 @@ function vAdmTest() {
 }
 async function loadAdmin() { const r = await api('/admin/users'); ADM = r.users; ADMP = r.pack; ADMW = r.weeks || []; page = 'admin' }
 function vHome() {
-  const s = S(), n = s.needs, st = stage(), sleeping = late(), low = needsRest(n), bag = kind => GOODS.filter(g => g.kind === kind).reduce((a, g) => a + (s.bag[g.k] || 0), 0)
+  const s = S(), n = s.needs, st = stage(), sleeping = late(), gone = away(), low = needsRest(n), bag = kind => GOODS.filter(g => g.kind === kind).reduce((a, g) => a + (s.bag[g.k] || 0), 0)
   const pats = s.pats.date === D() ? s.pats.n : 0
   const canLearn = SKILLS.filter(x => s.skill[x.k] < 3 && s.pts[x.k] >= SKILL_COST[s.skill[x.k]]).length
   const breakTime = D() > SEASON.ceremony
   const cta = !V.week || (breakTime && !allItems().length) ? `<button class="btn" disabled>${breakTime ? '寒假没有任务' : '还没有任务'}<small>${breakTime ? `来陪${name()}玩吧` : '等爸爸妈妈发这周的题'}</small></button>`
     : late() ? `<button class="btn" disabled>${name()}睡觉了<small>可以轻轻陪它一会儿</small></button>`
-    : V.allDone && chalOpen() ? `<button class="btn red" data-a="go" data-v="quests">本周闯关开放了<small>打败${MONS[(groups().find(g => g.friday).monster ?? 0) % MONS.length].n}，解锁一页故事（每周一次）</small></button>`
+    : V.allDone && chalOpen() ? `<button class="btn red" data-a="go" data-v="quests">本周闯关开放了<small>打败${MONS[(groups().find(g => g.friday).monster ?? 0) % MONS.length].n}，解锁一页故事 · 周五到周日每天可试一次，通关后本周结束</small></button>`
     : V.allDone ? `<button class="btn" data-a="go" data-v="result">今天完成啦<small>看看今天的成绩</small></button>`
     : `<button class="btn" data-a="go" data-v="quests">今日任务 ${doneCount()} / ${allItems().length}<small>最多可赚 ${allItems().reduce((a, it) => a + it.max, 0)}${canLearn ? ` · 有 ${canLearn} 个本领可以学` : ''}</small></button>`
-  const banner = s.graduated ? `<div class="card banner snow"><b>${breakTime ? '寒假中' : '毕业啦'}</b> ${name()}戴着学士帽住在小屋里${breakTime ? '，下学期开学那天会来一位新朋友' : ''}。</div>`
+  const banner = s.graduated && !gone ? `<div class="card banner snow"><b>${breakTime ? '寒假中' : '毕业啦'}</b> ${name()}戴着学士帽住在小屋里${breakTime ? '，下学期开学那天会来一位新朋友' : ''}。</div>`
     : D() >= SEASON.finale ? `<button class="btn red" data-a="go" data-v="book">毕业周 · ${D() >= SEASON.ceremony ? '今天可以举行毕业典礼' : `周五 ${md(SEASON.ceremony)} 毕业典礼`}<small>去纪念册看看</small></button>` : ''
   return `<div class="top"><h1>${house(s.name)}</h1><button class="pill scr" data-a="sound" aria-label="声音">${ls.get('kid-sound', true) ? '声音开' : '声音关'}</button><button class="pill scr" data-a="logout" aria-label="换人">换人</button>${coin(s.coins)}<span class="pill"><i class="ico star"></i>${stars()}</span></div>
   <div class="body">
     ${banner}
-    <div class="bubble" role="status" aria-live="polite">${esc(say) || (st ? `嗨，${kid()}！今天也一起加油吧。` : '它还在小窝里睡觉。做完第一道题，它就会醒来。')}</div>
+    <div class="bubble" role="status" aria-live="polite">${gone ? '宠物暂时离开了小屋。完成练习攒够金币，就能把它找回来。' : esc(say) || (st ? `嗨，${kid()}！今天也一起加油吧。` : '它还在小窝里睡觉。做完第一道题，它就会醒来。')}</div>
     ${room()}
+    ${findPetCard()}
     ${sleeping ? `<div class="acts night-acts"><button data-a="quiet" data-v="blanket">盖好被子<small>暖暖的</small></button><button data-a="quiet" data-v="pat">轻轻摸摸<small>安心陪伴</small></button><button data-a="quiet" data-v="hum">哼晚安曲<small>轻轻的</small></button></div><p class="dim">每种陪伴每晚首次心情 ＋3，之后也可以再陪一会儿。你也可以安心去休息。</p>` : ''}
-    ${st ? `<div class="rest-note"><span>${sleeping ? '' : `今天约 ${rest().bedtime} 入睡 · 早上 7 点醒来`}</span><button data-a="sheet" data-v="wardrobe">换配饰 ›</button></div>` : ''}
-    ${low && !sleeping ? '<div class="care-note"><b>慢慢恢复精神</b><p>先吃一点、洗个澡，或轻轻摸摸。选一件就好，不用一下全做完。</p></div>' : ''}
+    ${st && !gone ? `<div class="rest-note"><span>${sleeping ? '' : `今天约 ${rest().bedtime} 入睡 · 早上 7 点醒来`}</span><button data-a="sheet" data-v="wardrobe">换配饰 ›</button></div>` : ''}
+    ${low && !sleeping && !gone ? '<div class="care-note"><b>慢慢恢复精神</b><p>先吃一点、洗个澡，或轻轻摸摸。选一件就好，不用一下全做完。</p></div>' : ''}
     <div class="card bars">${bar('饱食', n.full, '')}${bar('心情', n.mood, 'b')}${bar('清洁', n.clean, 'c')}</div>
-    ${!sleeping ? `<div class="acts"><button data-a="sheet" data-v="food">喂食<small>${bag('food')} 份</small></button><button data-a="care" data-v="soap">洗澡<small>${bag('soap')} 块</small></button><button class="new" data-a="sheet" data-v="play" ${st ? '' : 'disabled'}>陪玩<small>三选一</small></button><button data-a="care" data-v="pat">摸摸<small>今天 ${Math.max(0, 3 - pats)} 次</small></button></div>` : ''}
+    ${!sleeping && !gone ? `<div class="acts"><button data-a="sheet" data-v="food">喂食<small>${bag('food')} 份</small></button><button data-a="care" data-v="soap">洗澡<small>${bag('soap')} 块</small></button><button class="new" data-a="sheet" data-v="play" ${st ? '' : 'disabled'}>陪玩<small>三选一</small></button><button data-a="care" data-v="pat">摸摸<small>今天 ${Math.max(0, 3 - pats)} 次</small></button></div>` : ''}
     ${cta}
     ${V.wish ? `<p class="dim">心愿单：${esc(V.wish.text)} · 这周做完任务 ${V.wish.got} / ${V.wish.need} 天</p>` : ''}
     ${s.hatched ? `<div class="tri"><button class="card quest" data-a="story" data-v=""><b>故事书</b><span class="pill">${s.story} / ${STORY_PAGES}</span></button><button class="card quest" data-a="go" data-v="diary"><b>日记</b><span class="pill">${s.album.length} 件事</span></button><button class="card quest" data-a="go" data-v="book"><b>纪念册</b><span class="pill">${s.cards.length} / 12</span></button></div>` : ''}
@@ -291,15 +301,17 @@ const monSvg = (k, cls = '') => { const m = MONS[k % MONS.length], h = m.px.leng
 function vBoss() {
   const g = groups().find(x => x.id === 'friday'); if (!g) return ''
   // 怪兽的血 = 要答对几题；下面一排是每道题的结果，让孩子看懂「一共 5 题、4 滴血、可以错 1 题」
-  const okN = g.items.filter(it => it.done?.ok).length, badN = g.items.filter(it => it.done && !it.done.ok).length, spare = g.items.length - g.pass - badN
+  const shownDone = g.items.filter(it => it.done).length, shownOk = g.items.filter(it => it.done?.ok).length
+  const total = g.total ?? g.items.length, completed = g.completed ?? shownDone, okN = g.correct ?? shownOk, badN = completed - okN, spare = total - g.pass - badN
   const left = Math.max(0, g.pass - okN), dead = !left, lost = !dead && spare < 0, hit = Q.fin?.ok && Q.gid === 'friday'
-  const dots = g.items.map(it => `<i class="${it.done ? it.done.ok ? 'y' : 'n' : ''}">${it.done ? it.done.ok ? '✓' : '✗' : ''}</i>`).join('')
-  const say = dead ? '打败它了！把剩下的题做完就结算。' : lost ? '这次打不败它了，把题做完，下周再来。' : `答对 1 题打掉 1 滴血，还要答对 ${left} 题。${spare > 0 ? `还能错 ${spare} 题。` : '一题都不能错了！'}`
+  const dots = '<i class="y" title="换题库前已答对">✓</i>'.repeat(Math.max(0, okN - shownOk)) + '<i class="n" title="换题库前未答对">✗</i>'.repeat(Math.max(0, completed - shownDone - okN + shownOk)) + g.items.map(it => `<i class="${it.done ? it.done.ok ? 'y' : 'n' : ''}">${it.done ? it.done.ok ? '✓' : '✗' : ''}</i>`).join('')
+  const say = dead ? '打败它了！把剩下的题做完就结算，本周闯关结束。' : lost ? `这次差一点，把题做完。${challengeRetry()}` : `答对 1 题打掉 1 滴血，还要答对 ${left} 题。${spare > 0 ? `还能错 ${spare} 题。` : '一题都不能错了！'}`
   return `<div class="boss ${dead ? 'won' : ''}">${monSvg(g.monster ?? 0, dead || lost ? 'dead' : hit ? 'hit' : '')}<div><b>${MONS[(g.monster ?? 0) % MONS.length].n}</b> <span class="hp">${g.pass} 滴血</span>
     <div class="hearts">${'<i class="f"></i>'.repeat(left)}${'<i></i>'.repeat(Math.min(g.pass, okN))}</div>
-    <div class="bdots"><span>${g.items.length} 道题</span>${dots}</div>
+    <div class="bdots"><span>${total} 道题</span>${dots}</div>
     <small>${say}</small></div></div>`
 }
+const challengeRetry = () => new Date(D() + 'T00:00:00Z').getUTCDay() === 0 ? '下周五再来挑战新的怪兽。' : '明天还可以再挑战一次。'
 const chalOpen = () => groups().some(g => g.friday && g.items.some(it => !it.done))      // 本周闯关还没做完
 const house = n => n ? `${n}的小屋` : '小柴犬的家'
 const greyed = i => [Q.fx.grey ?? []].flat().includes(i)
@@ -500,10 +512,10 @@ function vStep() {
   if (b.type === 'circle' && Q.rec[Q.i]?.cfb) {
     // 圈完马上点评：绿色是圈对的，橙色虚线是漏圈的，灰色划掉的是不用圈的。点评过就定下来了，回到这一步只能看
     const fb = Q.rec[Q.i].cfb, wait = circleWait()
-    return `${qText('review')}<div class="review ${fb.kw === 2 ? 'good' : ''}"><img src="/pet/s${stage() || 1}-face-${fb.kw === 2 ? "proud" : "thinking"}.webp" alt=""><div><b>${name()}说：</b>${esc(cfbMsg(fb))}</div></div>
-      <p class="dim">绿色是圈对的${fb.must?.length ? '，红色虚线是漏掉的最要紧的' : ''}${fb.missed.length > (fb.must?.length || 0) ? '，橙色虚线是还可以圈的' : ''}${fb.extra.length ? '，灰色划掉的是和算数没关系的' : ''}。</p><p class="dim">${fb.penalty ? `漏圈核心关键词，本题奖励扣 ${fb.penalty} 金币（最低为 0）。先看看红色标记。` : ''}</p><button class="btn" data-a="stepgo" data-circle-next ${wait ? 'disabled' : ''}>${wait ? `再看 ${wait} 秒` : '知道了，继续'}</button>`
+    return `${qText('review')}<div class="review ${fb.kw === 2 ? 'good' : ''}">${away() ? '' : `<img src="/pet/s${stage() || 1}-face-${fb.kw === 2 ? "proud" : "thinking"}.webp" alt="">`}<div><b>${away() ? '关键词点评：' : name() + '说：'}</b>${esc(cfbMsg(fb))}</div></div>
+      <p class="dim">绿色是圈对的${fb.must?.length ? '，红色虚线是漏掉的最要紧的' : ''}${fb.missed.length > (fb.must?.length || 0) ? '，橙色虚线是还可以圈的' : ''}${fb.extra.length ? '，灰色划掉的是和算数没关系的' : ''}。</p>${fb.extra.length > 2 ? '<p class="dim">无关内容超过 2 处，本题无过程奖。</p>' : ''}<p class="dim">${fb.penalty ? `漏圈核心关键词，本题奖励扣 ${fb.penalty} 金币（最低为 0）。先看看红色标记。` : ''}</p><button class="btn" data-a="stepgo" data-circle-next ${wait ? 'disabled' : ''}>${wait ? `再看 ${wait} 秒` : '知道了，继续'}</button>`
   }
-  if (b.type === 'circle') return `${qText('pick')}<p class="dim">可以点好几处，再点一下取消。圈完会一起检查关键词。漏掉核心词时，先看 5 秒提示，再继续做题。</p><button class="btn" data-a="stepgo" ${Q.sel.size ? '' : 'disabled'}>圈好了，${Q.flow[Q.i + 1]?.type === 'build' ? '去列式' : '下一步'}</button>`
+  if (b.type === 'circle') return `${qText('pick')}<p class="dim">可以点好几处，再点一下取消。无关内容超过 2 处，本题无过程奖。漏掉核心词时，先看 5 秒提示，再继续做题。</p><button class="btn" data-a="stepgo" ${Q.sel.size ? '' : 'disabled'}>圈好了，${Q.flow[Q.i + 1]?.type === 'build' ? '去列式' : '下一步'}</button>`
   if (b.type === 'goal') return `${qText()}<div class="opts">${b.opts.map((o, i) => `<button class="${i === Q.fx.strike ? 'struck' : ''}" data-a="pickgo" data-v="${i}" ${i === Q.fx.strike ? 'disabled' : ''}>${esc(o)}</button>`).join('')}</div>`
   if (b.type === 'build') {
     const gi = fi('goal'), head = b.head ? `<div class="bubble plain good">${esc(b.head + (gi >= 0 && !b.ms && Q.rec[gi]?.i != null ? `：求${it.flow[gi].opts[Q.rec[gi].i]}` : ''))}</div>` : gi >= 0 ? `<div class="bubble plain good">先求：${esc(it.flow[gi].opts[Q.rec[gi]?.i] ?? '')}</div>` : ''
@@ -546,8 +558,8 @@ function vDock() {
     const lv = S().skill[x.k], any = [1, 2, 3].some(L => L <= lv && canUse(x.k, L, b) === '')
     return `<button class="badge ${any ? 'can' : 'used'} ${Q.guard === x.k ? 'guard' : ''} ${Q.fire?.k === x.k ? 'fire' : ''}" data-a="menu" data-v="${x.k}" aria-label="${x.n} ${lv} 级"><img src="/pet/badge-${x.badge}.webp" alt=""><b>${x.n}</b><span class="dots">${[1, 2, 3].map(i => `<i class="${i <= lv ? 'f' : ''}"></i>`).join('')}</span>${Q.guard === x.k ? '<span class="shield">守护中</span>' : ''}</button>`
   }).join('')
-  const said = Q.say || (Q.fin ? (Q.fin.ok ? '做对啦！' : Q.fin.c ? '大部分都做对了，就差一点！看看哪里不一样。' : '没关系，看看正确做法。') : '我陪着你。')
-  return `<div class="dock"><span class="dog ${Q.mood ? 'a-' + (Q.mood === 'think' ? 'think' : 'hop') : ''}"><img src="${face(f)}" alt=""></span><div class="say ${Q.sk}">${esc(said)}</div><div class="badges">${badges}</div></div>${it ? '' : ''}`
+  const said = Q.say || (away() ? '认真读题，一步一步来。完成练习后，可以回小屋找回宠物。' : Q.fin ? (Q.fin.ok ? '做对啦！' : Q.fin.c ? '大部分都做对了，就差一点！看看哪里不一样。' : '没关系，看看正确做法。') : '我陪着你。')
+  return `<div class="dock ${away() ? 'pet-away' : ''}">${away() ? '' : `<span class="dog ${Q.mood ? 'a-' + (Q.mood === 'think' ? 'think' : 'hop') : ''}"><img src="${face(f)}" alt=""></span>`}<div class="say ${Q.sk}">${esc(said)}</div><div class="badges">${badges}</div></div>${it ? '' : ''}`
 }
 const LV = ['', '提醒', '帮忙', '守护']
 const GUARD = { 审题: '题目里的条件用错', 概念不清: '先算错了顺序', 计算失误: '算错了数', 格式规范: '答句单位没写对', 漏题: '有空着的就交', 策略缺失: '先求的东西选错' }
@@ -625,12 +637,13 @@ function vQResult(g) {
     ${habits ? `<div class="conds">${habits}</div>` : ''}
     <div class="card items">${(d.items || []).map(x => `<div class="${x.good}"><i>${mark[x.good]}</i><span>${esc(x.msg)}${x.good !== 'y' ? sk(x.cat) : ''}</span></div>`).join('')}${extra}</div>
     ${d.ok ? '' : `<div class="right"><b>正确做法</b><br>${d.lines.map(esc).join('<br>')}${d.explain ? `<br><span class="dim">${esc(d.explain)}</span>` : ''}</div>`}
+    ${d.processDenied ? `<p class="dim">圈了 ${d.extraKeywords} 处无关内容，超过 2 处，本题无过程奖。</p>` : ''}
     ${d.keywordPenalty ? `<p class="dim">核心关键词漏圈扣 ${d.keywordPenalty} 金币，本题实际少得 ${d.penaltyApplied} 金币，已计入上方奖励。</p>` : ''}
     <p class="dim">${d.ok ? [d.bonus ? '连续 5 题第一次就对，再加 5。' : '', d.l2 ? '用了 2 级帮忙，这题没有过程奖。' : d.pb ? `过程奖 ＋${d.pb} 已算在里面。` : '', d.patrol ? '今天没有急着答错的题，得到 1 个「巡逻」技能点。' : '', d.extra ? '加练的题金币减半。' : ''].join('') : (d.flash ? '太快啦，还没看清题。接下来几题我们慢慢来。' : (d.c ? `做对的部分给了 ${d.c} 金币，错的那一处看看正确做法。过两天它会换个样子再来。` : '这题没有做对的部分，所以没有金币。过两天它会换个样子再来。'))}</p>
     ${d.day ? `<div class="bubble plain">今天的任务做完了，${name()}已经陪你 ${d.day} 天。</div>` : ''}
     ${d.grew ? `<div class="bubble plain">${name()}长大了，现在是${STAGES[d.grew].n}！${PLACES.find(p => p.st === d.grew) ? `${PLACES.find(p => p.st === d.grew).n}开放了，` : ''}回小屋看看。</div>` : ''}
     ${d.wish ? `<div class="bubble plain">这周来满啦！可以去找爸爸妈妈兑换心愿：${esc(d.wish)}。</div>` : ''}
-    ${b ? `<div class="bubble plain">${b.pass ? `打败怪兽，闯关成功！${b.n} 题答对 ${b.okN} 题，再得 ${b.coins} 金币${b.story ? `，解锁了故事书第 ${b.story} 页` : b.card ? `。这一章的故事读完了，${name()}带回一张明信片` : ''}。` : `闯关 ${b.n} 题答对 ${b.okN} 题，差一点没打败它。下周五再来挑战新的怪兽。`}</div>` : ''}
+    ${b ? `<div class="bubble plain">${b.pass ? `打败怪兽，闯关成功！${b.n} 题答对 ${b.okN} 题，再得 ${b.coins} 金币${b.story ? `，解锁了故事书第 ${b.story} 页` : b.card ? `。这一章的故事读完了，${name()}带回一张明信片` : ''}。` : `闯关 ${b.n} 题答对 ${b.okN} 题，这次差一点。${challengeRetry()}`}</div>` : ''}
     ${!d.ok && d.walk ? '<button class="btn alt" data-a="walk">跟着正确做法再做一遍<small>不计金币，亲手做对一次</small></button>' : ''}
     ${b?.pass && b.story ? `<button class="btn" data-a="story" data-v="${b.story - 1}">看新故事</button>` : `<button class="btn" data-a="next">${more ? '下一题' : V.allDone ? '看今天的成绩' : '回到任务'}</button>`}`
 }
@@ -645,12 +658,13 @@ function vWalk() {
     <div class="card"><div class="ans">${esc(l)} ${box(W.input, true, W.bad ? 'bad' : '')} ${slot} ${esc(r)}</div></div>${pad(st.units || null, '填好了', 'walkgo')}`
 }
 function vQ() {
-  const g = Q.demo ? { name: '试一试', items: [Q.demo] } : groups().find(x => x.id === Q.gid), it = curItem(), idx = g.items.indexOf(it) + 1
+  const g = Q.demo ? { name: '试一试', items: [Q.demo] } : groups().find(x => x.id === Q.gid), it = curItem()
+  const total = g.total ?? g.items.length, idx = g.items.indexOf(it) + 1 + Math.max(0, (g.completed || 0) - g.items.filter(x => x.done).length)
   // 做过的步骤可以点回去改，不扣分；回去改完再往后走，后面填过的还在
   const live = !Q.fin && !Q.catch && !Q.walk && !Q.cover
   const bar = Q.flow.length > 1 ? `<div class="stepbar">${live && Q.i > 0 ? '<button class="pill" data-a="backto" data-v="">‹ 上一步</button>' : ''}<div class="steps" style="grid-template-columns:repeat(${Q.flow.length},1fr)">${Q.flow.map((t, i) => live && i < Q.i ? `<button class="done" data-a="backto" data-v="${i}">${STEP_NAME[t.type]}</button>` : `<span class="${Q.fin || i < Q.i ? 'done' : i === Q.i ? 'now' : ''}">${STEP_NAME[t.type]}</span>`).join('')}</div></div>` : ''
-  return `<div class="top qtop"><button class="back" data-a="go" data-v="quests" aria-label="回到任务">‹</button><h1>${esc(g.name)} ${idx}/${g.items.length}</h1>${!Q.demo && !Q.fin && !Q.catch && !Q.walk ? '<button class="pill scr" data-a="skip">跳过</button>' : ''}<button class="pill scr" data-a="scratch">草稿</button>${coin('最高 ' + (g.extra ? Math.ceil(it.max / 2) : it.max))}</div>
-  <div class="body qbody">${Q.gid === 'friday' && !Q.demo ? vBoss() : ''}${Q.cover ? `<div class="cover"><img src="${face('thinking')}" alt=""><b style="font:400 30px var(--kid)">慢慢来</b><span>${name()}在帮你把题目再读一遍……</span></div>` : ''}${bar}${Q.walk ? vWalk() : Q.fin ? (it.segs || it.format === 'stat' ? qText() : '') + vQResult(g) : vStep()}</div>
+  return `<div class="top qtop"><button class="back" data-a="go" data-v="quests" aria-label="回到任务">‹</button><h1>${esc(g.name)} ${idx}/${total}</h1>${!Q.demo && !Q.fin && !Q.catch && !Q.walk ? '<button class="pill scr" data-a="skip">跳过</button>' : ''}<button class="pill scr" data-a="scratch">草稿</button>${coin('最高 ' + (g.extra ? Math.ceil(it.max / 2) : it.max))}</div>
+  <div class="body qbody">${Q.gid === 'friday' && !Q.demo ? vBoss() : ''}${Q.cover ? `<div class="cover">${away() ? '' : `<img src="${face('thinking')}" alt="">`}<b style="font:400 30px var(--kid)">慢慢来</b><span>${away() ? '先把题目再读一遍，想一想条件。' : name() + '在帮你把题目再读一遍……'}</span></div>` : ''}${bar}${Q.walk ? vWalk() : Q.fin ? (it.segs || it.format === 'stat' ? qText() : '') + vQResult(g) : vStep()}</div>
   ${vDock()}${Q.menu ? vMenu() : ''}${Q.scratch ? '<div class="scratch"><canvas id="scratch"></canvas><div class="duo"><button class="btn alt" data-a="sclear">擦干净</button><button class="btn" data-a="scratch">关上</button></div></div>' : ''}${Q.catch ? vCatch() : ''}${Q.fire ? `<div class="toast fire"><img src="/pet/badge-${SKILLS.find(x => x.k === Q.fire.k).badge}.webp" alt="">${esc(Q.fire.text)}</div>` : ''}`
 }
 /** 草稿纸：随手写画，不保存、不判分 */
@@ -811,9 +825,9 @@ const QA = {
 function vResult() {
   const its = allItems(), first = its.filter(it => it.done?.ok && !it.done.caught).length, fix = its.filter(it => it.done?.ok && it.done.caught).length, again = its.filter(it => it.done && !it.done.ok).length
   return `<div class="top"><h1>今天完成啦</h1></div><div class="body">
-    <div class="room"><div class="pet"><div class="a-hop"><span class="wear"><img src="${stage() ? `/pet/s${stage()}-act-wag.webp` : '/pet/s0.webp'}" alt=""></span></div></div></div><div class="sum"><i class="ico coin"></i>＋${its.reduce((a, it) => a + (it.done?.c || 0), 0)}</div>
+    <div class="room">${away() ? awayNote() : `<div class="pet"><div class="a-hop"><span class="wear"><img src="${stage() ? `/pet/s${stage()}-act-wag.webp` : '/pet/s0.webp'}" alt=""></span></div></div>`}</div>${findPetCard()}<div class="sum"><i class="ico coin"></i>＋${its.reduce((a, it) => a + (it.done?.c || 0), 0)}</div>
     <div class="card rows"><span>第一次就答对</span><b>${first} 题</b>${fix ? `<span>本领接住后改对</span><b>${fix} 题</b>` : ''}<span>过两天换个样子再来</span><b>${again} 题</b><span>最长认真连击</span><b>${S().best} 题</b><span>已陪伴</span><b>${S().days} 天</b></div>
-    ${chalOpen() ? `<button class="btn red" data-a="group" data-v="friday">去本周闯关<small>打败${MONS[(groups().find(g => g.friday).monster ?? 0) % MONS.length].n}，每周一次</small></button>` : ''}
+    ${chalOpen() ? `<button class="btn red" data-a="group" data-v="friday">去本周闯关<small>打败${MONS[(groups().find(g => g.friday).monster ?? 0) % MONS.length].n} · 周五到周日每天可试一次，通关后本周结束</small></button>` : ''}
     <button class="btn" data-a="go" data-v="home">回小屋</button>
     <button class="btn alt" data-a="extra">再练一会儿<small>最多再加几题，金币减半</small></button></div>`
 }
@@ -840,13 +854,13 @@ function vSkills() {
       ${sel === '漏题' ? '' : `<div class="bars"><span>下一个技能点</span><span class="bar s"><i style="width:${s.prog[sel] * 20}%"></i></span><span>${s.prog[sel]} / 5</span></div>`}
       <p class="dim" style="margin-top:6px">${lv >= 3 ? '已经学满了。' : `学第 ${lv + 1} 级要 ${cost} 个「${k.s}」技能点，现在有 ${have} 个。`}${sel === '漏题' ? '' : '换了样子的题第一次就做对，每 5 道得 1 点。'}</p>
       <ol class="unlock">${SKILL_PET[sel].map((t, i) => `<li class="${i < lv ? 'ok' : ''}">第 ${i + 1} 级：${t}${i < lv ? ' ✓' : ''}</li>`).join('')}</ol></div>
-    <button class="btn" data-a="learn" ${lv < 3 && have >= cost ? '' : 'disabled'}>${lv >= 3 ? '学满了' : have >= cost ? `教${name()}学「${k.n}」第 ${lv + 1} 级` : `还差 ${cost - have} 个技能点`}</button></div>`
+    <button class="btn" data-a="learn" ${!away() && lv < 3 && have >= cost ? '' : 'disabled'}>${away() ? '找回宠物后再学本领' : lv >= 3 ? '学满了' : have >= cost ? `教${name()}学「${k.n}」第 ${lv + 1} 级` : `还差 ${cost - have} 个技能点`}</button></div>`
 }
 const COLORS = { yard: '#d9682e', park: '#3f9c5f', snow: '#5b8fc9', month: '#cf406a', home: '#e9a23b' }
 function vShop() {
   const s = S(), m = month(), left = Math.max(0, JAR.goal - s.jar), open = D() < SEASON.ceremony && !s.graduated
-  const icon = x => s.own[x.k] ? `<button class="shop-item ${propClass(x.k)}" ${propAttrs(x.k)}>${itemIcon(x.k)}</button>` : itemIcon(x.k)
-  const buy = (x, lock) => s.own[x.k] ? (['scarf', 'bow', 'hat'].includes(x.k) ? `<button class="buy equip" data-a="equip" data-v="${x.k}">${wornAccessory(s, x.k === 'hat' ? 'head' : 'neck') === x.k ? '收起来' : '戴上'}</button>` : `<button class="buy" ${propAttrs(x.k)}>摸摸看</button>`) : lock ? `<span class="dim">${lock}</span>` : `<button class="buy" data-a="buy" data-v="${x.k}" ${s.coins < x.p ? 'disabled' : ''}><i class="ico coin"></i>${x.p}</button>`
+  const icon = x => s.own[x.k] ? `<button class="shop-item ${propClass(x.k)}" ${propAttrs(x.k)} ${away() ? 'disabled' : ''}>${itemIcon(x.k)}</button>` : itemIcon(x.k)
+  const buy = (x, lock) => s.own[x.k] ? (['scarf', 'bow', 'hat'].includes(x.k) ? `<button class="buy equip" data-a="equip" data-v="${x.k}" ${away() ? 'disabled' : ''}>${away() ? '找回后再戴' : wornAccessory(s, x.k === 'hat' ? 'head' : 'neck') === x.k ? '收起来' : '戴上'}</button>` : `<button class="buy" ${propAttrs(x.k)} ${away() ? 'disabled' : ''}>${away() ? '找回后再玩' : '摸摸看'}</button>`) : lock ? `<span class="dim">${lock}</span>` : `<button class="buy" data-a="buy" data-v="${x.k}" ${s.coins < x.p ? 'disabled' : ''}><i class="ico coin"></i>${x.p}</button>`
   const row = (x, _color, sub, lock) => `<div class="srow">${icon(x)}<span><b>${esc(x.n)}</b><small>${sub}</small></span>${buy(x, lock)}</div>`
   const bagRow = x => row(x, '', `${x.d} · 背包里 ${x.kind === 'toy' ? (s.toy[x.k] || 0) + ' 次' : (s.bag[x.k] || 0) + ' 份'}`)
   const places = PLACES.filter(p => GOODS.some(g => g.place === p.k)).map(p => { const on = placeOpen(p, stage(), D()); return `<div><h3>${p.n}${on ? '' : ' · 还没开放'}</h3>${GOODS.filter(g => g.place === p.k).map(g => row(g, COLORS[p.k], g.d, on ? '' : '开放后')).join('')}</div>` }).join('')
@@ -889,7 +903,7 @@ function vStory() {
 // ---------- 学期地图和地方 ----------
 const weekOf = d => Math.floor(dayDiff(SEASON.start, d) / 7)
 const WEEKS = Math.ceil(dayDiff(SEASON.start, SEASON.ceremony) / 7)
-const me = () => `<span class="me"><img src="${stage() ? `/pet/s${stage()}-face-happy.webp` : '/pet/s0.webp'}" alt=""></span>`
+const me = () => away() ? '<span class="me away-map">出走</span>' : `<span class="me"><img src="${stage() ? `/pet/s${stage()}-face-happy.webp` : '/pet/s0.webp'}" alt=""></span>`
 const openDate = p => p.finale ? SEASON.finale : STAGES[p.st].from || SEASON.start
 function placeCard(p, hintNext) {
   const open = placeOpen(p, stage(), D()), g = STAGES[p.st]
@@ -910,20 +924,20 @@ function vMap() {
     rows += `<div class="wk ${w < now ? 'past' : w === now ? 'now' : ''}" ${w === now ? 'id="now"' : ''}>${w === now ? me() : ''}第 ${w + 1} 周 · ${md(mon)}–${md(addDays(mon, 6))} ${tags}${peek}</div>`
   }
   rows += `<div class="wk ${now >= WEEKS ? 'now' : ''}" ${now >= WEEKS ? 'id="now"' : ''}>${now >= WEEKS ? me() : ''}${md(addDays(SEASON.ceremony, 1))} 以后 · 寒假 <span class="hol">下学期开学换新朋友</span></div>`
-  return `<div class="top"><h1>学期地图</h1>${coin(s.coins)}</div><div class="body"><p class="dim">从小屋出发，${md(SEASON.finale)} 走到毕业礼堂。${name()}停在这一周。</p><div class="road">${rows}</div></div>`
+  return `<div class="top"><h1>学期地图</h1>${coin(s.coins)}</div><div class="body"><p class="dim">从小屋出发，${md(SEASON.finale)} 走到毕业礼堂。${away() ? '宠物出走了，可以继续练习攒金币找回。' : name() + '停在这一周。'}</p><div class="road">${rows}</div></div>`
 }
 function vPlace() {
   const p = PLACES.find(x => x.k === place), s = S(), walked = V.walked
   if (!p || !placeOpen(p, stage(), D())) { page = 'map'; return vMap() }
   if (p.finale) return `<div class="top"><button class="back" data-a="go" data-v="map" aria-label="回地图">‹</button><h1>毕业礼堂</h1>${coin(s.coins)}</div><div class="body">
-    <div class="bubble" role="status" aria-live="polite">${esc(say) || (late() ? '小狗在小屋睡觉，先轻轻看看彩旗吧。' : '点点小狗和舞台，一起练习打招呼吧！')}</div><div class="scene" data-a="explore">${sceneTouch('explore', '探索毕业礼堂')}${scene('hall')}${late() ? '' : petHtml({ cap: true, awake: true, interactive: true })}</div><div class="bubble plain">周五 ${md(SEASON.ceremony)} 在这里举行毕业典礼。典礼上会打开储蓄罐，还会做一本学期纪念册。</div>
-    <button class="btn" data-a="ceremony" ${D() >= SEASON.ceremony && !s.graduated ? '' : 'disabled'}>${s.graduated ? '毕业典礼办完啦' : D() >= SEASON.ceremony ? '举行毕业典礼' : `${+SEASON.ceremony.slice(5, 7)} 月 ${+SEASON.ceremony.slice(8)} 日周五举行`}</button></div>`
+    <div class="bubble" role="status" aria-live="polite">${away() ? '宠物出走了，先回小屋找回它吧。' : esc(say) || (late() ? '小狗在小屋睡觉，先轻轻看看彩旗吧。' : '点点小狗和舞台，一起练习打招呼吧！')}</div><div class="scene" ${away() ? '' : 'data-a="explore"'}>${away() ? '' : sceneTouch('explore', '探索毕业礼堂')}${scene('hall')}${late() || away() ? '' : petHtml({ cap: true, awake: true, interactive: true })}</div><div class="bubble plain">周五 ${md(SEASON.ceremony)} 在这里举行毕业典礼。典礼上会打开储蓄罐，还会做一本学期纪念册。</div>
+    <button class="btn" data-a="ceremony" ${D() >= SEASON.ceremony && !s.graduated && !away() ? '' : 'disabled'}>${away() ? '找回宠物后再举行毕业典礼' : s.graduated ? '毕业典礼办完啦' : D() >= SEASON.ceremony ? '举行毕业典礼' : `${+SEASON.ceremony.slice(5, 7)} 月 ${+SEASON.ceremony.slice(8)} 日周五举行`}</button></div>`
   const items = GOODS.filter(g => g.place === p.k), got = s.cards.filter(c => c.k === p.k).length
   return `<div class="top"><button class="back" data-a="go" data-v="map" aria-label="回地图">‹</button><h1>${p.n}</h1>${coin(s.coins)}</div><div class="body">
-    <div class="bubble" role="status" aria-live="polite">${esc(say) || (late() ? '小狗在小屋里睡觉。先看看风景，醒来再一起散步吧。' : needsRest(s.needs) ? '慢慢逛一会儿也很好，或先回小屋吃一点。' : `这里是${p.n}！${walked ? '今天已经散过步啦。' : '我们去走一走吧？'}`)}</div>
-    <div class="scene" data-a="explore">${sceneTouch('explore', `探索${p.n}，和小狗玩一玩`)}${scene(p.k)}${p.k === 'snow' ? fx('snow', 18) : p.k === 'yard' ? fx('leaf', 8) : ''}${late() ? '' : petHtml({ awake: true, interactive: true })}</div><p class="dim">点点风景${late() ? '' : '、小狗'}和摆设，看看有什么小发现。</p>
-    <button class="btn" data-a="trip" ${walked || late() ? 'disabled' : ''}>${late() ? '小狗睡醒后再一起散步' : walked ? '今天散过步了，明天再来' : `去散步${p.trip ? `（${p.trip} 金币）` : '（自家院子，免费）'}`}<small>心情 ＋20 · 这里的明信片 ${got} / 4</small></button>
-    <div class="card"><b>${p.n}的摆设</b><div class="own">${items.map(i => `<button class="${s.own[i.k] ? 'have' : ''}" data-a="${s.own[i.k] ? 'item' : 'buy'}" data-v="${i.k}" ${!s.own[i.k] && s.coins < i.p ? 'disabled' : ''}>${itemIcon(i.k)}${esc(i.n)}<small>${s.own[i.k] ? '摆好了 · 摸摸看' : `${i.p} 金币`}</small></button>`).join('')}</div><p class="dim">买了就摆在这里，点一下就能和小狗一起玩。</p></div></div>`
+    <div class="bubble" role="status" aria-live="polite">${away() ? '宠物出走了，先回小屋找回它吧。' : esc(say) || (late() ? '小狗在小屋里睡觉。先看看风景，醒来再一起散步吧。' : needsRest(s.needs) ? '慢慢逛一会儿也很好，或先回小屋吃一点。' : `这里是${p.n}！${walked ? '今天已经散过步啦。' : '我们去走一走吧？'}`)}</div>
+    <div class="scene" ${away() ? '' : 'data-a="explore"'}>${away() ? '' : sceneTouch('explore', `探索${p.n}，和小狗玩一玩`)}${scene(p.k, away() ? { thumb: true, card: true } : {})}${p.k === 'snow' ? fx('snow', 18) : p.k === 'yard' ? fx('leaf', 8) : ''}${late() || away() ? '' : petHtml({ awake: true, interactive: true })}</div>${away() ? '<button class="btn alt" data-a="go" data-v="home">回小屋找回宠物</button>' : `<p class="dim">点点风景${late() ? '' : '、小狗'}和摆设，看看有什么小发现。</p>`}
+    <button class="btn" data-a="trip" ${walked || late() || away() ? 'disabled' : ''}>${away() ? '找回宠物后再一起散步' : late() ? '小狗睡醒后再一起散步' : walked ? '今天散过步了，明天再来' : `去散步${p.trip ? `（${p.trip} 金币）` : '（自家院子，免费）'}`}<small>心情 ＋20 · 这里的明信片 ${got} / 4</small></button>
+    <div class="card"><b>${p.n}的摆设</b><div class="own">${items.map(i => `<button class="${s.own[i.k] ? 'have' : ''}" data-a="${s.own[i.k] ? 'item' : 'buy'}" data-v="${i.k}" ${(s.own[i.k] && away()) || (!s.own[i.k] && s.coins < i.p) ? 'disabled' : ''}>${itemIcon(i.k)}${esc(i.n)}<small>${s.own[i.k] ? '摆好了 · 摸摸看' : `${i.p} 金币`}</small></button>`).join('')}</div><p class="dim">买了就摆在这里，点一下就能和小狗一起玩。</p></div></div>`
 }
 // 地点插画：素材还没画，先用代码画（院子、公园、雪山、礼堂）
 let sceneN = 0
@@ -988,7 +1002,7 @@ function vBook() {
       <div><b>${s.days}</b><small>陪伴天数</small></div><div><b>${s.qn}</b><small>一起做的题</small></div><div><b>${learned}</b><small>学会的本领</small></div>
       <div><b>${s.cards.length} / 12</b><small>明信片</small></div><div><b>${s.story} / ${STORY_PAGES}</b><small>故事书</small></div><div><b>${(s.visited || []).length} / 3</b><small>去过的地方</small></div></div>
       ${rate}<p class="dim">毕业旅行基金：${s.jar} / ${JAR.goal}</p>
-      ${s.graduated ? `<p><b>毕业典礼办完啦（${md(s.grad)}）。</b></p>` : `<button class="btn" data-a="ceremony" ${D() >= SEASON.ceremony ? '' : 'disabled'}>${D() >= SEASON.ceremony ? '举行毕业典礼' : `周五 ${md(SEASON.ceremony)} 举行毕业典礼`}</button>`}</div>`
+      ${s.graduated ? `<p><b>毕业典礼办完啦（${md(s.grad)}）。</b></p>` : `<button class="btn" data-a="ceremony" ${D() >= SEASON.ceremony && !away() ? '' : 'disabled'}>${away() ? '找回宠物后再举行毕业典礼' : D() >= SEASON.ceremony ? '举行毕业典礼' : `周五 ${md(SEASON.ceremony)} 举行毕业典礼`}</button>`}</div>`
     : `<div class="card"><b>毕业周还有 ${dayDiff(D(), SEASON.finale)} 天</b><p class="dim">${md(SEASON.finale)} 起，这里会变成${name()}的学期纪念册，周五 ${md(SEASON.ceremony)} 举行毕业典礼。</p></div>`
   const full = SKILLS.filter(x => s.skill[x.k] >= 3)
   const pages = full.map(x => { const m = s.album.filter(a => a.t.includes(`「${x.n}」`)); return `<div class="card memo"><img src="/pet/badge-${x.badge}.webp" alt=""><span><b>${x.n} · 学满三级</b><small>${m.map(a => md(a.at)).join(' → ')}</small>${x.s}的好习惯，${name()}都记住了。</span></div>` }).join('')
@@ -1002,7 +1016,8 @@ function vBook() {
 // ---------- 弹层 ----------
 const meetStep = () => !V || !S() ? 0 : !S().name || meetBack ? 1 : !S().kid ? 2 : meetHi ? 3 : 0
 function vSheet() {
-  const m = meetStep()
+  const m = away() ? 0 : meetStep()
+  if (away() && ['wardrobe', 'food', 'toy', 'play', 'hide', 'tricks'].includes(sheet)) return ''
   if (m === 1) return `<div class="sheet"><div class="hello"><div class="meet"><img src="/pet/s0.webp" alt=""><h2>小窝里有一只小柴犬</h2><p class="dim">它刚刚睁开眼睛，还没有名字。给它起一个吧。</p></div>
     <input id="nm-pet" maxlength="6" placeholder="写一个名字" aria-label="小狗的名字" value="${esc(S().name)}"><div class="picks">${['团团', '豆豆', '阿柴', '小橘'].map(x => `<button data-a="petname" data-v="${x}">${x}</button>`).join('')}</div>
     <button class="btn" data-a="petname">就叫它这个</button></div></div>`
@@ -1011,7 +1026,7 @@ function vSheet() {
     <button class="btn" data-a="kidname">告诉${name()}</button><button class="btn alt" data-a="meetback">回去改小狗的名字</button></div></div>`
   if (m === 3) return `<div class="sheet"><div class="hello"><div class="meet"><img src="/pet/s1-act-wag.webp" alt=""><h2>${kid()}，你好！</h2><p>我是${name()}。以后每天做完题来小屋看我，我们一起过完这个学期，${+SEASON.ceremony.slice(5, 7)} 月 ${+SEASON.ceremony.slice(8)} 日一起毕业。</p></div>
     <button class="btn" data-a="meetdone">好呀，进小屋</button></div></div>`
-  if (page === 'home' && !sheet && V.morning && !late()) {
+  if (page === 'home' && !sheet && V.morning && !late() && !away()) {
     const M = V.morning, f = M.facts, gift = M.gift === 'cookie' ? '一块骨头饼干（放进背包了）' : M.gift === 'coins' ? '10 金币' : ''
     const said = [f.fixed ? `昨天你订正对了 ${f.fixed} 道题，我都看见了。` : f.firstOk ? `昨天你有 ${f.firstOk} 道题第一次就做对了！` : '', f.focus ? `这周我们一起练「${esc(f.focus)}」。` : '', f.lastSay ? `昨天的答句我还记得：「${esc(f.lastSay)}」` : ''].filter(Boolean).join('')
     return `<div class="sheet"><div class="morning"><div class="hello"><img src="${stage() ? `/pet/s${stage()}-act-wag.webp` : '/pet/s0.webp'}" alt=""><div><h2>${hello()}，${kid()}！</h2><p class="dim">${cnDate(D())} · 已陪伴 ${S().days} 天</p></div></div>
@@ -1065,7 +1080,7 @@ function vSheet() {
   return ''
 }
 function vGrad() {
-  if (!grad) return ''
+  if (!grad || away()) return ''
   const s = S(), conf = `<div class="conf">${Array.from({ length: 24 }, (_, i) => `<i style="left:${(i * 29) % 100}%;background:${['#ffd766', '#e0527a', '#3b8fd6', '#5cc48a'][i % 4]};animation-delay:-${((i * 0.37) % 3).toFixed(2)}s"></i>`).join('')}</div>`
   if (grad === 1) return `<div class="gradcere">${conf}<h2>${name()}毕业啦！</h2>${petHtml({ st: stage(), cap: true, awake: true })}<p>${kid()}，谢谢你陪我一整个学期。陪伴 ${s.days} 天，一起做了 ${s.qn} 道题，学会了 ${SKILLS.filter(x => s.skill[x.k] >= 1).length} 个本领，带回 ${s.cards.length} 张明信片。${s.jar >= JAR.goal ? '毕业旅行基金存满了，我们去海边旅行！' : s.jar ? `毕业旅行基金存了 ${s.jar}，我们去公园野餐一次。` : ''}</p><button class="btn" data-a="gradnext">下一页</button></div>`
   return `<div class="gradcere green"><h2>寒假也在一起</h2>${petHtml({ st: stage(), cap: true, awake: true })}<p>${name()}戴着学士帽回到小屋，寒假里照样陪你吃饭、散步、藏骨头。下学期开学那天，它去小镇当巡逻队长，住进老朋友墙，把小窝留给新朋友。</p><button class="btn" data-a="gradnext">回小屋</button></div>`
@@ -1083,7 +1098,7 @@ function render() {
   const v = { home: vHome, quests: vQuests, q: vQ, result: vResult, skills: vSkills, shop: vShop, story: vStory, diary: vDiary, map: vMap, place: vPlace, book: vBook }[page]()
   app.innerHTML = v + (page === 'q' ? '' : `<div class="nav">${NAV.map(([k, n]) => `<button class="${page === k || NAV_OF[page] === k ? 'on' : ''}" data-a="go" data-v="${k}">${n}</button>`).join('')}</div>`)
     + vSheet() + vGrad()
-    + (cere ? `<div class="cere" aria-hidden="true"><div class="stars">${[[-80, -40], [80, -40], [-60, 60], [65, 50], [0, -90]].map(([x, y]) => `<i style="--x:${x}px;--y:${y}px"></i>`).join('')}</div><span class="ava"><img src="${face('proud')}" alt=""></span><b>叮！「${cere}」技能点 ＋1</b><span>${name()}又离新本领近了一步</span></div>` : '')
+    + (cere && !away() ? `<div class="cere" aria-hidden="true"><div class="stars">${[[-80, -40], [80, -40], [-60, 60], [65, 50], [0, -90]].map(([x, y]) => `<i style="--x:${x}px;--y:${y}px"></i>`).join('')}</div><span class="ava"><img src="${face('proud')}" alt=""></span><b>叮！「${cere}」技能点 ＋1</b><span>${name()}又离新本领近了一步</span></div>` : '')
     + (toast ? `<div class="toast" role="status">${esc(toast)}</div>` : '')
   if (page !== lastPage) { if (page === 'map') document.getElementById('now')?.scrollIntoView({ block: 'center' }); else if (page !== 'q') window.scrollTo(0, 0) }
   lastPage = page
@@ -1107,6 +1122,7 @@ const A = {
   kidname() { const n = document.getElementById('nm-kid')?.value; return run(async () => { const r = await api('/act', { kind: 'kidname', name: n }); V = r.view; if (S().kid) meetHi = true; else showToast(r.msg) }) },
   meetback() { meetBack = true },
   meetdone() { meetHi = false; say = `${S().kid}，以后请多关照！`; strike('hop') },
+  findPet() { return run(async () => { const r = await api('/act', { kind: 'findPet' }); V = r.view; say = r.msg; pose = ''; act = ''; if (!away()) sfx('happy'); showToast(r.msg) }) },
   greet() { return run(async () => { const r = await api('/act', { kind: 'greet' }); V = r.view; say = r.msg; strike(r.act || ''); if (!late()) sfx('chirp') }) },
   care(kind) { return run(async () => { const r = await api('/act', { kind }); V = r.view; say = r.msg; if (r.act) { strike(r.act); if (!late()) sfx({ food: 'eat', soap: 'bath', pat: 'chirp', toy: 'bounce' }[kind]) } }) },
   buy(k) { const c0 = S().coins; return run(async () => { const r = await api('/act', { kind: 'buy', k }); V = r.view; say = r.msg; sfx(S().coins < c0 ? 'coin' : 'no'); if (page !== 'shop') showToast(r.msg) }) },
@@ -1139,6 +1155,7 @@ const onAct = e => {
   const t = e.target.closest('[data-a]')
   if (t) ops.act(t.dataset.a, t.dataset.v, t.disabled || (Q?.cover && page === 'q' && t.dataset.a !== 'go'))
   if (!t || t.disabled || (Q?.cover && page === 'q' && t.dataset.a !== 'go')) return
+  if (away() && ['tap', 'care', 'quiet', 'equip', 'event', 'ball', 'feed', 'hidestart', 'hard', 'cup', 'trick', 'trip', 'explore', 'item', 'learn', 'ceremony'].includes(t.dataset.a)) { showToast('先回小屋找回宠物，再一起玩。'); render(); return }
   if (t.classList.contains('sheet') && e.target !== t) return        // 点弹层里面不关
   const restore = e.detail === 0 && ['item', 'explore', 'tap'].includes(t.dataset.a) && document.activeElement === t
   const selector = `[data-a="${t.dataset.a}"]${t.dataset.v ? `[data-v="${t.dataset.v}"]` : ''}`
