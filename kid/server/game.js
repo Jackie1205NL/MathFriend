@@ -16,6 +16,16 @@ const EXTRA = { id: 'extra', name: '再练一会儿', sub: '想多练就做，�
 /** 测试账号：用户名以 test 开头，或者管理员标成测试的。只有测试账号能拨日期、改小狗参数 */
 const isTest = u => !!u && (u.test ?? /^test/i.test(u.name || ''))
 const DAILY_CAP = DAILY_TOTAL      // 每天题量默认值（题库包的 tuning.daily_total 优先）
+// 同一运行实例里的账号写入串行，避免交卷、刷新与复盘互相覆盖；请求重试另按 request_id 去重。
+const accountWrites = new Map()
+async function serialAccount(key, work) {
+  const before = accountWrites.get(key) || Promise.resolve()
+  let release
+  const wait = new Promise(resolve => { release = resolve })
+  accountWrites.set(key, wait)
+  await before
+  try { return await work() } finally { release(); if (accountWrites.get(key) === wait) accountWrites.delete(key) }
+}
 const FRIDAY = { id: 'friday', name: '本周闯关', sub: `周五到周日每天可试一次，通关后本周休息。答对 ${BOSS_PASS} 题打败怪兽，解锁一页故事`, bucket: '本周重点', boss: true, friday: true }
 /** ISO 周，如 2026-W41 */
 const isoWeek = date => { const d = new Date(date + 'T00:00:00Z'), w = d.getUTCDay() || 7; d.setUTCDate(d.getUTCDate() + 4 - w); const y = d.getUTCFullYear(); return `${y}-W${String(Math.ceil(((d - Date.UTC(y, 0, 1)) / DAY + 1) / 7)).padStart(2, '0')}` }
@@ -219,6 +229,7 @@ async function readOps(S, week) {
   for (let i = 0; meta && i <= meta.n; i++) out.push(...((await S.get(`ops:${week}:${i}`)) || []))
   return out.sort((a, b) => (a.t0 + (a.ev[0]?.t || 0)) - (b.t0 + (b.ev[0]?.t || 0)))
 }
+const readReviews = async (S, week) => ((await S.get(`reviews:${week}`)) || []).map(({ _snapshot, ...row }) => row)
 
 export function createApi(base, env) {
   const store = base
@@ -275,7 +286,7 @@ export function createApi(base, env) {
     decay(s, now)
     checkAway(s, date)
     grow(s, date)
-    const log = pack ? await load(`log:${pack.week}`, []) : []
+    const log = pack ? await load(`log:${pack.week}`, []) : [], reviews = pack ? await load(`reviews:${pack.week}`, []) : []
     let day = await S.get(`day:${date}`)
     const ids = new Set(pack?.items.map(it => it.id))   // 家长重新推送后题号对不上，就重抽今天的题
     const wk = isoWeek(date), C = state.chal
@@ -320,7 +331,12 @@ export function createApi(base, env) {
         if (shown.length && (!c.done || c.finishedDate === date)) day.groups.push({ id: 'friday', items: shown, pass: c.pass })
       }
     }
-    const ctx = { S, pack, state, date, log, day, now, rest: petRest(now, user.id), c0: state.coins }
+    // reviews先落盘，day随后失败时也能恢复曝光/请求去重状态，不从旧day重算一次。
+    for (const row of reviews) if (row.day === date && row._snapshot && day?.items[row.item]?.fin) {
+      const rec = day.items[row.item]
+      rec.review = structuredClone(row._snapshot); rec.fin.review = reviewPublic(rec.review)
+    }
+    const ctx = { S, pack, state, date, log, day, reviews, now, rest: petRest(now, user.id), c0: state.coins }
     if (settle && finishChallenge(ctx)) {
       // 换包后只剩已答题时也要结算；奖励单独记，避免与这次请求的买东西、找回等支出相抵。
       const earned = s.coins - ctx.c0, D = dayStat(s, date)
@@ -362,6 +378,7 @@ export function createApi(base, env) {
     D.earnBy ||= {}; D.spendBy ||= {}
     if (dc > 0) { D.earn += dc; D.earnBy[tag] = (D.earnBy[tag] || 0) + dc } else if (dc < 0) { D.spend -= dc; D.spendBy[tag] = (D.spendBy[tag] || 0) - dc }
     D.first ??= ctx.now; D.last = ctx.now; ctx.c0 = ctx.state.coins
+    if (ctx.reviewsDirty) { await ctx.S.set(`review-day:${ctx.date}`, ctx.reviewDay); await ctx.S.set(`reviews:${ctx.pack.week}`, ctx.reviews) }
     await ctx.S.set('state', ctx.state); if (ctx.day) await ctx.S.set(`day:${ctx.date}`, ctx.day); if (ctx.pack) await ctx.S.set(`log:${ctx.pack.week}`, ctx.log) }
   /** 给一张明信片：优先给 k 这个地方，没有就给开放了的最新地方里还没集齐的。 */
   function giveCard(s, date, k) {
@@ -798,6 +815,164 @@ export function createApi(base, env) {
     else if (['steps', 'oral', 'estimate', 'fix'].includes(it.format)) { const t = toTokens(it.text); if (exprSteps(t)?.length > 1) chainOf(t); else out.push({ q: `${it.text} = □`, a: it.answer }) }
     return out.length ? out : null
   }
+  // 短复盘只从原提交与实际判分定位，不用题目的 err 标签猜错因。
+  const reviewNum = x => x === '' || x == null ? null : Number.isInteger(Number(x)) ? Number(x) : null
+  const fullyRight = (it, steps) => { const j = judge(it, steps), flow = flowOf(it); return j.ok && j.items.every(x => flow[x.i] === 'circle' || x.good === 'y') }
+  const reviewExpression = t => Array.isArray(t) && t.length === 3 && Number.isInteger(t[0]) && Number.isInteger(t[2]) && ['+', '−', '×', '÷'].includes(t[1]) &&
+    (t[1] !== '×' || Math.min(t[0], t[2]) <= 9 && Math.max(t[0], t[2]) <= 999) && (t[1] !== '÷' || t[2] > 0 && t[2] <= 9) && Number.isInteger(calcOp(...t))
+  function reviewTarget(it, steps) {
+    const flow = flowOf(it), copy = () => structuredClone(steps), value = a => reviewNum(a?.v)
+    // 只替换一处单位后整份答卷就全对，才称“数值和方法已经对了”。
+    for (let i = 0; i < flow.length; i++) {
+      if (!['say', 'tapnum'].includes(flow[i])) continue
+      const a = steps[i] || {}, targets = [], p = it.format === 'multistep' ? it.parts[it.stepOf[i]] : it.format === 'stat' ? it.asks[it.parts[i] - 1] : null
+      if (it.answers) it.answers.forEach((x, j) => targets.push({ n: reviewNum(a.vs?.[j]), want: x.a, unit: x.unit, got: a.units?.[j], j }))
+      else {
+        targets.push({ n: value(a), want: p?.v ?? p?.ans ?? it.answer, unit: p?.unit ?? it.unit, got: a.unit })
+      }
+      for (const x of targets) {
+        if (!x.unit || x.n !== x.want || x.got === x.unit) continue
+        const fixed = copy(); fixed[i] ||= {}
+        if (x.j != null) { fixed[i].units = [...(a.units || [])]; fixed[i].units[x.j] = x.unit } else fixed[i].unit = x.unit
+        if (fullyRight(it, fixed)) {
+          const units = [...new Set([...(p?.units || it.units || []), x.unit])].slice(0, 6)
+          const question = p ? `${it.format === 'multistep' ? `第${it.stepOf[i] + 1}步` : '这一小问'}：${p.ask || p.t || p.pre}` : undefined
+          return { kind: 'unit', expected: x.unit, original: `${x.n} ${x.got || '（未写单位）'}`, corrected: `${x.n} ${x.unit}`, question,
+            input: { kind: 'unit', prefix: String(x.n), suffix: '', units: units.length >= 2 && units.includes(x.unit) ? units : [] } }
+        }
+      }
+    }
+    // 统计题四类/各栏本身全对，只有合计错；其他小问也必须已对。
+    if (it.format === 'stat') {
+      const cells = steps[0]?.cells || [], n = it.vals.length, got = reviewNum(cells[n]), want = it.vals.reduce((a, b) => a + b, 0)
+      if (got == null || got === want || !it.vals.every((v, j) => reviewNum(cells[j]) === v)) return null
+      const fixed = copy(); fixed[0].cells = [...cells]; fixed[0].cells[n] = want
+      return fullyRight(it, fixed) ? { kind: 'total', expected: want, original: `合计 ${got}`, corrected: `合计 ${want}${it.unit || ''}`, table: { cats: [...it.cats], vals: [...it.vals] }, input: { kind: 'number', prefix: '合计', suffix: it.unit || '' } } : null
+    }
+    if (!['oral', 'estimate', 'steps', 'word', 'plan'].includes(it.format) || it.answers || it.rem != null || it.remDiv) return null
+    // goal/build 必须真对，不能把方法错或“数字碰巧相同”变成重填最终数值。
+    const graded = judge(it, steps)
+    if (flow.some((type, i) => ['goal', 'build'].includes(type) && !graded.items.some(x => x.i === i && x.good === 'y'))) return null
+    const build = flow.indexOf('build'), a = steps[build] || {}, base = build < 0 ? toTokens(it.text) : a.i != null ? toTokens(it.choices[a.i]?.t || '') : a.expr
+    if (!validExpr(base)) return null
+    const ci = flow.indexOf('chain'), fixed = copy(), si = flow.indexOf('say')
+    let target
+    if (ci >= 0) {
+      let own = stripParens([...base]), truth = [...own], wrong = 0
+      const lines = steps[ci]?.lines
+      if (!Array.isArray(lines) || !lines.length) return null
+      for (const [j, line] of lines.entries()) {
+        const k = Number(line.k), got = reviewNum(line.v)
+        if (!canTap(own, k) || k !== nextOp(own) || got == null) return null
+        const t = own.slice(k - 1, k + 2), want = calcOp(...t)
+        if (got !== want) { if (++wrong > 1 || !reviewExpression(t)) return null; target = { t, got, want } }
+        own = reduceAt(own, k, got)
+        if (!canTap(truth, k) || k !== nextOp(truth)) return null
+        const correct = calcOp(truth[k - 1], truth[k], truth[k + 1])
+        fixed[ci].lines[j].v = correct; truth = reduceAt(truth, k, correct)
+      }
+      if (!target || own.length !== 1 || truth.length !== 1) return null
+      if (si >= 0) { if (value(steps[si]) !== own[0] || steps[si]?.unit !== it.unit) return null; fixed[si].v = truth[0] }
+    } else {
+      const i = flow.indexOf('fill') >= 0 ? flow.indexOf('fill') : si, got = value(steps[i])
+      if (i < 0 || got == null || !reviewExpression(base)) return null
+      const want = calcOp(...base)
+      if (got === want) return null
+      fixed[i] = { ...fixed[i], v: want }; target = { t: [...base], got, want }
+    }
+    if (!fullyRight(it, fixed)) return null
+    const expression = showExpr(target.t)
+    return { kind: 'calc', expected: target.want, original: `${expression} = ${target.got}`, corrected: `${expression} = ${target.want}`, expression, input: { kind: 'number', prefix: '', suffix: '' } }
+  }
+  function arithmeticPattern(a, op, b) {
+    if (op === '÷') return `${String(a).length}:${String(a / b).replace(/[1-9]/g, 'n')}`
+    if (op === '×' && a < b) [a, b] = [b, a]
+    const n = Math.max(String(a).length, op === '×' ? 0 : String(b).length), out = []
+    let carry = 0
+    for (let k = 0; k < n; k++) {
+      const x = Math.floor(a / 10 ** k) % 10, y = Math.floor(b / 10 ** k) % 10
+      carry = op === '+' ? +(x + y + carry >= 10) : op === '−' ? +(x - carry < y) : Math.floor((x * b + carry) / 10)
+      out.push(op === '×' ? +!!carry : carry)
+    }
+    return out.join('') + (op === '×' ? `:${String(a).replace(/[1-9]/g, 'n')}:${String(b).replace(/[1-9]/g, 'n')}` : '')
+  }
+  function reviewDemo(target) {
+    if (target.kind === 'unit') {
+      const unit = target.expected === '支' ? '本' : '支', thing = unit === '本' ? '书' : '彩笔'
+      return { title: '换一道小题看一看', text: `每包有3${unit}${thing}，买2包，共有6${unit}。问题问的是“多少${unit}”，得数后面也写“${unit}”。再回原题，找它自己问的单位。` }
+    }
+    if (target.kind === 'total') {
+      const ns = target.expected === 14 ? [3, 6, 2, 5] : [2, 5, 3, 4]
+      return { title: '先用另一张表试一试', text: `另一张表四栏是${ns.join('、')}，按顺序各加一次：${ns.join(' + ')} = ${ns.reduce((a, b) => a + b, 0)}。再回原表，把它自己的各栏合起来。` }
+    }
+    const [a, op, b] = toTokens(target.expression), pattern = arithmeticPattern(a, op, b), digits = Math.max(String(a).length, String(b).length), start = digits > 1 ? 10 ** (digits - 1) : 1
+    for (let x = start; x < Math.min(start * 10, 10000); x += Math.max(1, Math.floor(start / 9))) for (let y = op === '×' || op === '÷' ? 2 : start; y < (op === '×' || op === '÷' ? 10 : Math.min(start * 10, 10000)); y += op === '×' || op === '÷' ? 1 : Math.max(1, Math.floor(start / 7))) {
+      const v = calcOp(x, op, y)
+      if (!Number.isInteger(v) || v < 0 || v >= 10000 || [x, y, v].some(n => [a, b, target.expected].includes(n)) || arithmeticPattern(x, op, y) !== pattern) continue
+      const rule = { '+': '从个位加起，进到下一位的数也要算进去。', '−': '从个位减起，不够减时退一位；被借走的那一位也要少1。', '×': '从个位乘起，每一位都要处理进位。', '÷': '用商乘除数检查，应该回到被除数。' }[op]
+      return { title: '先看另一道同类计算', text: `${x} ${op} ${y} = ${v}。${rule}再回本题，自己重算这一行。` }
+    }
+    return null
+  }
+  function reviewPublic(r) {
+    const out = Object.fromEntries(['id', 'kind', 'title', 'note', 'keep', 'prompt', 'question', 'original', 'expression', 'table', 'input', 'status', 'attempts', 'hintUsed', 'demoUsed', 'solutionSeen', 'outcome', 'message'].filter(k => r[k] !== undefined).map(k => [k, r[k]]))
+    out.canDemo = r.attempts >= 2 && !!r.demoContent
+    if (r.hintUsed) out.hint = r.hintText
+    if (r.demoUsed && r.demoContent) out.demo = r.demoContent
+    if (r.solutionSeen) out.solution = r.solutionLines
+    if (r.status === 'done') out.corrected = r.corrected
+    return out
+  }
+  function recordReview(ctx, it, rec) {
+    const r = rec.review
+    rec.fin.review = reviewPublic(r)
+    const row = { id: r.id, week: r.week, day: r.day, item: it.id, kind: r.kind, original: r.original, status: r.status, outcome: r.outcome, attempts: r.attempts, hint: r.hintUsed, demo: r.demoUsed, solution: r.solutionSeen, completedAt: r.completedAt, completedExposure: r.completedExposure, created: r.created, updated: new Date(ctx.now).toISOString(), events: r.events, _snapshot: structuredClone(r) }
+    const i = ctx.reviews.findIndex(x => x.id === r.id)
+    if (i < 0) ctx.reviews.push(row); else ctx.reviews[i] = row
+    ctx.reviewsDirty = true
+  }
+  function assignReview(ctx, it, rec, steps) {
+    if (rec.fin.ok || rec.review || ctx.reviewDay.ids.length >= 2 || ctx.day.groups.some(g => ['friday', 'sample', 'extra'].includes(g.id) && g.items.includes(it.id))) return
+    const target = reviewTarget(it, steps)
+    if (!target) return
+    const words = {
+      unit: ['给得数补一个合适的单位', '只改单位，算对的数不用重填。', '得数和计算方法已经对了', '回到这一步的问题里找一找：“多少”后面跟着什么？'],
+      calc: ['重新算这一行', '只重算这一处，不用把整题重新做一遍。', '这一行要用的数和运算顺序已经找对了', '从这一行的第一个数开始，按运算顺序检查计算，别漏进位或退位。'],
+      total: ['把各栏数量再合一遍', '每一栏都算一次，只改合计。', '各栏数量都填对了', '按顺序点过各栏，每一栏加一次，检查有没有漏掉或重复。'],
+    }[target.kind]
+    rec.review = { ...target, id: `${ctx.pack.week}:${ctx.date}:${it.id}`, week: ctx.pack.week, day: ctx.date, title: words[0], note: words[1], keep: words[2], prompt: words[0], hintText: words[3],
+      question: target.question || it.text || it.segs?.map(s => s.t).join('') || it.title || '', source: { signature: JSON.stringify(it), submitted: structuredClone(steps) },
+      status: 'pending', attempts: 0, hintUsed: false, demoUsed: false, solutionSeen: false, outcome: null, message: '', seen: {}, events: [], created: new Date(ctx.now).toISOString(), demoContent: reviewDemo(target), solutionLines: [...(rec.fin.lines || []), ...(rec.fin.explain ? [rec.fin.explain] : [])] }
+    ctx.reviewDay.ids.push(rec.review.id); recordReview(ctx, it, rec)
+  }
+  function review(ctx, body) {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return json({ error: '复盘操作的格式不对。', code: 'INVALID_REVIEW_ACTION' }, 400)
+    const it = ctx.pack?.items.find(it => it.id === body.item), rec = ctx.day?.items[body.item], r = rec?.review
+    if (!it || !r || !rec.fin) return json({ error: '这道题没有待收尾的短复盘。', code: 'REVIEW_NOT_FOUND' }, 404)
+    if (body.review_id !== r.id) return json({ error: '复盘已经更新，请刷新任务状态。', code: 'REVIEW_CHANGED' }, 409)
+    if (r.status !== 'pending' && body.action !== 'solution') return { fin: rec.fin }
+    const action = body.action
+    if (!['check', 'hint', 'demo', 'solution', 'skip'].includes(action)) return json({ error: '不认识这个复盘操作。', code: 'INVALID_REVIEW_ACTION' }, 400)
+    const requestId = String(body.request_id || '')
+    if (action === 'check' && (!/^[\w-]{1,100}$/.test(requestId) || body.value == null || String(body.value).length > 40 || String(body.value).trim() === '')) return json({ error: '先填这一处，再试试看。', code: 'INVALID_REVIEW_VALUE' }, 400)
+    if (action === 'check' && Object.hasOwn(r.seen, requestId)) return { fin: rec.fin }
+    if (action === 'hint' && r.hintUsed || action === 'demo' && r.demoUsed || action === 'solution' && r.solutionSeen) return { fin: rec.fin }
+    if (action === 'demo' && (!r.demoContent || r.attempts < 2)) return json({ error: '先自己试试看；也可以随时看完整做法或先继续。', code: 'REVIEW_DEMO_NOT_READY' }, 409)
+    const event = { action, at: new Date(ctx.now).toISOString() }
+    if (action === 'hint') r.hintUsed = true
+    if (action === 'demo') r.demoUsed = true
+    if (action === 'solution') r.solutionSeen = true
+    if (action === 'skip') { r.status = 'skipped'; r.outcome = 'skipped' }
+    if (action === 'check') {
+      const value = String(body.value).trim(), ok = r.kind === 'unit' ? value === r.expected : /^\d+$/.test(value) && Number(value) === r.expected
+      r.seen = { ...r.seen, [requestId]: true }; r.attempts++; Object.assign(event, { request_id: requestId, value: value.slice(0, 40), correct: ok })
+      if (ok) { r.status = 'done'; r.outcome = r.demoUsed || r.solutionSeen ? 'demonstrated' : r.hintUsed ? 'hinted' : 'independent'; r.message = '这一处补好了！' }
+      else { r.hintUsed = true; r.message = r.attempts >= 2 ? `还没对上，可以看${r.demoContent ? '一个示范' : '完整做法'}，也可以先做下一题。` : '再检查这一处，已经做对的部分不用重填。' }
+    }
+    if (r.status !== 'pending' && !r.completedAt) { r.completedAt = event.at; r.completedExposure = { hint: r.hintUsed, demo: r.demoUsed, solution: r.solutionSeen } }
+    r.events.push(event); recordReview(ctx, it, rec)
+    return { fin: rec.fin }
+  }
   function finish(ctx, it, rec, J) {
     const s = ctx.state, ok = J.ok, firstOk = ok && !rec.caught
     const boss = !!ctx.state.chal && !!ctx.day.groups.find(g => g.id === 'friday')?.items.includes(it.id)
@@ -918,6 +1093,7 @@ export function createApi(base, env) {
     if (fast) { ctx.day.flash++; ctx.state.slow = 3; ctx.state.slowFrom = it.id }   // 接下来 3 道题先盖住几秒
     const res = finish(ctx, it, rec, J)
     res.fin.flash = fast
+    assignReview(ctx, it, rec, steps)
     return res
   }
   /** 孩子点了本领徽章：扣次数，返回效果。2 级要用到答案的信息在这里算，答案不出后端。 */
@@ -1157,7 +1333,7 @@ export function createApi(base, env) {
       const st = await S.get('state')
       // 使用情况：最近 21 天每天的记录（在线时段、做题用时、题数、第一次就对、差一点、答错、金币赚花按来源分），调金币用
       const usage = Object.entries(st?.daily || {}).sort().slice(-21).map(([date, d]) => ({ date, ...d }))
-      return json({ format: LOG_FORMAT, week, user: u.name, made: new Date().toISOString(), log: (await S.get(`log:${week}`)) ?? [], ops: await readOps(S, week), usage, state: st })
+      return json({ format: LOG_FORMAT, week, user: u.name, made: new Date().toISOString(), log: (await S.get(`log:${week}`)) ?? [], reviews: await readReviews(S, week), ops: await readOps(S, week), usage, state: st })
     }
     // 上传题库包：家长端 npm run kid pack <周> <文件> 生成的文件。命令行推不上去时（比如站点开了 Netlify 登录保护）用
     if (p === '/admin/pack' && req.method === 'POST') return savePack(body.pack, scoped(store, 'main'))
@@ -1240,7 +1416,7 @@ export function createApi(base, env) {
       if (who && !u) return json({ error: `没有叫「${who}」的账号` }, 404)
       const S = scoped(store, u?.id || 'main')
       if (p === '/pack' && req.method === 'PUT') return savePack(await req.json().catch(() => null), S)
-      if (p === '/log' && req.method === 'GET') { const st = await S.get('state'); return json({ format: LOG_FORMAT, week: url.searchParams.get('week'), user: u?.name || null, log: (await S.get(`log:${url.searchParams.get('week')}`)) ?? [], ops: await readOps(S, url.searchParams.get('week')), usage: Object.entries(st?.daily || {}).sort().slice(-21).map(([date, d]) => ({ date, ...d })), state: st }) }
+      if (p === '/log' && req.method === 'GET') { const st = await S.get('state'), week = url.searchParams.get('week'); return json({ format: LOG_FORMAT, week, user: u?.name || null, log: (await S.get(`log:${week}`)) ?? [], reviews: await readReviews(S, week), ops: await readOps(S, week), usage: Object.entries(st?.daily || {}).sort().slice(-21).map(([date, d]) => ({ date, ...d })), state: st }) }
       return json({ error: '不支持' }, 405)
     }
     // 拨时钟：本地开发随便拨；dev 分支部署（env.CLOCK）要带同步令牌；正式站没有这个接口
@@ -1272,6 +1448,7 @@ export function createApi(base, env) {
     if (!me.user) return json({ error: me.admin ? '管理员账号不能养小狗，换孩子的账号登录' : '请先登录' }, 401)
     const S = scoped(store, me.user.id)
     if (p === '/oplog' && req.method === 'POST') return saveOps(S, await req.json().catch(() => null))     // 只存日志，不碰存档，不用算 context
+    return serialAccount(`${env.SYNC_TOKEN}:${me.user.id}`, async () => {
     const ctx = await context(S, me.user)
     if (p === '/state' && req.method === 'GET') {
       if (me.user.seen !== ctx.date) { const list = await users(), u = list.find(x => x.id === me.user.id); if (u) { u.seen = ctx.date; await store.set('users', list) } }
@@ -1279,6 +1456,15 @@ export function createApi(base, env) {
     }
     if (req.method !== 'POST') return json({ error: '不支持' }, 405)
     const body = await req.json().catch(() => ({}))
+    if (p === '/answer' || p === '/review') {
+      ctx.reviewDay = (await S.get(`review-day:${ctx.date}`)) || { ids: [] }
+      ctx.reviewDay.ids = [...new Set([...ctx.reviewDay.ids, ...ctx.reviews.filter(r => r.day === ctx.date).map(r => r.id)])]
+    }
+    if (p === '/review') {
+      const res = review(ctx, body)
+      if (res instanceof Response) return res
+      await save(ctx); return json({ ...res, view: view(ctx) })
+    }
     if (p === '/answer') {
       if (!ctx.pack) return json({ error: '还没有题库' }, 400)
       let res
@@ -1290,5 +1476,6 @@ export function createApi(base, env) {
     }
     if (p === '/act') { let res; try { res = act(ctx, body) } catch (e) { console.error(e); return json({ error: '出错了，刷新一下再试' }, 400) } await save(ctx); return json({ ...res, view: view(ctx) }) }
     return json({ error: '找不到' }, 404)
+    })
   }
 }

@@ -571,3 +571,27 @@ table.dash tr.idle td{color:#a5ad9f}
 .away-scene b{font:400 38px var(--kid)}.away-scene span{font-size:19px}.find-pet{display:grid;gap:12px;background:#fff4d6}.find-pet p{margin:0;font-size:18px;line-height:1.6}.find-pet .dim{font-size:16px}.away-map{display:grid;place-items:center;background:var(--sun);font-size:13px;color:var(--ink)}
 .dock.pet-away .say{border-radius:18px}.room:has(.away-scene){cursor:default}
 @media(max-width:600px){.away-scene{inset:20% 14%;padding:14px}.away-scene b{font-size:30px}.away-scene span{font-size:16px}.find-pet p{font-size:16px}}
+
+/* 交卷后只补一个错点；奖励与长解析放在次要位置。 */
+.result-details{border-top:1px solid var(--line);padding:10px 0;font-size:17px;color:var(--dim)}
+.result-details>summary{cursor:pointer;min-height:42px;padding:7px 0}.result-details[open]>summary{margin-bottom:8px}
+.review-verdict b{font-size:28px}.review-question{font-size:20px;line-height:1.75}
+.review-keep{display:flex;gap:12px;align-items:flex-start;background:var(--ok);border:1px solid #b7dec4;border-radius:17px;padding:13px 17px}
+.review-keep i{font-style:normal;display:grid;place-items:center;flex:none;width:25px;height:25px;border-radius:50%;background:var(--leaf);color:#fff;font-size:17px;margin-top:3px}
+.review-keep b{font-size:20px}.review-keep p{margin:2px 0 0;color:var(--leaf-d);font-size:22px;font-variant-numeric:tabular-nums}
+.review-original{margin:0;font-size:16px;color:var(--dim)}.review-original b{color:var(--ink)}
+.review-task{display:grid;gap:14px}.review-task h2{font-size:26px}.review-task>.dim{margin-top:-8px}
+.review-prompt{font-size:19px;margin:0}.review-answer{display:flex;align-items:center;justify-content:center;gap:12px;font-size:26px;font-weight:700}
+.review-answer input{width:150px;max-width:55%;min-width:84px;height:60px;padding:0 9px;color:var(--ink)}.review-answer input::placeholder{font-size:19px;color:var(--dim);font-weight:400}
+.review-units{display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));gap:9px}
+.review-units button{min-height:54px;border:2px solid var(--line);border-radius:13px;background:#f5faf6;font-weight:700;font-size:22px}
+.review-units button.on{border-color:var(--leaf);background:var(--ok)}.review-pad [data-v="清空"]{font-size:17px}
+.review-actions{display:flex;justify-content:space-between;gap:12px}.review-actions button,.review-link{min-height:44px;color:var(--leaf-d);font-size:17px;text-align:left}
+.review-actions button:last-child{color:var(--dim);font-size:16px;text-align:right}.review-link{border-top:1px solid var(--line);padding-top:9px;margin-top:0}
+.review-guidance,.review-feedback{background:#fff5da;border-radius:13px;padding:12px 15px;font-size:18px;line-height:1.7}
+.review-guidance b{display:block}.review-guidance p{margin:3px 0 0}.review-guidance.demo{background:#edf5ff}
+.review-table{display:grid;grid-template-columns:repeat(auto-fit,minmax(74px,1fr));gap:8px}
+.review-table>div{background:var(--card);border-radius:12px;padding:10px 6px;display:grid;text-align:center;font-size:16px;overflow-wrap:anywhere}.review-table b{font-size:27px}
+.review-complete{text-align:center;display:grid;gap:12px}.review-complete>img{width:90px;height:90px;object-fit:contain;margin:0 auto}.review-complete h2{font-size:29px}
+.review-corrected{background:var(--ok);border-radius:13px;padding:12px;display:grid;gap:4px}.review-corrected small{font-size:15px;color:var(--dim)}.review-corrected b{font-size:26px}
+@media(max-width:600px){.result-details{font-size:14px}.review-verdict b{font-size:23px}.review-question{font-size:17px}.review-keep{padding:11px 13px;gap:9px}.review-keep b{font-size:17px}.review-keep p{font-size:19px}.review-original{font-size:14px}.review-task{gap:12px}.review-task h2{font-size:22px}.review-prompt{font-size:16px}.review-answer{font-size:23px;gap:10px}.review-answer input{height:54px;width:130px;font-size:28px}.review-units button{min-height:48px;font-size:19px}.review-guidance,.review-feedback{font-size:15px;padding:10px 12px}.review-actions button,.review-link{font-size:14px}.review-actions button:last-child{font-size:13px}.review-table>div{font-size:13px}.review-table b{font-size:23px}.review-complete h2{font-size:25px}.review-corrected b{font-size:23px}}

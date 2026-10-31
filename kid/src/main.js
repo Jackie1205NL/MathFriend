@@ -24,12 +24,12 @@ const cnDate = d => `${+d.slice(5, 7)} 月 ${+d.slice(8, 10)} 日 星期${'日�
 
 async function api(path, body) {
   const t = Date.now()
-  const controller = ['/answer', '/state'].includes(path) ? new AbortController() : null
+  const controller = ['/answer', '/review', '/state'].includes(path) ? new AbortController() : null
   const timer = controller ? setTimeout(() => controller.abort(), 20000) : 0
   try {
     const r = await fetch('/api/kid' + path, { ...(body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {}), ...(controller ? { signal: controller.signal } : {}) })
     const d = await r.json().catch(e => { if (e.name === 'AbortError') throw e; throw new Error('答复没有读取完整，填写内容已保留，请再试一次。') })
-    ops.api(path, Date.now() - t, r.status, { code: d.code, q: path === '/answer' ? body?.item : undefined })
+    ops.api(path, Date.now() - t, r.status, { code: d.code, q: ['/answer', '/review'].includes(path) ? body?.item : undefined })
     if (r.status === 401 && path !== '/login') { storeDraft(); V = null; Q = null; page = 'login'; if (path.startsWith('/admin')) ADM = null }
     if (!r.ok) { const error = new Error(d.error || '出错了，再试一次。'); error.status = r.status; error.code = d.code; throw error }
     const v = d.view || (path === '/state' ? d : null)
@@ -238,6 +238,7 @@ function vHome() {
     <div class="card bars">${bar('饱食', n.full, '')}${bar('心情', n.mood, 'b')}${bar('清洁', n.clean, 'c')}</div>
     ${!sleeping && !gone ? `<div class="acts"><button data-a="sheet" data-v="food">喂食<small>${bag('food')} 份</small></button><button data-a="care" data-v="soap">洗澡<small>${bag('soap')} 块</small></button><button class="new" data-a="sheet" data-v="play" ${st ? '' : 'disabled'}>陪玩<small>三选一</small></button><button data-a="care" data-v="pat">摸摸<small>今天 ${Math.max(0, 3 - pats)} 次</small></button></div>` : ''}
     ${cta}
+    ${allItems().some(pendingReview) ? '<button class="btn alt" data-a="go" data-v="quests">接着补好一小处<small>刚刚那题已经交好了</small></button>' : ''}
     ${V.wish ? `<p class="dim">心愿单：${esc(V.wish.text)} · 这周做完任务 ${V.wish.got} / ${V.wish.need} 天</p>` : ''}
     ${s.hatched ? `<div class="tri"><button class="card quest" data-a="story" data-v=""><b>故事书</b><span class="pill">${s.story} / ${STORY_PAGES}</span></button><button class="card quest" data-a="go" data-v="diary"><b>日记</b><span class="pill">${s.album.length} 件事</span></button><button class="card quest" data-a="go" data-v="book"><b>纪念册</b><span class="pill">${s.cards.length} / 12</span></button></div>` : ''}
   </div>`
@@ -245,9 +246,9 @@ function vHome() {
 function vQuests() {
   const gs = groups(), open = gs.filter(g => !g.boss && !g.extra && !g.sample).every(g => g.items.every(it => it.done))
   return `<div class="top"><h1>今天的任务</h1>${coin(S().coins)}</div><div class="body">${gs.map(g => {
-    const left = g.items.filter(it => !it.done).length, top = Math.max(...g.items.map(it => it.max)), mx = g.extra ? Math.ceil(top / 2) : top, lock = g.boss && !open && left > 0
+    const left = g.items.filter(it => !it.done).length, reviewing = g.items.filter(pendingReview).length, top = Math.max(...g.items.map(it => it.max)), mx = g.extra ? Math.ceil(top / 2) : top, lock = g.boss && !open && left > 0
     const tag = g.bucket === '本周重点' && !g.boss ? '<span class="tagx">本周重点</span>' : g.bucket === '往周未过关' ? '<span class="tagx old">以前的</span>' : g.extra ? '<span class="tagx old">金币减半</span>' : ''
-    return `<button class="card quest ${left ? '' : 'done'} ${lock ? 'lock' : ''}" ${lock || !left ? 'disabled' : ''} data-a="group" data-v="${g.id}"><b>${esc(g.name)}${tag}</b>${coin((g.items.every(it => it.format === 'oral') ? '每题 ' : '最高 ') + mx)}${g.friday ? monSvg(g.monster ?? 0) : ''}<span class="dim">${lock ? (g.friday ? '做完今天的任务就开放，打败这只怪兽' : '做完上面几组后解锁') : `${esc(g.sub || '')} · ${left ? `还有 ${left} 题${(n => n ? `（跳过了 ${n} 题，待会儿回来做）` : '')(g.items.filter(x => !x.done && skips().includes(x.id)).length)}` : '做完了'}`}</span></button>`
+    return `<button class="card quest ${left || reviewing ? '' : 'done'} ${lock ? 'lock' : ''}" ${lock || (!left && !reviewing) ? 'disabled' : ''} data-a="group" data-v="${g.id}"><b>${esc(g.name)}${tag}</b>${coin((g.items.every(it => it.format === 'oral') ? '每题 ' : '最高 ') + mx)}${g.friday ? monSvg(g.monster ?? 0) : ''}<span class="dim">${lock ? (g.friday ? '做完今天的任务就开放，打败这只怪兽' : '做完上面几组后解锁') : `${esc(g.sub || '')} · ${left ? `还有 ${left} 题${(n => n ? `（跳过了 ${n} 题，待会儿回来做）` : '')(g.items.filter(x => !x.done && skips().includes(x.id)).length)}` : reviewing ? `题已交好，有 ${reviewing} 处可以收尾` : '做完了'}`}</span></button>`
   }).join('')}<p class="dim">金币多的题，是你这周最需要练的题。</p></div>`
 }
 
@@ -300,13 +301,15 @@ function storeDraft(drop = false) {
   if (!V || !Q || Q.demo) return
   if (!drop) keepEdit()
   const all = drafts()
-  if (drop || Q.fin) delete all[Q.id]
+  if (drop || (Q.fin && Q.fin.review?.status !== 'pending')) delete all[Q.id]
+  else if (Q.fin) all[Q.id] = { sig: sigOf(Q.flow), review: { id: Q.fin.review.id, value: Q.reviewValue || '', request: Q.reviewRequest || null } }
   else all[Q.id] = { i: Q.i, rec: Q.rec, edits: Q.edits, sig: sigOf(Q.flow) }
   ls.set('kid-draft', { date: V.date, all })
 }
 /** 这一组下一道：先做没跳过的，都做完了再按跳过的先后回来做 */
+const pendingReview = it => it.done?.review?.status === 'pending'
 function nextItem(g) {
-  const left = g.items.filter(x => !x.done), sk = skips()
+  const left = g.items.filter(x => !x.done || pendingReview(x)), sk = skips()
   return left.find(x => !sk.includes(x.id)) || sk.map(id => left.find(x => x.id === id)).find(Boolean) || left[0]
 }
 // ---------- 本周闯关的像素怪兽（按周轮换，用小方块画，不用图片） ----------
@@ -367,6 +370,7 @@ function startQ(g, it) {
   }
   setSkip(skips().filter(x => x !== it.id))
   if (!Q.fin) enter()
+  else setResult(Q, Q.fin)
   if (!Q.fin && S().slow > 0 && S().slowFrom !== it.id) {      // 「慢慢来」：先盖住 3 秒，剩几题由服务器记
     Q.cover = true
     setTimeout(() => { if (Q?.id === it.id) { Q.cover = false; Q.t0 = Date.now(); render() } }, 3000)
@@ -448,7 +452,7 @@ function submitQ() {
     V = res.view; q.t0 = Date.now()
     if (res.caught) { q.catch = res.caught; q.guard = null; q.mood = 'think'; return }
     const d = res.fin
-    q.fin = d; q.menu = null; q.mood = d.ok ? 'hop' : 'think'; sayPet(''); sfx(d.ok ? 'happy' : d.c ? 'chirp' : 'sad')
+    setResult(q, d); q.menu = null; q.mood = d.ok ? 'hop' : 'think'; sayPet(''); sfx(d.ok ? 'happy' : d.c ? 'chirp' : 'sad')
     if (d.points?.length) cere = d.points.join('」「')
   })
 }
@@ -459,7 +463,17 @@ function waitQuestion(text, fn) {
   q.pending = text; q.msg = ''; render()
   return run(async () => { try { await fn(q) } finally { q.pending = '' } })
 }
-async function refreshQuestion(q) {
+function setResult(q, fin) {
+  q.fin = fin
+  const r = fin.review
+  if (r?.id !== q.reviewId) {
+    const d = drafts()[q.id]
+    const edit = r && d?.review?.id === r.id ? d.review : null
+    q.reviewId = r?.id; q.reviewValue = edit?.value || ''; q.reviewRequest = edit?.request || null; q.reviewSolutionOpen = false
+  }
+  if (q.reviewRequest && (r?.status !== 'pending' || r.attempts > q.reviewRequest.attempts)) q.reviewRequest = null
+}
+async function refreshQuestion(q, keepMessage = false) {
   const view = await api('/state')
   if (Q !== q || page !== 'q') return
   V = view
@@ -468,11 +482,35 @@ async function refreshQuestion(q) {
     storeDraft(true); Q = null; page = V.allDone ? 'result' : 'quests'
     showToast('任务已经更新，回到任务列表看看。')
   } else if (it.done) {
-    q.gid = g.id; q.flow = it.flow; q.fin = it.done; q.msg = ''; q.menu = null
-    storeDraft(true)
-  } else if (sigOf(it.flow) !== sigOf(q.flow)) {
+    q.gid = g.id; q.flow = it.flow; setResult(q, it.done); if (!keepMessage || it.done.review?.status !== 'pending') q.msg = ''; q.menu = null
+    storeDraft()
+  } else if (q.fin || sigOf(it.flow) !== sigOf(q.flow)) {
     startQ(g, it); Q.msg = '题目已经更新，请按新题目继续。'
   }
+}
+function reviewAction(action) {
+  const r = Q?.fin?.review
+  if (!r) return
+  if (action === 'check' && !String(Q.reviewValue || '').trim()) { sayPet('先填上这一处，再试试看。'); return }
+  return waitQuestion(action === 'check' ? '正在核对这一处…' : '正在准备，请稍等…', async q => {
+    let body = { item: q.id, review_id: r.id, action }
+    if (action === 'check') {
+      const value = String(q.reviewValue).trim()
+      if (!q.reviewRequest || q.reviewRequest.value !== value) q.reviewRequest = { value, request_id: crypto.randomUUID(), attempts: r.attempts }
+      body = { ...body, value, request_id: q.reviewRequest.request_id }; storeDraft()
+    }
+    let res
+    try { res = await api('/review', body) } catch (e) {
+      if (page !== 'q') throw e
+      q.msg = e.message; q.pending = '正在核对复盘进度…'; render()
+      try { await refreshQuestion(q, true) } catch { q.msg += '。填写内容已保留，可以再试。' }
+      return
+    }
+    V = res.view; setResult(q, res.fin)
+    if (action === 'solution') q.reviewSolutionOpen = true
+    if (action === 'skip') QA.next()
+    else if (res.fin.review?.status === 'done') { sayPet('这一处补好了，下一题再自己试试。'); sfx('happy') }
+  })
 }
 
 // 题干：应用题按段显示（圈关键词时能点），其他题型一句话
@@ -612,12 +650,12 @@ function vStep() {
 // 陪伴条：小狗、它说的话、这一步用得上的本领徽章
 function vDock() {
   const it = curItem(), b = Q.fin ? null : step(), sk = b ? SKILLS.filter(x => S().skill[x.k] > 0 && SKILL_AT[x.k].includes(b.type)) : []
-  const f = Q.catch ? 'shy' : Q.fin ? (Q.fin.ok ? 'proud' : 'thinking') : Q.mood === 'think' ? 'thinking' : 'happy'
+  const f = Q.catch ? 'shy' : Q.fin ? (Q.fin.ok || Q.fin.review?.status === 'done' ? 'proud' : 'thinking') : Q.mood === 'think' ? 'thinking' : 'happy'
   const badges = sk.map(x => {
     const lv = S().skill[x.k], any = [1, 2, 3].some(L => L <= lv && canUse(x.k, L, b) === '')
     return `<button class="badge ${any ? 'can' : 'used'} ${Q.guard === x.k ? 'guard' : ''} ${Q.fire?.k === x.k ? 'fire' : ''}" data-a="menu" data-v="${x.k}" aria-label="${x.n} ${lv} 级"><img src="/pet/badge-${x.badge}.webp" alt=""><b>${x.n}</b><span class="dots">${[1, 2, 3].map(i => `<i class="${i <= lv ? 'f' : ''}"></i>`).join('')}</span>${Q.guard === x.k ? '<span class="shield">守护中</span>' : ''}</button>`
   }).join('')
-  const said = Q.say || (away() ? '认真读题，一步一步来。完成练习后，可以回小屋找回宠物。' : Q.fin ? (Q.fin.ok ? '做对啦！' : Q.fin.c ? '大部分都做对了，就差一点！看看哪里不一样。' : '没关系，看看正确做法。') : '我陪着你。')
+  const said = Q.say || (away() ? '认真读题，一步一步来。完成练习后，可以回小屋找回宠物。' : Q.fin?.review ? (Q.fin.review.status === 'pending' ? '只把这一处补完整，不用重做整道题。' : '下一题，再自己试试看。') : Q.fin ? (Q.fin.ok ? '做对啦！' : Q.fin.c ? '大部分都做对了，就差一点！看看哪里不一样。' : '没关系，看看正确做法。') : '我陪着你。')
   return `<div class="dock ${away() ? 'pet-away' : ''}">${away() ? '' : `<span class="dog ${Q.mood ? 'a-' + (Q.mood === 'think' ? 'think' : 'hop') : ''}"><img src="${face(f)}" alt=""></span>`}<div class="say ${Q.sk}">${esc(said)}</div><div class="badges">${badges}</div></div>${it ? '' : ''}`
 }
 const LV = ['', '提醒', '帮忙', '守护']
@@ -684,7 +722,33 @@ function vCatch() {
   return `<div class="sheet"><div class="catch"><img class="big" src="/pet/badge-${x.badge}.webp" alt=""><h2>${x.n}接住了！</h2><p>${esc(c.msg)}。</p><p class="dim">回去改这一步再交。这次金币照给，但不算第一次就做对。</p><button class="btn" data-a="fix">回去改</button></div></div>`
 }
 const HABIT = { 审题: '圈得刚刚好', 格式规范: '单位第一次就写对', 概念不清: '先算的顺序都对', 计算失误: '每一步都算对了', 策略缺失: '先求什么找对了' }
+function reviewSolution(r) {
+  return r.solution ? `<details class="result-details review-solution" ${Q.reviewSolutionOpen ? 'open' : ''}><summary>完整做法</summary><div class="right">${r.solution.map(esc).join('<br>')}</div></details>`
+    : '<button class="review-link" data-a="reviewhelp" data-v="solution">需要时，再看完整做法</button>'
+}
+function vShortReview(g) {
+  const d = Q.fin, r = d.review, pending = r.status === 'pending', value = Q.reviewValue || ''
+  const next = `<button class="btn" data-a="next">${g.items.some(x => !x.done) ? '下一题' : V.allDone ? '看今天的成绩' : '回到任务'}</button>`
+  const table = r.table ? `<div class="review-table">${r.table.cats.map((cat, i) => `<div><span>${esc(cat)}</span><b>${esc(r.table.vals[i])}</b></div>`).join('')}</div>` : ''
+  const keep = `<div class="review-keep"><i>✓</i><div><b>${esc(r.keep)}</b>${r.expression ? `<p>${esc(r.expression)}</p>` : ''}</div></div>`
+  const original = `<p class="review-original">你原来写的：<b>${esc(r.original)}</b></p>`
+  const unit = r.input.kind === 'unit'
+  const keyboard = unit ? `<div class="review-units">${(r.input.units || []).map(u => `<button data-a="reviewkey" data-v="${esc(u)}" class="${value === u ? 'on' : ''}" aria-pressed="${value === u}">${esc(u)}</button>`).join('')}</div>`
+    : `<div class="pad review-pad">${[1, 2, 3, '⌫', 4, 5, 6, '清空', 7, 8, 9, 0].map(k => `<button data-a="reviewkey" data-v="${k}">${k}</button>`).join('')}</div>`
+  const work = pending ? `<section class="card review-task"><h2>${esc(r.title)}</h2>${r.note ? `<p class="dim">${esc(r.note)}</p>` : ''}${r.prompt && r.prompt !== r.title ? `<p class="review-prompt">${esc(r.prompt)}</p>` : ''}
+    ${r.hint ? `<div class="review-guidance"><b>给你一个提醒</b><p>${esc(r.hint)}</p></div>` : ''}
+    ${r.demo ? `<div class="review-guidance demo"><b>${esc(r.demo.title)}</b><p>${esc(r.demo.text)}</p></div>` : ''}
+    <label class="review-answer">${esc(r.input.prefix || '')}<input id="review-value" class="box" aria-label="${unit ? '订正后的单位' : '重新填写的得数'}" value="${esc(value)}" placeholder="${unit ? '单位' : '得数'}" ${unit ? '' : 'inputmode="numeric" pattern="[0-9]*"'} maxlength="5" autocomplete="off">${esc(r.input.suffix || '')}</label>${keyboard}
+    ${r.message ? `<div class="review-feedback" role="status">${esc(r.message)}</div>` : ''}
+    ${r.canDemo ? '<button class="btn alt review-demo" data-a="reviewhelp" data-v="demo">看一个示范</button>' : ''}
+    <button class="btn" data-a="reviewcheck" ${value.trim() ? '' : 'disabled'}>我填好了</button>
+    <div class="review-actions"><button data-a="reviewhelp" data-v="hint">给我一点提示</button><button data-a="reviewhelp" data-v="skip">先做下一题 ›</button></div>${reviewSolution(r)}</section>`
+    : `<section class="card review-complete"><img src="${face(r.status === 'done' ? 'proud' : 'happy')}" alt=""><h2>${r.status === 'done' ? '这一处，补好啦！' : '这题先放一放'}</h2><p class="dim">${esc(r.message || (r.status === 'done' ? '下一题，再自己试试看。' : '接着做下一题，过些时候再来试试。'))}</p>${r.corrected ? `<div class="review-corrected"><small>这次订正</small><b>${esc(r.corrected)}</b></div>` : ''}${next}${reviewSolution(r)}</section>`
+  // 短复盘只用服务器给出的安全提示，不能先把旧判分里的正确答案摊开。
+  return `${r.question ? `<div class="card q review-question">${esc(r.question)}</div>` : ''}<div class="verdict review-verdict"><b>${pending ? '只改这一处' : '这一题，收个尾'}</b></div>${keep}${table}${original}${work}<details class="result-details"><summary>本题奖励与过程记录</summary><p>本题奖励 ＋${d.c || 0}</p>${d.keywordPenalty ? `<p>核心关键词漏圈扣 ${d.keywordPenalty} 金币。</p>` : ''}${d.processDenied ? '<p>无关内容圈得较多，本题没有过程奖。</p>' : ''}</details>`
+}
 function vQResult(g) {
+  if (Q.fin.review) return vShortReview(g)
   const d = Q.fin, more = g.items.some(x => !x.done), b = d.boss, mark = { y: '✓', n: '✗', h: '!' }
   const sk = cat => { const x = SKILLS.find(s => s.k === cat); return x && S().skill[cat] ? `<small class="dim"> · ${x.n}管这个</small>` : '' }
   const it = curItem(), lab = h => it.format === 'stat' ? { 审题: '看清了问的是什么', 计算失误: '统计表填对了' }[h] || HABIT[h] : it.format === 'data' ? { 审题: '条件看清楚了' }[h] || HABIT[h] : HABIT[h]
@@ -692,14 +756,15 @@ function vQResult(g) {
   const extra = [...(d.help || []).map(h => `<div class="h"><i>★</i><span>本领帮了你 · ${esc(h)}</span></div>`),
     ...(d.caught ? [`<div class="h"><i>◆</i><span>被${esc(d.caught.n)}接住了一次（不算第一次就做对，金币照给）</span></div>`] : []),
     ...(d.refund ? [`<div class="y"><i>↺</i><span>${esc(d.refund)}守着这题，没用上，这周的守护次数退回去了</span></div>`] : [])].join('')
-  return `<div class="verdict"><b>${d.ok ? '做对了！' : d.c ? '差一点点！做对的部分有金币' : '这题没做对，一起看看'}</b>${d.ok || d.c ? `<span class="sum"><i class="ico coin"></i>＋${d.c}</span>` : ''}</div>
+  return `<div class="verdict"><b>${d.ok ? '做对了！' : '这一题，看看哪里不一样'}</b></div>
     ${habits ? `<div class="conds">${habits}</div>` : ''}
     <div class="card items">${(d.items || []).map(x => `<div class="${x.good}"><i>${mark[x.good]}</i><span>${esc(x.msg)}${x.good !== 'y' ? sk(x.cat) : ''}</span></div>`).join('')}${extra}</div>
-    ${d.ok ? '' : `<div class="right"><b>正确做法</b><br>${d.lines.map(esc).join('<br>')}${d.explain ? `<br><span class="dim">${esc(d.explain)}</span>` : ''}</div>`}
+    ${d.ok ? '' : `<details class="result-details"><summary>完整做法</summary><div class="right">${d.lines.map(esc).join('<br>')}${d.explain ? `<br><span class="dim">${esc(d.explain)}</span>` : ''}</div></details>`}
+    <details class="result-details"><summary>本题奖励与过程记录 · ＋${d.c || 0}</summary>
     ${d.processDenied ? `<p class="dim">圈了 ${d.extraKeywords} 处无关内容，超过 2 处，本题无过程奖。</p>` : ''}
     ${d.keywordPenalty ? `<p class="dim">核心关键词漏圈扣 ${d.keywordPenalty} 金币，本题实际少得 ${d.penaltyApplied} 金币，已计入上方奖励。</p>` : ''}
     <p class="dim">${d.ok ? [d.bonus ? '连续 5 题第一次就对，再加 5。' : '', d.l2 ? '用了 2 级帮忙，这题没有过程奖。' : d.pb ? `过程奖 ＋${d.pb} 已算在里面。` : '', d.patrol ? '今天没有急着答错的题，得到 1 个「巡逻」技能点。' : '', d.extra ? '加练的题金币减半。' : ''].join('') : (d.flash ? '太快啦，还没看清题。接下来几题我们慢慢来。' : (d.c ? `做对的部分给了 ${d.c} 金币，错的那一处看看正确做法。过两天它会换个样子再来。` : '这题没有做对的部分，所以没有金币。过两天它会换个样子再来。'))}</p>
-    ${d.day ? `<div class="bubble plain">今天的任务做完了，${name()}已经陪你 ${d.day} 天。</div>` : ''}
+    </details>${d.day ? `<div class="bubble plain">今天的任务做完了，${name()}已经陪你 ${d.day} 天。</div>` : ''}
     ${d.grew ? `<div class="bubble plain">${name()}长大了，现在是${STAGES[d.grew].n}！${PLACES.find(p => p.st === d.grew) ? `${PLACES.find(p => p.st === d.grew).n}开放了，` : ''}回小屋看看。</div>` : ''}
     ${d.wish ? `<div class="bubble plain">这周来满啦！可以去找爸爸妈妈兑换心愿：${esc(d.wish)}。</div>` : ''}
     ${b ? `<div class="bubble plain">${b.pass ? `打败怪兽，闯关成功！${b.n} 题答对 ${b.okN} 题，再得 ${b.coins} 金币${b.story ? `，解锁了故事书第 ${b.story} 页` : b.card ? `。这一章的故事读完了，${name()}带回一张明信片` : ''}。` : `闯关 ${b.n} 题答对 ${b.okN} 题，这次差一点。${challengeRetry()}`}</div>` : ''}
@@ -722,8 +787,8 @@ function vQ() {
   // 做过的步骤可以点回去改，不扣分；回去改完再往后走，后面填过的还在
   const live = !Q.fin && !Q.catch && !Q.walk && !Q.cover
   const bar = Q.flow.length > 1 ? `<div class="stepbar">${live && Q.i > 0 ? '<button class="pill" data-a="backto" data-v="">‹ 上一步</button>' : ''}<div class="steps" style="grid-template-columns:repeat(${Q.flow.length},1fr)">${Q.flow.map((t, i) => live && i < Q.i ? `<button class="done" data-a="backto" data-v="${i}">${STEP_NAME[t.type]}</button>` : `<span class="${Q.fin || i < Q.i ? 'done' : i === Q.i ? 'now' : ''}">${STEP_NAME[t.type]}</span>`).join('')}</div></div>` : ''
-  return `<div class="top qtop"><button class="back" data-a="go" data-v="quests" aria-label="回到任务">‹</button><h1>${esc(g.name)} ${idx}/${total}</h1>${!Q.demo && !Q.fin && !Q.catch && !Q.walk ? '<button class="pill scr" data-a="skip">跳过</button>' : ''}<button class="pill scr" data-a="scratch">草稿</button>${coin('最高 ' + (g.extra ? Math.ceil(it.max / 2) : it.max))}</div>
-  <div class="body qbody">${Q.gid === 'friday' && !Q.demo ? vBoss() : ''}${Q.cover ? `<div class="cover">${away() ? '' : `<img src="${face('thinking')}" alt="">`}<b style="font:400 30px var(--kid)">慢慢来</b><span>${away() ? '先把题目再读一遍，想一想条件。' : name() + '在帮你把题目再读一遍……'}</span></div>` : ''}${bar}${Q.walk ? vWalk() : Q.fin ? (it.segs || it.format === 'stat' ? qText() : '') + vQResult(g) : vStep()}${Q.msg ? `<div class="note qerror" role="alert"><p>${esc(Q.msg)}</p><button class="btn alt" data-a="recover">刷新任务状态</button></div>` : ''}</div>
+  return `<div class="top qtop"><button class="back" data-a="go" data-v="quests" aria-label="回到任务">‹</button><h1>${esc(g.name)} ${idx}/${total}</h1>${!Q.demo && !Q.fin && !Q.catch && !Q.walk ? '<button class="pill scr" data-a="skip">跳过</button>' : ''}<button class="pill scr" data-a="scratch">草稿</button>${!Q.fin ? coin('最高 ' + (g.extra ? Math.ceil(it.max / 2) : it.max)) : ''}</div>
+  <div class="body qbody">${Q.gid === 'friday' && !Q.demo ? vBoss() : ''}${Q.cover ? `<div class="cover">${away() ? '' : `<img src="${face('thinking')}" alt="">`}<b style="font:400 30px var(--kid)">慢慢来</b><span>${away() ? '先把题目再读一遍，想一想条件。' : name() + '在帮你把题目再读一遍……'}</span></div>` : ''}${bar}${Q.walk ? vWalk() : Q.fin ? (!Q.fin.review && (it.segs || it.format === 'stat') ? qText() : '') + vQResult(g) : vStep()}${Q.msg ? `<div class="note qerror" role="alert"><p>${esc(Q.msg)}</p><button class="btn alt" data-a="recover">刷新任务状态</button></div>` : ''}</div>
   ${vDock()}${Q.menu ? vMenu() : ''}${Q.scratch ? '<div class="scratch"><canvas id="scratch"></canvas><div class="duo"><button class="btn alt" data-a="sclear">擦干净</button><button class="btn" data-a="scratch">关上</button></div></div>' : ''}${Q.catch ? vCatch() : ''}${Q.pending ? `<div class="toast" role="status" aria-live="polite">${esc(Q.pending)}</div>` : ''}${Q.fire ? `<div class="toast fire"><img src="/pet/badge-${SKILLS.find(x => x.k === Q.fire.k).badge}.webp" alt="">${esc(Q.fire.text)}</div>` : ''}`
 }
 /** 草稿纸：随手写画，不保存、不判分 */
@@ -859,6 +924,14 @@ const QA = {
   tapop(k) { k = +k; const L = Q.lines.at(-1); if (Q.op === k) { Q.op = null; return } if (canTap(L.t, k)) Q.op = k },
   unit(u) { if (busy || Q?.pending) return; if (Q?.walk) { Q.walk.unit = u && Q.walk.unit !== u ? u : null; return } if (Q && !Q.fin && step().cells) { Q.units[Q.cur] = Q.units[Q.cur] === u ? null : u; return } if (Q && !Q.fin) Q.unit = u && Q.unit !== u ? u : null },
   recover() { return waitQuestion('正在刷新任务，请稍等…', refreshQuestion) },
+  reviewcheck() { return reviewAction('check') },
+  reviewhelp(action) { return reviewAction(action) },
+  reviewkey(k) {
+    if (busy || Q?.pending || Q?.fin?.review?.status !== 'pending') return
+    const unit = Q.fin.review.input.kind === 'unit', old = Q.reviewValue || ''
+    Q.reviewValue = k === '清空' ? '' : k === '⌫' ? old.slice(0, -1) : unit ? k : (old + k).slice(0, 5)
+    if (old !== Q.reviewValue) Q.reviewRequest = null
+  },
   walk() { Q.walk = { i: 0, input: '', unit: null, bad: false }; sayPet('一步一步来，我陪着你。') },
   walkgo() {
     const W = Q.walk, st = Q.fin.walk[W.i]
@@ -871,7 +944,7 @@ const QA = {
   shut() { Q.menu = null },
   use(v) { const [k, L] = v.split(':'); return run(() => useSkill(k, +L)) },
   fix() { const c = Q.catch; Q.catch = null; Q.caught = c; Q.rec = Q.rec.slice(0, c.step + 1); Q.i = c.step; enter(); sayPet(`${c.n}接住了：${c.msg}。改好再交。`, 'skill'); Q.t0 = Date.now() },
-  next() { const g = groups().find(x => x.id === Q.gid), it = nextItem(g); if (it) return startQ(g, it); Q = null; page = V.allDone ? 'result' : 'quests'; if (V.allDone) chat('after_practice') },
+  next() { if (Q.fin?.review?.status === 'pending') return reviewAction('skip'); const g = groups().find(x => x.id === Q.gid), it = nextItem(g); if (it) return startQ(g, it); Q = null; page = V.allDone ? 'result' : 'quests'; if (V.allDone) chat('after_practice') },
   group(id) { const g = groups().find(x => x.id === id), it = g && nextItem(g); if (it) startQ(g, it) },
   skip() {
     // 跳过：这题先放到这一组最后，做了一半的留着，回来接着做
@@ -889,6 +962,7 @@ function vResult() {
     <div class="room">${away() ? awayNote() : `<div class="pet"><div class="a-hop"><span class="wear"><img src="${stage() ? `/pet/s${stage()}-act-wag.webp` : '/pet/s0.webp'}" alt=""></span></div></div>`}</div>${findPetCard()}<div class="sum"><i class="ico coin"></i>＋${its.reduce((a, it) => a + (it.done?.c || 0), 0)}</div>
     <div class="card rows"><span>第一次就答对</span><b>${first} 题</b>${fix ? `<span>本领接住后改对</span><b>${fix} 题</b>` : ''}<span>过两天换个样子再来</span><b>${again} 题</b><span>最长认真连击</span><b>${S().best} 题</b><span>已陪伴</span><b>${S().days} 天</b></div>
     ${chalOpen() ? `<button class="btn red" data-a="group" data-v="friday">去本周闯关<small>打败${MONS[(groups().find(g => g.friday).monster ?? 0) % MONS.length].n} · 周五到周日每天可试一次，通关后本周结束</small></button>` : ''}
+    ${allItems().some(pendingReview) ? '<button class="btn alt" data-a="go" data-v="quests">还有一小处可以收尾</button>' : ''}
     <button class="btn" data-a="go" data-v="home">回小屋</button>
     <button class="btn alt" data-a="extra">再练一会儿<small>最多再加几题，金币减半</small></button></div>`
 }
@@ -1148,7 +1222,7 @@ function vGrad() {
 }
 const NAV = [['home', '小屋'], ['map', '地图'], ['quests', '任务'], ['skills', '本领'], ['shop', '小卖部']]
 const NAV_OF = { result: 'home', story: 'home', diary: 'home', book: 'home', place: 'map' }
-let lastPage = '', lastQError = ''
+let lastPage = '', lastQError = '', lastReviewState = ''
 function render() {
   app.setAttribute('aria-busy', String(!!(page === 'q' && Q?.pending)))
   V ? ops.start() : ops.stop()          // 孩子登录着就记操作日志（见 oplog.js）
@@ -1165,10 +1239,13 @@ function render() {
   if (page !== lastPage) { if (page === 'map') document.getElementById('now')?.scrollIntoView({ block: 'center' }); else if (page !== 'q') window.scrollTo(0, 0) }
   lastPage = page
   if (page === 'q') storeDraft()
-  if (page === 'q' && Q?.pending) app.querySelectorAll('button').forEach(b => { b.disabled = true })
+  if (page === 'q' && Q?.pending) app.querySelectorAll('button,input').forEach(b => { b.disabled = true })
   const error = page === 'q' && Q?.msg ? Q.id + Q.msg : ''
   if (error && error !== lastQError) document.querySelector('.qerror')?.scrollIntoView({ block: 'nearest' })
   lastQError = error
+  const r = page === 'q' && Q?.fin?.review, reviewState = r ? JSON.stringify([r.id, r.status, r.attempts, !!r.hint, !!r.demo]) : ''
+  if (reviewState && reviewState !== lastReviewState) document.querySelector(r.status !== 'pending' ? '.review-complete' : r.message ? '.review-feedback' : r.hint || r.demo ? '.review-guidance' : '.review-keep')?.scrollIntoView({ block: 'nearest' })
+  lastReviewState = reviewState
   if (Q?.scratch) initScratch()
   touchedItem = ''
   if (!pose) act = ''
@@ -1245,9 +1322,21 @@ document.addEventListener('pointerdown', e => { const s = e.target.closest?.('sv
 document.addEventListener('pointermove', e => { if (dragging) dragTo(e) })
 const endDrag = () => { if (dragging) { dragging = null; render() } }
 document.addEventListener('pointerup', endDrag); document.addEventListener('pointercancel', endDrag)
-document.addEventListener('input', e => { if (e.target.id === 'login-name') loginName = e.target.value })
+document.addEventListener('input', e => {
+  if (e.target.id === 'login-name') loginName = e.target.value
+  if (e.target.id !== 'review-value' || Q?.fin?.review?.status !== 'pending') return
+  if (busy || Q.pending) { e.target.value = Q.reviewValue || ''; return }
+  const raw = e.target.value.normalize('NFKC'), unit = Q.fin.review.input.kind === 'unit'
+  const value = (unit ? raw : raw.replace(/\D/g, '')).slice(0, 5)
+  if (value !== Q.reviewValue) Q.reviewRequest = null
+  Q.reviewValue = value; e.target.value = value; storeDraft()
+  const button = document.querySelector('[data-a="reviewcheck"]'); if (button) button.disabled = !value.trim()
+  if (unit) document.querySelectorAll('[data-a="reviewkey"]').forEach(b => { b.classList.toggle('on', b.dataset.v === value); b.setAttribute('aria-pressed', String(b.dataset.v === value)) })
+})
+document.addEventListener('toggle', e => { if (Q?.fin?.review && e.target.classList?.contains('review-solution')) Q.reviewSolutionOpen = e.target.open }, true)
 document.addEventListener('keydown', e => {
   if (page === 'q' && (busy || Q?.pending)) { e.preventDefault(); return }
+  if (e.target.id === 'review-value' && e.key === 'Enter' && !e.isComposing) { e.preventDefault(); const r = reviewAction('check'); if (!(r instanceof Promise)) render(); return }
   if (sheet === 'postcard' && e.key === 'Escape') { e.preventDefault(); A.close(); render(); return }
   if (sheet === 'postcard' && e.key === 'Tab') { e.preventDefault(); document.querySelector('.postcard-view [data-a="close"]')?.focus(); return }
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.seg[data-a],[role="button"][data-a]')) { e.preventDefault(); onAct(e) }

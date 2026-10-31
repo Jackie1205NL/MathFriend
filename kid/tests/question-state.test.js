@@ -13,9 +13,9 @@ const DATE = '2026-10-27'
 const word = { id: 'word', tpl: 'word', group: 'g', format: 'word', level: '同构', kp: '01.4', err: '审题', bucket: '本周重点', price: 12,
   answer: 480, flow: ['say'], segs: [{ t: '票价是多少元？' }], ask: '答：票价', units: ['元', '人'], unit: '元', tail: '', choices: [{ t: '480', v: 480, ok: 1 }] }
 const oral = { ...word, id: 'oral', tpl: 'oral', format: 'oral', text: '4 + 3', answer: 7, flow: ['fill'] }
-async function fixture(t) {
+async function fixture(t, items = [word, oral]) {
   t.mock.method(Date, 'now', () => Date.parse(`${DATE}T12:00:00+08:00`))
-  const data = new Map([['pack', { week: '2026-W44', groups: [{ id: 'g', name: '练习', daily: 2 }], items: [word, oral], tuning: { slow: 0 } }]])
+  const data = new Map([['pack', { week: '2026-W44', groups: [{ id: 'g', name: '练习', daily: 2 }], items, tuning: { slow: 0 } }]])
   const api = createApi({ get: async k => structuredClone(data.get(k) ?? null), set: async (k, v) => data.set(k, structuredClone(v)) },
     { DEV: true, KID_USER: 'test-ui', KID_PIN: '1234', ADMIN_PIN: '5678', SYNC_TOKEN: 'memory-only' })
   let cookie = ''
@@ -30,7 +30,7 @@ async function fixture(t) {
   let intercept = async (path, body, send) => send()
   const app = { innerHTML: '', setAttribute() {}, querySelectorAll: () => [] }
   const document = { getElementById: () => app, querySelector: () => null, addEventListener: (k, fn) => (events[k] ||= []).push(fn) }
-  const context = vm.createContext({ ...contract, document, window: { addEventListener() {}, scrollTo() {} }, structuredClone, Set, Date, AbortController,
+  const context = vm.createContext({ ...contract, document, window: { addEventListener() {}, scrollTo() {} }, structuredClone, Set, Date, AbortController, crypto: globalThis.crypto,
     setInterval() {}, setTimeout(fn, ms) { const id = ++timerId; timers.set(id, { fn, ms }); return id }, clearTimeout(id) { timers.delete(id) }, localStorage: { getItem: k => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, v) },
     ops: { start() {}, stop() {}, state() {}, act() {}, api() {} },
     fetch: async (url, opts = {}) => { const path = url.replace('/api/kid', ''), body = opts.body && JSON.parse(opts.body); calls.push({ path, body }); return intercept(path, body, () => request(path, body), opts.signal) },
@@ -44,7 +44,7 @@ async function fixture(t) {
       custom(flow, i = 0, rec = []) { const g = groups()[0], it = g.items.find(it => it.id === 'word'); it.flow = flow; startQ(g, it); Q.i = i; Q.rec = rec; Q.edits = {}; enter() },
       get: () => ({ Q, V, page, busy }), edit: x => Object.assign(Q, x), enter, storeDraft, save,
       back: QA.backto, go: A.go, stepgo: QA.stepgo, recover: QA.recover, key: QA.key, unit: QA.unit,
-      html: vQ, sig: sigOf, redraw: render,
+      html: vQ, home: vHome, quests: vQuests, sig: sigOf, redraw: render, review: reviewAction, reviewkey: QA.reviewkey, next: QA.next,
       click(a, v) { const el = { dataset: { a, v }, disabled: false, classList: { contains: () => false } }; onAct({ target: { closest: () => el } }) },
     }`, context)
   const ui = context.ui
@@ -152,4 +152,73 @@ test('交卷及恢复状态请求均在20秒超时后解锁；响应体超时和
   assert.match(ui.get().Q.msg, /等待有点久/); assert.equal(ui.get().V.week, '2026-W44')
   f.intercept(async (path, body, send) => path === '/answer' ? new Response('invalid json', { status: 200 }) : send())
   await ui.stepgo(); assert.match(ui.get().Q.msg, /没有读取完整/); assert.ok(ui.get().V); assert.equal(ui.get().Q.fin, null)
+})
+
+
+test('短复盘不摊开旧判分答案，独立输入草稿可回任务/刷新恢复，完成后一次进入下一题', async t => {
+  const f = await fixture(t), { ui } = f
+  ui.edit({ input: '480', unit: '人' }); await ui.stepgo()
+  assert.equal(ui.get().Q.fin.review.kind, 'unit'); assert.equal(ui.get().Q.fin.review.status, 'pending')
+  const original = json(ui.get().Q.rec), coins = f.data.get('state').coins
+  ui.get().Q.fin.items = [{ good: 'n', msg: 'HIDDEN_OLD_FEEDBACK' }]
+  ui.get().Q.fin.lines = ['HIDDEN_OLD_SOLUTION']
+  assert.ok(!ui.html().includes('HIDDEN_OLD_')); assert.ok(ui.html().includes('reviewcheck'))
+  ui.reviewkey('元'); ui.storeDraft(); ui.go('quests')
+  assert.deepEqual(json(JSON.parse(f.storage.get('kid-draft')).all.word.review.value), '元')
+  ui.load(await (await f.request('/state')).json()); ui.open()
+  assert.equal(ui.get().Q.reviewValue, '元'); assert.equal(ui.get().Q.fin.review.attempts, 0)
+  await ui.review('check')
+  assert.equal(ui.get().Q.fin.review.status, 'done'); assert.equal(ui.get().Q.fin.review.outcome, 'independent')
+  assert.equal(ui.get().Q.fin.ok, false); assert.equal(f.data.get('state').coins, coins)
+  assert.equal(f.data.get('log:2026-W44').length, 1)
+  assert.deepEqual(original[0], { v: 480, unit: '人' })
+  ui.next(); assert.equal(ui.get().Q.id, 'oral'); assert.equal(ui.get().Q.fin, null)
+})
+
+test('提示及解析曝光从服务器恢复，展开解析不能在刷新后重新算独立', async t => {
+  for (const action of ['hint', 'solution']) {
+    const f = await fixture(t), { ui } = f
+    ui.edit({ input: '480', unit: '人' }); await ui.stepgo(); await ui.review(action)
+    assert.equal(ui.get().Q.fin.review[action === 'hint' ? 'hintUsed' : 'solutionSeen'], true)
+    ui.load(await (await f.request('/state')).json()); ui.open()
+    assert.equal(ui.get().Q.fin.review[action === 'hint' ? 'hintUsed' : 'solutionSeen'], true)
+    if (action === 'solution') { assert.ok(ui.get().Q.fin.review.solution.length); assert.equal(ui.get().Q.reviewSolutionOpen, false) }
+    ui.reviewkey('元'); await ui.review('check')
+    assert.equal(ui.get().Q.fin.review.outcome, action === 'hint' ? 'hinted' : 'demonstrated')
+  }
+})
+
+test('复盘网络重试复用request_id，收到尝试结果后新确认用新id；在途锁住复盘输入', async t => {
+  const f = await fixture(t), { ui } = f
+  ui.edit({ input: '480', unit: '人' }); await ui.stepgo(); ui.reviewkey('人')
+  f.intercept(async () => { throw new Error('offline') })
+  await ui.review('check'); const first = f.calls.filter(c => c.path === '/review').at(-1).body.request_id
+  assert.equal(ui.get().Q.reviewValue, '人'); assert.equal(ui.get().Q.pending, '')
+  let release
+  f.intercept(async (path, body, send) => path === '/review' ? new Promise(resolve => { release = () => resolve(send()) }) : send())
+  const pending = ui.review('check')
+  ui.click('reviewkey', '元'); ui.reviewkey('元'); ui.click('go', 'quests')
+  const input = { id: 'review-value', value: '元' }; for (const fn of f.events.input) fn({ target: input })
+  assert.equal(input.value, '人'); assert.equal(ui.get().Q.reviewValue, '人'); assert.equal(ui.get().page, 'q')
+  assert.equal(f.calls.filter(c => c.path === '/review').at(-1).body.request_id, first)
+  release(); await pending; assert.equal(ui.get().Q.fin.review.attempts, 1)
+  f.intercept(async (path, body, send) => send()); await ui.review('check')
+  assert.notEqual(f.calls.filter(c => c.path === '/review').at(-1).body.request_id, first)
+  assert.equal(ui.get().Q.fin.review.attempts, 2); assert.equal(ui.get().Q.fin.review.canDemo, true)
+  await ui.review('skip'); assert.equal(ui.get().Q.id, 'oral')
+})
+
+test('一步计算和分栏已对的合计只补一个数，全角输入可用，刷新后已交任务仍可进入收尾', async t => {
+  const cases = [
+    [{ ...oral, id: 'word', text: '174 + 148', answer: 322 }, { input: '332' }, 'calc', '３２２'],
+    [{ ...word, format: 'stat', title: '图书角', cats: ['故事书', '科普书', '漫画书', '绘本'], vals: [4, 7, 6, 5], answer: 22, unit: '本', record: 'check', asks: [], flow: ['table'], parts: [0] }, { cells: ['4', '7', '6', '5', '24'] }, 'total', '２２'],
+  ]
+  for (const [item, input, kind, value] of cases) {
+    const f = await fixture(t, [item]), { ui } = f
+    ui.edit(input); await ui.stepgo(); assert.equal(ui.get().Q.fin.review.kind, kind)
+    ui.load(await (await f.request('/state')).json()); assert.ok(ui.quests().includes('有 1 处可以收尾')); assert.ok(ui.home().includes('接着补好一小处')); ui.open()
+    const target = { id: 'review-value', value }; for (const fn of f.events.input) fn({ target })
+    assert.equal(ui.get().Q.reviewValue, value.normalize('NFKC'))
+    await ui.review('check'); assert.equal(ui.get().Q.fin.review.status, 'done'); assert.ok(!ui.home().includes('接着补好一小处'))
+  }
 })
