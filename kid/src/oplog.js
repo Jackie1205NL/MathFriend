@@ -67,7 +67,7 @@ export function state(s) {
 /** 点了一个按钮（所有按钮走同一个入口）。dis：按钮灰着，点了没起作用 */
 export const act = (a, v, dis) => log('act', { a, ...(v ? { v: String(v).slice(0, 24) } : {}), ...(dis ? { dis: 1 } : {}) })
 /** 一次请求花了多久 */
-export const api = (p, ms, s) => { if (p !== '/oplog') log('api', { p: p.slice(0, 24), ms, s }) }
+export const api = (p, ms, s, detail = {}) => { if (p !== '/oplog') log('api', { p: p.slice(0, 24), ms, s, ...(detail.code ? { code: String(detail.code).slice(0, 40) } : {}), ...(detail.q ? { q: String(detail.q).slice(0, 40) } : {}) }) }
 
 // ---------- 手指和键盘 ----------
 const elKey = el => el === document || el === document.documentElement || el === document.body ? 'w' : (el.id || el.className?.toString().split(' ')[0] || el.tagName || '?').slice(0, 20)

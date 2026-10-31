@@ -24,14 +24,21 @@ const cnDate = d => `${+d.slice(5, 7)} 月 ${+d.slice(8, 10)} 日 星期${'日�
 
 async function api(path, body) {
   const t = Date.now()
-  const r = await fetch('/api/kid' + path, body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {})
-  const d = await r.json().catch(() => ({ error: '网络不太好，再试一次。' }))
-  ops.api(path, Date.now() - t, r.status)
-  if (r.status === 401 && path !== '/login') { V = null; page = 'login'; if (path.startsWith('/admin')) ADM = null }
-  if (!r.ok) { const error = new Error(d.error || '出错了，再试一次。'); error.status = r.status; error.code = d.code; throw error }
-  const v = d.view || (path === '/state' ? d : null)
-  if (v?.now) clockSkew = v.now - Date.now()
-  return d
+  const controller = ['/answer', '/state'].includes(path) ? new AbortController() : null
+  const timer = controller ? setTimeout(() => controller.abort(), 20000) : 0
+  try {
+    const r = await fetch('/api/kid' + path, { ...(body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {}), ...(controller ? { signal: controller.signal } : {}) })
+    const d = await r.json().catch(e => { if (e.name === 'AbortError') throw e; throw new Error('答复没有读取完整，填写内容已保留，请再试一次。') })
+    ops.api(path, Date.now() - t, r.status, { code: d.code, q: path === '/answer' ? body?.item : undefined })
+    if (r.status === 401 && path !== '/login') { storeDraft(); V = null; Q = null; page = 'login'; if (path.startsWith('/admin')) ADM = null }
+    if (!r.ok) { const error = new Error(d.error || '出错了，再试一次。'); error.status = r.status; error.code = d.code; throw error }
+    const v = d.view || (path === '/state' ? d : null)
+    if (v?.now) clockSkew = v.now - Date.now()
+    return d
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('等待有点久，填写内容已保留，请再试一次。')
+    throw e
+  } finally { clearTimeout(timer) }
 }
 async function run(fn) {
   if (busy) return
@@ -282,6 +289,21 @@ function cfbMsg(fb) {
 const skips = () => { const k = ls.get('kid-skip', null); return k?.date === V.date ? k.ids : [] }
 const setSkip = ids => ls.set('kid-skip', { date: V.date, ids })
 const drafts = () => { const d = ls.get('kid-draft', null); return d?.date === V.date && d.all ? d.all : {} }
+// 已确认的步骤仍放 rec；正在编辑的值另存，清空也要记下来，不能被旧 rec 覆盖。
+const EDIT_KEYS = ['input', 'unit', 'pick', 'expr', 'zone', 'vals', 'units', 'cur', 'lines', 'op', 'cells', 'pos', 'mm', 'put', 'hold']
+function keepEdit() {
+  if (!Q || Q.demo || Q.fin || Q.catch || Q.pending) return
+  const edit = Object.fromEntries(EDIT_KEYS.map(k => [k, Q[k]]))
+  ;(Q.edits ||= {})[Q.i] = structuredClone({ ...edit, sel: [...Q.sel], basis: JSON.stringify(Q.rec.slice(0, Q.i)) })
+}
+function storeDraft(drop = false) {
+  if (!V || !Q || Q.demo) return
+  if (!drop) keepEdit()
+  const all = drafts()
+  if (drop || Q.fin) delete all[Q.id]
+  else all[Q.id] = { i: Q.i, rec: Q.rec, edits: Q.edits, sig: sigOf(Q.flow) }
+  ls.set('kid-draft', { date: V.date, all })
+}
 /** 这一组下一道：先做没跳过的，都做完了再按跳过的先后回来做 */
 function nextItem(g) {
   const left = g.items.filter(x => !x.done), sk = skips()
@@ -333,18 +355,19 @@ const lastStep = () => Q.i === Q.flow.length - 1
 const sayPet = (t, kind = '') => { Q.say = t; Q.sk = kind }
 const TIPS = { draw: '拖一拖红点，也可以用旁边的按钮一毫米一毫米地调。', choose: '想一想，再选。', bins: '先点一个数，再点它该放的那一栏。', fill: '算好了填进去。', first: '点一下你觉得要先算的那个符号。', clock: '点钟面边上的小圆点，时针就会指过去。', range: '先不急着算。估一估，得数大概在哪一段？', chain: '每一行先点你要先算的符号，再填得数。',
   spot: '这是小狗做的题，有一步算错了。点出最先出错的那一行。', blanks: '点一个空再填数。每个空都要填。', circle: '你觉得哪些地方最要紧，就点哪里，可以点好几处。', goal: '这道题一步算不出来。要先求出什么？', build: '点下面的数和符号，自己拼出算式。', say: '把答句写完整。' }
-const sigOf = flow => JSON.stringify(flow.map(b => b.opts || b.choices || null))
+const sigOf = flow => JSON.stringify(flow)
 function startQ(g, it) {
-  Q = { gid: g.id, id: it.id, flow: it.flow, i: 0, rec: [], t0: Date.now(), say: '', sk: '', menu: null, fire: null, fin: null, catch: null, cover: false, mood: '', guard: it.guard, caught: it.caught }
+  storeDraft()
+  Q = { gid: g.id, id: it.id, flow: it.flow, i: 0, rec: [], edits: {}, t0: Date.now(), say: '', sk: '', menu: null, fire: null, fin: it.done || null, catch: null, cover: false, mood: '', guard: it.guard, caught: it.caught }
   const d = drafts()[it.id]       // 刷新页面前、或者跳过之前做到一半的，接着做（题库换过、选项顺序不一样了就不接）
-  if (d && d.sig === sigOf(it.flow) && d.i < it.flow.length) Object.assign(Q, { rec: d.rec || [], i: d.i })
+  if (!it.done && d && d.sig === sigOf(it.flow) && d.i < it.flow.length) Object.assign(Q, { rec: d.rec || [], edits: d.edits || {}, i: d.i })
   if (it.circle) {
     const ci = it.flow.findIndex(b => b.type === 'circle')
     if (ci >= 0) { Q.rec[ci] = { sel: it.circle.sel, cfb: it.circle }; if (it.circle.readyAt > now().getTime()) Q.i = ci }
   }
   setSkip(skips().filter(x => x !== it.id))
-  enter()
-  if (S().slow > 0 && S().slowFrom !== it.id) {      // 「慢慢来」：先盖住 3 秒，剩几题由服务器记
+  if (!Q.fin) enter()
+  if (!Q.fin && S().slow > 0 && S().slowFrom !== it.id) {      // 「慢慢来」：先盖住 3 秒，剩几题由服务器记
     Q.cover = true
     setTimeout(() => { if (Q?.id === it.id) { Q.cover = false; Q.t0 = Date.now(); render() } }, 3000)
   }
@@ -365,6 +388,11 @@ function enter() {
     Q.lines = [{ t: stripParens(start) }]
     if (Q.lines[0].t.length < 2) { save({ lines: [] }); return next() }     // 列出来就是一个数，不用算
     autoOp()
+  }
+  const edit = Q.edits?.[Q.i]
+  if (edit && !(b.type === 'circle' && r.cfb) && edit.basis === JSON.stringify(Q.rec.slice(0, Q.i))) {
+    for (const k of EDIT_KEYS) if (Object.hasOwn(edit, k)) Q[k] = structuredClone(edit[k])
+    Q.sel = new Set(edit.sel || [])
   }
 }
 const fi = type => Q.flow.findIndex(b => b.type === type)
@@ -401,19 +429,50 @@ const built = () => { const bi = lastOf('build'), r = Q.rec[bi]; return !r ? [] 
 const chainFinal = () => { const r = Q.rec[fi('chain')]; if (!r) return null; let t = stripParens(curItem().flow[fi('chain')].start || built()); for (const L of r.lines) t = reduceAt(t, L.k, L.v); return t.length === 1 ? t[0] : null }
 /** 这一行只剩一个能算的符号（其他的被括号挡着），就直接选上，出填写的框 */
 function autoOp() { const L = Q.lines.at(-1), ks = L.t.flatMap((x, k) => canTap(L.t, k) ? [k] : []); Q.op = ks.length === 1 ? ks[0] : null }
-function save(x) { Q.rec[Q.i] = { ...(Q.rec[Q.i] || {}), ...x } }
+function save(x) { Q.rec[Q.i] = { ...(Q.rec[Q.i] || {}), ...x }; if (Q.edits) delete Q.edits[Q.i] }
 const circleWait = () => Q && !Q.demo ? Math.max(0, Math.ceil(((Q.rec[fi('circle')]?.cfb?.readyAt || 0) - now().getTime()) / 1000)) : 0
 function next() { if (circleWait()) return; if (lastStep()) return submitQ(); Q.i++; enter() }
 function submitQ() {
   if (Q.demo) { Q = null; page = 'skills'; showToast('试过了！真正做题时，点亮着的徽章就能用。'); return }
-  return run(async () => {
-    const res = await api('/answer', { item: Q.id, ms: Date.now() - Q.t0, steps: Q.rec })
-    V = res.view; Q.t0 = Date.now()
-    if (res.caught) { Q.catch = res.caught; Q.guard = null; Q.mood = 'think'; return }
+  return waitQuestion('正在交卷，请稍等…', async q => {
+    const body = { item: q.id, ms: Date.now() - q.t0, steps: structuredClone(q.rec) }
+    let res
+    try { res = await api('/answer', body) } catch (e) {
+      if (page !== 'q') throw e
+      q.msg = e.message
+      q.pending = '正在核对任务状态，请稍等…'; render()
+      // 可能是旧页面重复交卷，或答卷已收下但响应丢失；先核对服务器状态。
+      try { await refreshQuestion(q) } catch { q.msg += '。任务状态暂时没刷新成功，填写内容已保留，可以再试。' }
+      return
+    }
+    V = res.view; q.t0 = Date.now()
+    if (res.caught) { q.catch = res.caught; q.guard = null; q.mood = 'think'; return }
     const d = res.fin
-    Q.fin = d; Q.menu = null; Q.mood = d.ok ? 'hop' : 'think'; sayPet(''); sfx(d.ok ? 'happy' : d.c ? 'chirp' : 'sad')
+    q.fin = d; q.menu = null; q.mood = d.ok ? 'hop' : 'think'; sayPet(''); sfx(d.ok ? 'happy' : d.c ? 'chirp' : 'sad')
     if (d.points?.length) cere = d.points.join('」「')
   })
+}
+function waitQuestion(text, fn) {
+  if (!Q || busy || Q.pending) return
+  storeDraft()
+  const q = Q
+  q.pending = text; q.msg = ''; render()
+  return run(async () => { try { await fn(q) } finally { q.pending = '' } })
+}
+async function refreshQuestion(q) {
+  const view = await api('/state')
+  if (Q !== q || page !== 'q') return
+  V = view
+  const g = groups().find(g => g.items.some(it => it.id === q.id)), it = g?.items.find(it => it.id === q.id)
+  if (!it) {
+    storeDraft(true); Q = null; page = V.allDone ? 'result' : 'quests'
+    showToast('任务已经更新，回到任务列表看看。')
+  } else if (it.done) {
+    q.gid = g.id; q.flow = it.flow; q.fin = it.done; q.msg = ''; q.menu = null
+    storeDraft(true)
+  } else if (sigOf(it.flow) !== sigOf(q.flow)) {
+    startQ(g, it); Q.msg = '题目已经更新，请按新题目继续。'
+  }
 }
 
 // 题干：应用题按段显示（圈关键词时能点），其他题型一句话
@@ -664,8 +723,8 @@ function vQ() {
   const live = !Q.fin && !Q.catch && !Q.walk && !Q.cover
   const bar = Q.flow.length > 1 ? `<div class="stepbar">${live && Q.i > 0 ? '<button class="pill" data-a="backto" data-v="">‹ 上一步</button>' : ''}<div class="steps" style="grid-template-columns:repeat(${Q.flow.length},1fr)">${Q.flow.map((t, i) => live && i < Q.i ? `<button class="done" data-a="backto" data-v="${i}">${STEP_NAME[t.type]}</button>` : `<span class="${Q.fin || i < Q.i ? 'done' : i === Q.i ? 'now' : ''}">${STEP_NAME[t.type]}</span>`).join('')}</div></div>` : ''
   return `<div class="top qtop"><button class="back" data-a="go" data-v="quests" aria-label="回到任务">‹</button><h1>${esc(g.name)} ${idx}/${total}</h1>${!Q.demo && !Q.fin && !Q.catch && !Q.walk ? '<button class="pill scr" data-a="skip">跳过</button>' : ''}<button class="pill scr" data-a="scratch">草稿</button>${coin('最高 ' + (g.extra ? Math.ceil(it.max / 2) : it.max))}</div>
-  <div class="body qbody">${Q.gid === 'friday' && !Q.demo ? vBoss() : ''}${Q.cover ? `<div class="cover">${away() ? '' : `<img src="${face('thinking')}" alt="">`}<b style="font:400 30px var(--kid)">慢慢来</b><span>${away() ? '先把题目再读一遍，想一想条件。' : name() + '在帮你把题目再读一遍……'}</span></div>` : ''}${bar}${Q.walk ? vWalk() : Q.fin ? (it.segs || it.format === 'stat' ? qText() : '') + vQResult(g) : vStep()}</div>
-  ${vDock()}${Q.menu ? vMenu() : ''}${Q.scratch ? '<div class="scratch"><canvas id="scratch"></canvas><div class="duo"><button class="btn alt" data-a="sclear">擦干净</button><button class="btn" data-a="scratch">关上</button></div></div>' : ''}${Q.catch ? vCatch() : ''}${Q.fire ? `<div class="toast fire"><img src="/pet/badge-${SKILLS.find(x => x.k === Q.fire.k).badge}.webp" alt="">${esc(Q.fire.text)}</div>` : ''}`
+  <div class="body qbody">${Q.gid === 'friday' && !Q.demo ? vBoss() : ''}${Q.cover ? `<div class="cover">${away() ? '' : `<img src="${face('thinking')}" alt="">`}<b style="font:400 30px var(--kid)">慢慢来</b><span>${away() ? '先把题目再读一遍，想一想条件。' : name() + '在帮你把题目再读一遍……'}</span></div>` : ''}${bar}${Q.walk ? vWalk() : Q.fin ? (it.segs || it.format === 'stat' ? qText() : '') + vQResult(g) : vStep()}${Q.msg ? `<div class="note qerror" role="alert"><p>${esc(Q.msg)}</p><button class="btn alt" data-a="recover">刷新任务状态</button></div>` : ''}</div>
+  ${vDock()}${Q.menu ? vMenu() : ''}${Q.scratch ? '<div class="scratch"><canvas id="scratch"></canvas><div class="duo"><button class="btn alt" data-a="sclear">擦干净</button><button class="btn" data-a="scratch">关上</button></div></div>' : ''}${Q.catch ? vCatch() : ''}${Q.pending ? `<div class="toast" role="status" aria-live="polite">${esc(Q.pending)}</div>` : ''}${Q.fire ? `<div class="toast fire"><img src="/pet/badge-${SKILLS.find(x => x.k === Q.fire.k).badge}.webp" alt="">${esc(Q.fire.text)}</div>` : ''}`
 }
 /** 草稿纸：随手写画，不保存、不判分 */
 function initScratch() {
@@ -682,6 +741,7 @@ const QA = {
   scratch() { Q.scratch = !Q.scratch },
   backto(v) {
     if (!Q || Q.fin || Q.catch || Q.walk || Q.i === 0) return
+    keepEdit()
     let j = v === '' || v == null ? Q.i - 1 : Math.min(+v, Q.i - 1)
     Q.menu = null
     // 自动跳过的步骤（比如列出来就是一个数的递等式）回去会马上往前走，再往前退一步
@@ -693,7 +753,7 @@ const QA = {
   key(k) {
     if (page === 'login') { pin = k === '⌫' ? pin.slice(0, -1) : (pin + k).slice(0, adminMode ? 8 : 4); return }
     if (Q?.walk) { Q.walk.input = k === '⌫' ? Q.walk.input.slice(0, -1) : (Q.walk.input + k).slice(0, 5); Q.walk.bad = false; return }
-    if (!Q || Q.cover || Q.fin || Q.catch || circleWait()) return
+    if (!Q || busy || Q.pending || Q.cover || Q.fin || Q.catch || circleWait()) return
     const b = step(), edit = v => k === '⌫' ? v.slice(0, -1) : (v + k).slice(0, 5)
     if (b.type === 'blanks' || b.type === 'check' || (b.type === 'fill' && b.rem) || (b.type === 'say' && b.cells)) { Q.vals[Q.cur] = edit(Q.vals[Q.cur]); return }
     if (b.type === 'chain' && Q.op == null) { sayPet('先点你要先算的那个符号。'); return }
@@ -746,7 +806,7 @@ const QA = {
   },
   admoff(id) { const u = ADM.find(x => x.id === id); return run(async () => { try { await api('/admin/users/' + id, { off: !u.off }); admMsg = `「${u.name}」${u.off ? '启用' : '停用'}了。`; await loadAdmin() } catch (e) { admMsg = e.message } }) },
   stepgo() {
-    if (!Q || Q.cover || Q.fin || Q.catch || circleWait()) return
+    if (!Q || busy || Q.pending || Q.cover || Q.fin || Q.catch || circleWait()) return
     const b = step()
     if (b.type === 'fill' && b.rem) { if (Q.vals.some(v => v === '')) return sayPet('商和余数都要填。'); save({ vs: Q.vals.map(Number) }); return next() }
     if (b.type === 'fill') { if (!Q.input) return sayPet('还没填得数呢。'); save({ v: Number(Q.input) }); return next() }
@@ -797,7 +857,8 @@ const QA = {
   del() { Q.expr.pop() },
   clr() { Q.expr = [] },
   tapop(k) { k = +k; const L = Q.lines.at(-1); if (Q.op === k) { Q.op = null; return } if (canTap(L.t, k)) Q.op = k },
-  unit(u) { if (Q?.walk) { Q.walk.unit = u && Q.walk.unit !== u ? u : null; return } if (Q && !Q.fin && step().cells) { Q.units[Q.cur] = Q.units[Q.cur] === u ? null : u; return } if (Q && !Q.fin) Q.unit = u && Q.unit !== u ? u : null },
+  unit(u) { if (busy || Q?.pending) return; if (Q?.walk) { Q.walk.unit = u && Q.walk.unit !== u ? u : null; return } if (Q && !Q.fin && step().cells) { Q.units[Q.cur] = Q.units[Q.cur] === u ? null : u; return } if (Q && !Q.fin) Q.unit = u && Q.unit !== u ? u : null },
+  recover() { return waitQuestion('正在刷新任务，请稍等…', refreshQuestion) },
   walk() { Q.walk = { i: 0, input: '', unit: null, bad: false }; sayPet('一步一步来，我陪着你。') },
   walkgo() {
     const W = Q.walk, st = Q.fin.walk[W.i]
@@ -1087,8 +1148,9 @@ function vGrad() {
 }
 const NAV = [['home', '小屋'], ['map', '地图'], ['quests', '任务'], ['skills', '本领'], ['shop', '小卖部']]
 const NAV_OF = { result: 'home', story: 'home', diary: 'home', book: 'home', place: 'map' }
-let lastPage = ''
+let lastPage = '', lastQError = ''
 function render() {
+  app.setAttribute('aria-busy', String(!!(page === 'q' && Q?.pending)))
   V ? ops.start() : ops.stop()          // 孩子登录着就记操作日志（见 oplog.js）
   if (page === 'admin' && ADM) { app.innerHTML = ADS ? vAdmStats() : vAdmin(); return }
   // 小屋的名字跟着小狗的名字走（浏览器标签和登录页也是，这台设备记住上一次的）
@@ -1102,7 +1164,11 @@ function render() {
     + (toast ? `<div class="toast" role="status">${esc(toast)}</div>` : '')
   if (page !== lastPage) { if (page === 'map') document.getElementById('now')?.scrollIntoView({ block: 'center' }); else if (page !== 'q') window.scrollTo(0, 0) }
   lastPage = page
-  if (page === 'q' && Q && !Q.demo) { const all = drafts(); if (Q.fin) delete all[Q.id]; else all[Q.id] = { i: Q.i, rec: Q.rec, sig: sigOf(Q.flow) }; ls.set('kid-draft', { date: V.date, all }) }
+  if (page === 'q') storeDraft()
+  if (page === 'q' && Q?.pending) app.querySelectorAll('button').forEach(b => { b.disabled = true })
+  const error = page === 'q' && Q?.msg ? Q.id + Q.msg : ''
+  if (error && error !== lastQError) document.querySelector('.qerror')?.scrollIntoView({ block: 'nearest' })
+  lastQError = error
   if (Q?.scratch) initScratch()
   touchedItem = ''
   if (!pose) act = ''
@@ -1113,7 +1179,7 @@ function render() {
 
 const A = {
   ...QA,
-  go(v) { if (v === 'home' && page !== 'home') chat(); if (['shop', 'place'].includes(v)) say = ''; page = v; Q = null; sheet = null },
+  go(v) { storeDraft(); if (v === 'home' && page !== 'home') chat(); if (['shop', 'place'].includes(v)) say = ''; page = v; Q = null; sheet = null },
   postcard(v) { const [k, i] = v.split(':'); card = S().cards.find(c => c.k === k && c.i === +i); if (card) { sheet = 'postcard'; setTimeout(() => document.querySelector('.postcard-view [data-a="close"]')?.focus(), 0) } },
   story(i) { sp = i === '' || i == null ? null : +i; page = 'story'; Q = null },
   extra() { return run(async () => { const r = await api('/act', { kind: 'extra' }); V = r.view; if (r.extra) page = 'quests'; else say = r.msg, page = 'home' }) },
@@ -1153,8 +1219,9 @@ const A = {
 }
 const onAct = e => {
   const t = e.target.closest('[data-a]')
-  if (t) ops.act(t.dataset.a, t.dataset.v, t.disabled || (Q?.cover && page === 'q' && t.dataset.a !== 'go'))
-  if (!t || t.disabled || (Q?.cover && page === 'q' && t.dataset.a !== 'go')) return
+  const locked = page === 'q' && (busy || Q?.pending)
+  if (t) ops.act(t.dataset.a, t.dataset.v, t.disabled || locked || (Q?.cover && page === 'q' && t.dataset.a !== 'go'))
+  if (!t || t.disabled || locked || (Q?.cover && page === 'q' && t.dataset.a !== 'go')) return
   if (away() && ['tap', 'care', 'quiet', 'equip', 'event', 'ball', 'feed', 'hidestart', 'hard', 'cup', 'trick', 'trip', 'explore', 'item', 'learn', 'ceremony'].includes(t.dataset.a)) { showToast('先回小屋找回宠物，再一起玩。'); render(); return }
   if (t.classList.contains('sheet') && e.target !== t) return        // 点弹层里面不关
   const restore = e.detail === 0 && ['item', 'explore', 'tap'].includes(t.dataset.a) && document.activeElement === t
@@ -1166,6 +1233,7 @@ document.addEventListener('click', onAct)
 // 画线段：在尺子上按住拖，红点跟着手指走（拖的时候只改图，不重绘整页，松手再重绘）
 let dragging = null
 function dragTo(e) {
+  if (busy || Q?.pending) return
   const b = Q && !Q.fin && !Q.catch && step(), r = dragging.getBoundingClientRect()
   if (b?.type !== 'draw') return
   const u = (RW - 2 * RP) / (b.cm * 10), mm = Math.max(b.from, Math.min(b.cm * 10, Math.round(((e.clientX - r.left) * RW / r.width - RP) / u))), z = +(RP + mm * u).toFixed(1)
@@ -1173,18 +1241,21 @@ function dragTo(e) {
   document.getElementById('dline')?.setAttribute('x2', z); document.getElementById('dh')?.setAttribute('cx', z)
   for (const k of ['x1', 'x2']) document.getElementById('dg')?.setAttribute(k, z)
 }
-document.addEventListener('pointerdown', e => { const s = e.target.closest?.('svg[data-ruler]'); if (!s || !Q || Q.fin || Q.catch) return; dragging = s; s.setPointerCapture?.(e.pointerId); dragTo(e) })
+document.addEventListener('pointerdown', e => { const s = e.target.closest?.('svg[data-ruler]'); if (!s || !Q || busy || Q.pending || Q.fin || Q.catch) return; dragging = s; s.setPointerCapture?.(e.pointerId); dragTo(e) })
 document.addEventListener('pointermove', e => { if (dragging) dragTo(e) })
 const endDrag = () => { if (dragging) { dragging = null; render() } }
 document.addEventListener('pointerup', endDrag); document.addEventListener('pointercancel', endDrag)
 document.addEventListener('input', e => { if (e.target.id === 'login-name') loginName = e.target.value })
 document.addEventListener('keydown', e => {
+  if (page === 'q' && (busy || Q?.pending)) { e.preventDefault(); return }
   if (sheet === 'postcard' && e.key === 'Escape') { e.preventDefault(); A.close(); render(); return }
   if (sheet === 'postcard' && e.key === 'Tab') { e.preventDefault(); document.querySelector('.postcard-view [data-a="close"]')?.focus(); return }
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.seg[data-a],[role="button"][data-a]')) { e.preventDefault(); onAct(e) }
   if (e.key === 'Enter' && e.target.id === 'nm-pet') A.petname()
   if (e.key === 'Enter' && e.target.id === 'nm-kid') A.kidname()
 })
+window.addEventListener('pagehide', () => storeDraft())
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') storeDraft() })
 setInterval(() => { if (V && page === 'home' && !busy && !sheet && !pose && !meetStep() && (!V.morning || late()) && S().name) { chat(); render() } }, 12000)
 
 ;(async () => {
@@ -1196,4 +1267,4 @@ setInterval(() => { if (V && page === 'home' && !busy && !sheet && !pose && !mee
 })()
 
 // 只更新倒计时按钮，避免每秒重绘答题区。
-setInterval(() => { const b = document.querySelector('[data-circle-next]'); if (b) { const wait = circleWait(); b.disabled = !!wait; b.textContent = wait ? `再看 ${wait} 秒` : '知道了，继续' } }, 200)
+setInterval(() => { const b = document.querySelector('[data-circle-next]'); if (b) { const wait = circleWait(); b.disabled = !!(wait || busy || Q?.pending); b.textContent = wait ? `再看 ${wait} 秒` : '知道了，继续' } }, 200)

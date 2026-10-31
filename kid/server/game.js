@@ -889,10 +889,10 @@ export function createApi(base, env) {
   }
   function answer(ctx, body) {
     const it = ctx.pack?.items.find(x => x.id === body.item)
-    if (!it || !ctx.day.groups.some(g => g.items.includes(it.id))) return json({ error: '这道题不在今天的任务里' }, 400)
-    if (!FORMATS.includes(it.format)) return json({ error: '不认识的题型' }, 400)
+    if (!it || !ctx.day.groups.some(g => g.items.includes(it.id))) return json({ error: '这道题不在今天的任务里', code: 'ITEM_NOT_IN_TASK' }, 400)
+    if (!FORMATS.includes(it.format)) return json({ error: '不认识的题型', code: 'UNSUPPORTED_FORMAT' }, 400)
     const rec = ctx.day.items[it.id] ||= {}
-    if (rec.fin || (ctx.day.groups.find(g => g.id === 'friday')?.items.includes(it.id) && ctx.state.chal?.recs?.[it.id])) return json({ error: '这道题已经做完了' }, 400)
+    if (rec.fin || (ctx.day.groups.find(g => g.id === 'friday')?.items.includes(it.id) && ctx.state.chal?.recs?.[it.id])) return json({ error: '这道题已经做完了', code: 'ALREADY_DONE' }, 400)
     if (flowOf(it).includes('circle') && !rec.circle) return json({ error: '先圈关键词，看完点评再继续。' }, 409)
     if (rec.circleReadyAt > ctx.now) return json({ error: '再看一会儿漏掉的核心关键词，5 秒后再继续。' }, 409)
     const ms = Math.min(Number(body.ms) || 0, 600000)
@@ -1283,7 +1283,7 @@ export function createApi(base, env) {
       if (!ctx.pack) return json({ error: '还没有题库' }, 400)
       let res
       ctx.tag = '做题'      // 做题、连对奖励、本周闯关奖励都记在这里
-      try { res = answer(ctx, body) } catch (e) { console.error(e); return json({ error: '这道题的作答格式不对，刷新一下再做' }, 400) }
+      try { res = answer(ctx, body) } catch (e) { console.error(e); return json({ error: '这道题的作答格式不对，刷新一下再做', code: 'INVALID_ANSWER' }, 400) }
       if (res instanceof Response) return res
       await save(ctx)
       return json({ ...res, view: view(ctx) })
