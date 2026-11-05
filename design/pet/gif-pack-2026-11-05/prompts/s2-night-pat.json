@@ -1,0 +1,30 @@
+{
+  "id": "s2-night-pat",
+  "stage": "少年",
+  "tool": "built-in image_gen",
+  "transparent_background": true,
+  "layout": {
+    "columns": 4,
+    "rows": 2,
+    "frames": 8,
+    "requested_canvas": [
+      1536,
+      768
+    ]
+  },
+  "refs": [
+    "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/pet/s2.webp",
+    "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/design/pet/gif-pack-2026-11-05/s2-layout.png",
+    "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/pet/s2-act-sleep.webp"
+  ],
+  "prompt": "Use case: illustration-story. Make ONE new 2D game animation sprite sheet, EXACTLY eight sequential frames in a 4-column by 2-row grid, row-major order, landscape 2:1, preferably 1536x768 with equal square cells. Reference1 locks character identity, reference2 locks grid registration; reference3 when present locks sleeping basket pose. Actual transparent RGBA background: alpha EXACTLY ZERO outside the drawing and in all gutters/corners. NO white matte, painted checkerboard, scene, cast shadow, grid, labels, symbols, text or borders.\nExact SAME juvenile Shiba from reference in every cell: warm orange fur, cream muzzle/chest/paws/tail-tip, rounded dark-brown clean outlines, glossy brown eyes, pink cheeks, ONE upright ear and ONE floppy ear, turquoise BLUE collar with EXACTLY TWO gold five-pointed star pendants, NO backpack/scarf/hat. Same head/body proportions and pixel scale throughout. Only requested pose changes. Do not change color or anatomy.\nFixed orthographic three-quarter front view toward left, same center x=192 and shared floor y=326 within each384-square cell, at least24px empty margin. No per-frame recentering or zoom, nothing cropped or crossing cells, one dog per cell and exactly four natural legs. Moving limbs/eyes must form a readable continuous progression; frame8 leads smoothly back to1. Maintain opaque cream-white fur and shiny highlights as artwork, only background becomes alpha0.\nAction: Sleeping petting reaction in the exact woven basket from reference. Fixed basket and curled sleeping body. Eyes CLOSED in every frame. Eight poses: 1 chin on paws asleep; 2 head gently leans 2pixels toward imagined touch at upper right; 3 leans4pixels, cheek softens; 4 chin relaxes and smile very small; 5 one existing front paw slides closer to cheek 3pixels; 6 slow inhale; 7 paw and head gradually return; 8 exact starting curled sleep pose. NO human hand, no raised handshake paw, no standing, no awake smile.\nFinal check: 4 columns x2 rows, EIGHT different progressive poses, identical juvenile two-star identity, clean true transparent background.",
+  "source_output_path": "/Users/shushengye/.codex/generated_images/01a1906a-3aac-7151-9337-bb1de5cb125b/exec-c9e45764-d4d0-4c71-8b5c-0e114f9f3aa2.png",
+  "workspace_output": "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/design/pet/gif-pack-2026-11-05/raw/s2-night-pat.png",
+  "status": "generated",
+  "attempts": [
+    {
+      "at": "2026-11-05T15:04:02.640Z",
+      "source_output_path": "/Users/shushengye/.codex/generated_images/01a1906a-3aac-7151-9337-bb1de5cb125b/exec-c9e45764-d4d0-4c71-8b5c-0e114f9f3aa2.png"
+    }
+  ]
+}

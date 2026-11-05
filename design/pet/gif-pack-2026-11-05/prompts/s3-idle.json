@@ -1,0 +1,56 @@
+{
+  "id": "s3-idle",
+  "stage": "青年",
+  "use_case": "illustration-story",
+  "tool": "built-in image_gen",
+  "transparent_background": true,
+  "layout": {
+    "columns": 4,
+    "rows": 2,
+    "frames": 8,
+    "requested_canvas": [
+      1536,
+      768
+    ]
+  },
+  "refs": [
+    "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/pet/s3.webp",
+    "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/pet/s3-act-wag.webp",
+    "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/design/pet/gif-pack-2026-11-05/s3-layout.png"
+  ],
+  "prompt": "Use case: illustration-story.\nAsset type: production 2D character animation sprite sheet, eight consecutive animation frames. This is a NEW sprite animation using the input images as identity/style/layout references, not a collage.\nReference roles: reference 1 locks the exact young-adult Shiba identity; reference 2 is an action/body-proportion reference; reference 3 is the 4-column by 2-row frame layout and transparency reference. Any fourth reference locks the prop design.\nCharacter invariants: the SAME warm orange and cream young-adult Shiba in all eight cells, both triangular ears standing UP, cream cheek/muzzle/chest/paws/tail-tip, large glossy brown eyes when open, small pink cheeks, deep dark-brown clean outlines. Exact bright blue collar with EXACTLY THREE small gold five-pointed star pendants across the chest, a red backpack with gold clasp on the back and red straps. The red backpack remains on in every pose, including bathing and sleeping. Match the reference head/body proportions and mature upright ears; no floppy puppy ears, no bandana/scarf, no extra outfit or character. Keep face, coat markings, collar, three stars and backpack consistent in every frame; only pose changes.\nVisual style: cute clean warm 2D hand-drawn sticker illustration for an 8-9 year old child's pet app, simple orange/cream flat colors with restrained soft highlights, thick smooth dark-brown outlines, no photorealism or 3D.\nCanvas/layout: exact 1536 x 768 landscape canvas, 4 equal columns and 2 equal rows, eight 384 x 384 square cells. Reading order left-to-right top row frames 1-4, then left-to-right bottom row frames 5-8. Do not draw cell borders, grids, labels, text, numbers, shadows, scenery or backgrounds. The cell grid itself is invisible. Every cell has a genuinely transparent background (RGBA alpha=0) with clear transparent gutters. Each dog, prop and motion detail stays entirely INSIDE its own cell with at least 24 px of empty margin; nothing crosses a cell boundary or is cropped.\nAnimation registration: fixed orthographic three-quarter front camera, dog looks toward viewer-left, same body and head pixel scale in all eight frames, center of torso anchored near x=192 within every cell; shared floor y=326 within every cell. No per-frame zoom or recentering, no camera movement. Match fixed local coordinates from cell to cell. Keep natural vertical movement where specified; a jump must visibly rise above this unchanged floor, never align its feet back to the floor at the jump apex. One dog per cell, one coherent sequential moment per frame, no ghosting or duplicate limbs. The poses MUST evolve in a readable continuous animation, not eight identical drawings. Frame 8 should lead smoothly back to frame 1 where a loop is requested.\nTransparency: true clean transparent PNG outside artwork, not white/off-white rectangles, not gray checkerboard painted into the image. Preserve all opaque cream-white fur and white bubble highlights as part of the dog/props. All four canvas corners and inter-cell gutters must be alpha zero.\n\nAction to animate: Quiet idle breathing while standing as in the identity image. No props or human. Paws stay planted at identical four local coordinates. Frames 1-8: resting exhale; chest and head rise 2 px; rise 4 px with soft blink; gentle inhale at 5 px; eyelids reopen and chest lowers 3 px; lowers 2 px with tiny ear twitch; fully relaxed exhale; nearly identical frame-1 pose. Tail makes only a 2-3 px natural relaxed drift, no big wag. Stable silhouette and body size, calm continuous loop.\nFinal reminder: 4 columns x 2 rows, exactly EIGHT genuinely different consecutive frames. True transparent background. Preserve upright ears, exactly three front-of-collar gold stars (natural occlusion permitted during turns) and red backpack.",
+  "source_output_path": "/Users/shushengye/.codex/generated_images/01a19069-f7d6-7443-869e-fbb8fde8e571/exec-c473f68a-f7b8-450a-8e14-8f16f219d14b.png",
+  "workspace_output": "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/design/pet/gif-pack-2026-11-05/raw/s3-idle.png",
+  "status": "generated",
+  "attempts": [
+    {
+      "status": "generated",
+      "started_at": "2026-11-05T15:10:58.350953+00:00",
+      "prompt": "Use case: illustration-story.\nAsset type: production 2D character animation sprite sheet, eight consecutive animation frames. This is a NEW sprite animation using the input images as identity/style/layout references, not a collage.\nReference roles: reference 1 locks the exact young-adult Shiba identity; reference 2 is an action/body-proportion reference; reference 3 is the 4-column by 2-row frame layout and transparency reference. Any fourth reference locks the prop design.\nCharacter invariants: the SAME warm orange and cream young-adult Shiba in all eight cells, both triangular ears standing UP, cream cheek/muzzle/chest/paws/tail-tip, large glossy brown eyes when open, small pink cheeks, deep dark-brown clean outlines. Exact bright blue collar with EXACTLY THREE small gold five-pointed star pendants across the chest, a red backpack with gold clasp on the back and red straps. The red backpack remains on in every pose, including bathing and sleeping. Match the reference head/body proportions and mature upright ears; no floppy puppy ears, no bandana/scarf, no extra outfit or character. Keep face, coat markings, collar, three stars and backpack consistent in every frame; only pose changes.\nVisual style: cute clean warm 2D hand-drawn sticker illustration for an 8-9 year old child's pet app, simple orange/cream flat colors with restrained soft highlights, thick smooth dark-brown outlines, no photorealism or 3D.\nCanvas/layout: exact 1536 x 768 landscape canvas, 4 equal columns and 2 equal rows, eight 384 x 384 square cells. Reading order left-to-right top row frames 1-4, then left-to-right bottom row frames 5-8. Do not draw cell borders, grids, labels, text, numbers, shadows, scenery or backgrounds. The cell grid itself is invisible. Every cell has a genuinely transparent background (RGBA alpha=0) with clear transparent gutters. Each dog, prop and motion detail stays entirely INSIDE its own cell with at least 24 px of empty margin; nothing crosses a cell boundary or is cropped.\nAnimation registration: fixed orthographic three-quarter front camera, dog looks toward viewer-left, same body and head pixel scale in all eight frames, center of torso anchored near x=192 within every cell; shared floor y=326 within every cell. No per-frame zoom or recentering, no camera movement. Match fixed local coordinates from cell to cell. Keep natural vertical movement where specified; a jump must visibly rise above this unchanged floor, never align its feet back to the floor at the jump apex. One dog per cell, one coherent sequential moment per frame, no ghosting or duplicate limbs. The poses MUST evolve in a readable continuous animation, not eight identical drawings. Frame 8 should lead smoothly back to frame 1 where a loop is requested.\nTransparency: true clean transparent PNG outside artwork, not white/off-white rectangles, not gray checkerboard painted into the image. Preserve all opaque cream-white fur and white bubble highlights as part of the dog/props. All four canvas corners and inter-cell gutters must be alpha zero.\n\nAction to animate: Quiet idle breathing while standing as in the identity image. No props or human. Paws stay planted at identical four local coordinates. Frames 1-8: resting exhale; chest and head rise 2 px; rise 4 px with soft blink; gentle inhale at 5 px; eyelids reopen and chest lowers 3 px; lowers 2 px with tiny ear twitch; fully relaxed exhale; nearly identical frame-1 pose. Tail makes only a 2-3 px natural relaxed drift, no big wag. Stable silhouette and body size, calm continuous loop.\nFinal reminder: 4 columns x 2 rows, exactly EIGHT genuinely different consecutive frames. True transparent background. Preserve upright ears, exactly three front-of-collar gold stars (natural occlusion permitted during turns) and red backpack.",
+      "refs": [
+        "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/pet/s3.webp",
+        "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/pet/s3-act-wag.webp",
+        "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/design/pet/gif-pack-2026-11-05/s3-layout.png"
+      ],
+      "source_output_path": "/Users/shushengye/.codex/generated_images/01a19069-f7d6-7443-869e-fbb8fde8e571/exec-c473f68a-f7b8-450a-8e14-8f16f219d14b.png"
+    }
+  ],
+  "qa": {
+    "size": [
+      1774,
+      887
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "corner_alpha": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "zero_alpha_ratio": 0.6776
+  }
+}

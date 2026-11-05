@@ -1,0 +1,146 @@
+{
+  "input": "raw/s3-proud.png",
+  "sheet": {
+    "width": 1774,
+    "height": 887,
+    "grid": [
+      4,
+      2
+    ]
+  },
+  "crop": {
+    "left": 84,
+    "top": 51,
+    "width": 287,
+    "height": 328
+  },
+  "scale": 1.4146341463414633,
+  "size": 512,
+  "durations": [
+    120,
+    120,
+    120,
+    120,
+    120,
+    120,
+    120,
+    160
+  ],
+  "durationMs": 1000,
+  "loop": 0,
+  "bounds": [
+    {
+      "left": 87,
+      "top": 62,
+      "right": 354,
+      "bottom": 377,
+      "transparent": 134556
+    },
+    {
+      "left": 86,
+      "top": 51,
+      "right": 357,
+      "bottom": 377,
+      "transparent": 130959
+    },
+    {
+      "left": 84,
+      "top": 73,
+      "right": 355,
+      "bottom": 377,
+      "transparent": 133964
+    },
+    {
+      "left": 85,
+      "top": 72,
+      "right": 357,
+      "bottom": 377,
+      "transparent": 134657
+    },
+    {
+      "left": 84,
+      "top": 60,
+      "right": 370,
+      "bottom": 378,
+      "transparent": 132007
+    },
+    {
+      "left": 87,
+      "top": 64,
+      "right": 355,
+      "bottom": 378,
+      "transparent": 132139
+    },
+    {
+      "left": 85,
+      "top": 71,
+      "right": 354,
+      "bottom": 378,
+      "transparent": 133796
+    },
+    {
+      "left": 88,
+      "top": 63,
+      "right": 355,
+      "bottom": 378,
+      "transparent": 133257
+    }
+  ],
+  "frames": [
+    {
+      "frame": 0,
+      "transparent": 150958,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 1,
+      "transparent": 147345,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 2,
+      "transparent": 152317,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 3,
+      "transparent": 150612,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 4,
+      "transparent": 147356,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 5,
+      "transparent": 150636,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 6,
+      "transparent": 151769,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 7,
+      "transparent": 151242,
+      "alphaMismatch": 0
+    }
+  ],
+  "gif": "assets/s3-proud.gif",
+  "source": {
+    "sha256": "49aedcefd3c047a28dbdb9266cd31f864164bfa4786904b1de797fd8a0a594f2",
+    "encoderSha256": "4a061a1e1b991d023fa7bebd7d5539c4ba4578394e9ff056e7e9b6a87c7c01fa",
+    "durations": [
+      120,
+      120,
+      120,
+      120,
+      120,
+      120,
+      120,
+      160
+    ]
+  }
+}

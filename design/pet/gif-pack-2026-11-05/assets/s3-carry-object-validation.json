@@ -1,0 +1,146 @@
+{
+  "input": "raw/s3-carry-object.png",
+  "sheet": {
+    "width": 1774,
+    "height": 887,
+    "grid": [
+      4,
+      2
+    ]
+  },
+  "crop": {
+    "left": 61,
+    "top": 59,
+    "width": 295,
+    "height": 321
+  },
+  "scale": 1.4454828660436136,
+  "size": 512,
+  "durations": [
+    220,
+    220,
+    220,
+    220,
+    220,
+    220,
+    220,
+    260
+  ],
+  "durationMs": 1800,
+  "loop": 0,
+  "bounds": [
+    {
+      "left": 84,
+      "top": 61,
+      "right": 354,
+      "bottom": 378,
+      "transparent": 131708
+    },
+    {
+      "left": 68,
+      "top": 97,
+      "right": 355,
+      "bottom": 378,
+      "transparent": 133570
+    },
+    {
+      "left": 62,
+      "top": 120,
+      "right": 355,
+      "bottom": 378,
+      "transparent": 137042
+    },
+    {
+      "left": 74,
+      "top": 67,
+      "right": 355,
+      "bottom": 378,
+      "transparent": 132170
+    },
+    {
+      "left": 79,
+      "top": 59,
+      "right": 353,
+      "bottom": 379,
+      "transparent": 131670
+    },
+    {
+      "left": 67,
+      "top": 86,
+      "right": 355,
+      "bottom": 379,
+      "transparent": 129138
+    },
+    {
+      "left": 61,
+      "top": 117,
+      "right": 355,
+      "bottom": 379,
+      "transparent": 136433
+    },
+    {
+      "left": 86,
+      "top": 61,
+      "right": 355,
+      "bottom": 379,
+      "transparent": 130226
+    }
+  ],
+  "frames": [
+    {
+      "frame": 0,
+      "transparent": 142907,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 1,
+      "transparent": 150134,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 2,
+      "transparent": 153518,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 3,
+      "transparent": 144402,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 4,
+      "transparent": 142141,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 5,
+      "transparent": 147268,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 6,
+      "transparent": 152030,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 7,
+      "transparent": 142987,
+      "alphaMismatch": 0
+    }
+  ],
+  "gif": "assets/s3-carry-object.gif",
+  "source": {
+    "sha256": "705cc590046ef7720c945cc8bfe659730242eb3192fbad63043597be7c3b2cc9",
+    "encoderSha256": "4a061a1e1b991d023fa7bebd7d5539c4ba4578394e9ff056e7e9b6a87c7c01fa",
+    "durations": [
+      220,
+      220,
+      220,
+      220,
+      220,
+      220,
+      220,
+      260
+    ]
+  }
+}

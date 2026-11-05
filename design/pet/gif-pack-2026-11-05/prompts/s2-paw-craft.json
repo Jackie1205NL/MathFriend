@@ -1,0 +1,30 @@
+{
+  "id": "s2-paw-craft",
+  "stage": "少年",
+  "tool": "built-in image_gen",
+  "transparent_background": true,
+  "layout": {
+    "columns": 4,
+    "rows": 2,
+    "frames": 8,
+    "requested_canvas": [
+      1536,
+      768
+    ]
+  },
+  "refs": [
+    "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/pet/s2.webp",
+    "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/design/pet/gif-pack-2026-11-05/s2-layout.png"
+  ],
+  "prompt": "Use case: illustration-story. Make ONE new 2D game animation sprite sheet, EXACTLY eight sequential frames in a 4-column by 2-row grid, row-major order, landscape 2:1, preferably 1536x768 with equal square cells. Reference1 locks character identity, reference2 locks grid registration; reference3 when present locks sleeping basket pose. Actual transparent RGBA background: alpha EXACTLY ZERO outside the drawing and in all gutters/corners. NO white matte, painted checkerboard, scene, cast shadow, grid, labels, symbols, text or borders.\nExact SAME juvenile Shiba from reference in every cell: warm orange fur, cream muzzle/chest/paws/tail-tip, rounded dark-brown clean outlines, glossy brown eyes, pink cheeks, ONE upright ear and ONE floppy ear, turquoise BLUE collar with EXACTLY TWO gold five-pointed star pendants, NO backpack/scarf/hat. Same head/body proportions and pixel scale throughout. Only requested pose changes. Do not change color or anatomy.\nFixed orthographic three-quarter front view toward left, same center x=192 and shared floor y=326 within each384-square cell, at least24px empty margin. No per-frame recentering or zoom, nothing cropped or crossing cells, one dog per cell and exactly four natural legs. Moving limbs/eyes must form a readable continuous progression; frame8 leads smoothly back to1. Maintain opaque cream-white fur and shiny highlights as artwork, only background becomes alpha0.\nAction: Reusable seated two-front-paw helping/crafting movement with an EMPTY transparent work area. Eight poses: 1 sits with front paws apart; 2 both existing front paws approach empty workspace; 3 paws move gently together as if rolling a tiny soft object; 4 roll forward slightly; 5 paws separate a little; 6 second gentle rolling motion; 7 paws return to seated placement; 8 exact starting pose. No object/dough/snowball baked in, these are separate replaceable layers. Only four legs total, no human hands, no complex fingers.\nFinal check: 4 columns x2 rows, EIGHT different progressive poses, identical juvenile two-star identity, clean true transparent background.",
+  "source_output_path": "/Users/shushengye/.codex/generated_images/01a1906a-3aac-7151-9337-bb1de5cb125b/exec-bb50d919-8494-441d-a297-14a947b51d3c.png",
+  "workspace_output": "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/design/pet/gif-pack-2026-11-05/raw/s2-paw-craft.png",
+  "status": "generated",
+  "attempts": [
+    {
+      "at": "2026-11-05T15:19:16.906Z",
+      "source_output_path": "/Users/shushengye/.codex/generated_images/01a1906a-3aac-7151-9337-bb1de5cb125b/exec-bb50d919-8494-441d-a297-14a947b51d3c.png"
+    }
+  ],
+  "note": "可复用宠物动作主体，物件层未烘焙，具体积木/纪念物/手工作品在接入层组合。"
+}

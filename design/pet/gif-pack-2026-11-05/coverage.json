@@ -1,0 +1,2351 @@
+{
+  "asOf": "2026-11-05",
+  "basis": "仅静态代码与实际阶段图片走查，没有读取真实账号",
+  "stages": [
+    {
+      "id": "s2",
+      "label": "少年",
+      "reference": "kid/public/pet/s2.webp",
+      "identity": "蓝色项圈，两颗金星，一耳竖一耳垂，无背包",
+      "gate": {
+        "days": 6,
+        "from": "2026-10-24"
+      }
+    },
+    {
+      "id": "s3",
+      "label": "青年",
+      "reference": "kid/public/pet/s3.webp",
+      "identity": "蓝色项圈，三颗金星，两耳竖起，红色背包",
+      "gate": {
+        "days": 16,
+        "from": "2026-11-21"
+      }
+    }
+  ],
+  "minimumBaseActionCount": 28,
+  "stageGifCount": 56,
+  "important": "28种是带条件和物件层组合的基础动作数。若每个带道具入口都要独立完整GIF，还需导出食物/拾取物/7事件等物件变体，不能声称56个无变体GIF已经逐项视觉覆盖。",
+  "actions": [
+    {
+      "id": "idle",
+      "name": "安静呼吸",
+      "motion": "站立或坐好，胸口微起伏，耳朵轻动",
+      "durationMs": 1800,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "id": "look",
+      "name": "好奇看向一侧",
+      "motion": "眼睛跟随目标，轻转头，再回正",
+      "durationMs": 1200,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "id": "sniff",
+      "name": "嗅嗅",
+      "motion": "鼻尖前探嗅两下，轻轻缩回",
+      "durationMs": 1000,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "id": "blink",
+      "name": "眨眼点头",
+      "motion": "眨眼、轻点头、回到待机",
+      "durationMs": 900,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "id": "stretch-yawn",
+      "name": "伸懒腰和打哈欠",
+      "motion": "前爪伸展，微张嘴打哈欠，再站好",
+      "durationMs": 1600,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "id": "wag",
+      "name": "开心摇尾",
+      "motion": "弯眼轻笑，尾巴摇动，身体不跳",
+      "durationMs": 1200,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "id": "hop",
+      "name": "开心小跳",
+      "motion": "稍蹲、跳起一次、落地，脚底基线固定",
+      "durationMs": 1000,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "id": "wave",
+      "name": "招呼挥爪",
+      "motion": "抬一只前爪，挥两下，放回地面",
+      "durationMs": 1200,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "id": "spin",
+      "name": "摇尾转圈",
+      "motion": "原地转一小圈，回到原站位",
+      "durationMs": 1400,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "id": "think",
+      "name": "歪头思考",
+      "motion": "歪头，耳朵小动，停顿，再回正",
+      "durationMs": 1300,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "id": "low-rest",
+      "name": "低状态安心休息",
+      "motion": "身体略低，缓眨眼，轻呼吸，保持希望感",
+      "durationMs": 1800,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "id": "eat",
+      "name": "低头吃东西",
+      "motion": "低头对准食物层、吃一口、咀嚼、抬头舔嘴",
+      "durationMs": 1600,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "id": "bath",
+      "name": "泡泡澡",
+      "motion": "泡泡轻动、眨眼、头和耳朵摆动，盆底固定",
+      "durationMs": 1800,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "id": "pat",
+      "name": "被轻轻摸头",
+      "motion": "闭眼微抬头，轻轻靠向抚摸方向",
+      "durationMs": 1200,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "id": "shake",
+      "name": "抬爪握手或指一指",
+      "motion": "抬起前爪，向目标伸一下，收回",
+      "durationMs": 1200,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "id": "ball",
+      "name": "追球接球",
+      "motion": "看着小球滚动、小步追、前爪按住或叼回",
+      "durationMs": 1800,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "id": "disc",
+      "name": "跃起接飞盘",
+      "motion": "跟随蓝飞盘、压身、跃接、落地",
+      "durationMs": 1600,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "id": "walk",
+      "name": "散步巡逻",
+      "motion": "两至三步小幅走动，首尾相接，脚底固定",
+      "durationMs": 1600,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "id": "carry-object",
+      "name": "叼起并放好物件",
+      "motion": "低头叼起对应物件、抬头、在目标处放好",
+      "durationMs": 1800,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "id": "present-find",
+      "name": "展示发现或带路",
+      "motion": "看向发现、抬爪或叼着展示、回望孩子",
+      "durationMs": 1500,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "id": "sleep",
+      "name": "熟睡呼吸",
+      "motion": "蜷卧呼吸、耳尖或鼻子小动",
+      "durationMs": 2200,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "id": "blanket",
+      "name": "盖好被子",
+      "motion": "被角落下或掖好，鼻尖缩进一点，再安睡",
+      "durationMs": 2000,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "id": "night-pat",
+      "name": "睡后轻轻摸摸",
+      "motion": "蜷卧中前爪靠近，表情放松，仍闭眼",
+      "durationMs": 1800,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "id": "hum",
+      "name": "听晚安曲",
+      "motion": "蜷卧，耳尖轻动，呼吸渐缓，仍闭眼",
+      "durationMs": 2200,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "id": "sleep-low",
+      "name": "低状态睡梦",
+      "motion": "略蜷缩，轻叹气，随后慢慢放松",
+      "durationMs": 2200,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "id": "proud",
+      "name": "认真完成后的得意表情",
+      "motion": "明亮眼睛，轻点头，露出小笑容",
+      "durationMs": 1000,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "id": "shy-encourage",
+      "name": "犯错后温和鼓励",
+      "motion": "轻低头、温柔眨眼、抬头再试，不悲伤责备",
+      "durationMs": 1300,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "id": "paw-craft",
+      "name": "双爪动手帮忙",
+      "motion": "两只前爪慢慢靠拢或滚一滚，配合真实物件做小手工",
+      "durationMs": 1800,
+      "stages": [
+        "s2",
+        "s3"
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "id": "home.idle",
+      "category": "小屋",
+      "entry": "进入小屋及12秒闲聊",
+      "assetIds": [
+        "idle"
+      ],
+      "current": "静止阶段图+breathe CSS",
+      "visibility": "可见",
+      "notes": ""
+    },
+    {
+      "id": "home.tap",
+      "category": "小屋",
+      "entry": "点击小狗/连续戳",
+      "assetIds": [
+        "blink",
+        "wave",
+        "hop",
+        "look",
+        "spin",
+        "wag",
+        "stretch-yawn"
+      ],
+      "current": "LINES.tap / tap_too_much + ACT CSS",
+      "visibility": "可见",
+      "notes": ""
+    },
+    {
+      "id": "home.low",
+      "category": "低状态",
+      "entry": "三需求均小于30时闲聊及戳小狗",
+      "assetIds": [
+        "low-rest"
+      ],
+      "current": "rest_tap / state_rest，blink/look CSS",
+      "visibility": "条件可见",
+      "notes": "不采用接球/大跳等高兴动作替代"
+    },
+    {
+      "id": "care.food",
+      "category": "照顾",
+      "entry": "feed(cookie/rice/bento)",
+      "assetIds": [
+        "eat"
+      ],
+      "current": "统一eat姿势",
+      "visibility": "库存及白天可用",
+      "notes": "骨头饼干/饭碗/便当需要分别对应物件层或导出变体，动作基础可共用"
+    },
+    {
+      "id": "care.soap",
+      "category": "照顾",
+      "entry": "洗澡",
+      "assetIds": [
+        "bath"
+      ],
+      "current": "bath姿势+CSS泡泡",
+      "visibility": "库存及白天可用",
+      "notes": ""
+    },
+    {
+      "id": "care.pat",
+      "category": "照顾",
+      "entry": "摸摸，前三次/之后",
+      "assetIds": [
+        "pat",
+        "wag"
+      ],
+      "current": "前三次shake，之后wag",
+      "visibility": "白天可用",
+      "notes": "被摸头与主动握手要分开，尽管旧实现复用shake"
+    },
+    {
+      "id": "toy.ball",
+      "category": "玩具",
+      "entry": "ball(ball)",
+      "assetIds": [
+        "ball"
+      ],
+      "current": "两种都由后端toy返回catch姿势",
+      "visibility": "库存及白天可用",
+      "notes": "必须按玩具ID分流，不能把catch全替换为飞盘"
+    },
+    {
+      "id": "toy.disc",
+      "category": "玩具",
+      "entry": "ball(disc)",
+      "assetIds": [
+        "disc"
+      ],
+      "current": "两种都由后端toy返回catch姿势",
+      "visibility": "库存及白天可用",
+      "notes": "必须按玩具ID分流，不能把catch全替换为飞盘"
+    },
+    {
+      "id": "toy.empty",
+      "category": "照顾失败",
+      "entry": "食物/香皂/玩具库存不足",
+      "assetIds": [
+        "think"
+      ],
+      "current": "think动作+说明",
+      "visibility": "条件可见",
+      "notes": "只思考并显示原因，不播放成功吃/洗/接动作"
+    },
+    {
+      "id": "night.sleep",
+      "category": "睡后",
+      "entry": "入睡及睡眠闲聊",
+      "assetIds": [
+        "sleep"
+      ],
+      "current": "sleep姿势",
+      "visibility": "可见",
+      "notes": ""
+    },
+    {
+      "id": "night.blanket",
+      "category": "睡后",
+      "entry": "quiet(blanket)",
+      "assetIds": [
+        "blanket"
+      ],
+      "current": "全部返回sleep姿势",
+      "visibility": "睡眠条件可见",
+      "notes": "三种独立交互。保持闭眼，早7点醒。低状态另加sleep_low情绪版本"
+    },
+    {
+      "id": "night.pat",
+      "category": "睡后",
+      "entry": "quiet(pat)",
+      "assetIds": [
+        "night-pat"
+      ],
+      "current": "全部返回sleep姿势",
+      "visibility": "睡眠条件可见",
+      "notes": "三种独立交互。保持闭眼，早7点醒。低状态另加sleep_low情绪版本"
+    },
+    {
+      "id": "night.hum",
+      "category": "睡后",
+      "entry": "quiet(hum)",
+      "assetIds": [
+        "hum"
+      ],
+      "current": "全部返回sleep姿势",
+      "visibility": "睡眠条件可见",
+      "notes": "三种独立交互。保持闭眼，早7点醒。低状态另加sleep_low情绪版本"
+    },
+    {
+      "id": "night.low",
+      "category": "低状态",
+      "entry": "三低时睡眠及晚安互动",
+      "assetIds": [
+        "sleep-low",
+        "blanket",
+        "night-pat",
+        "hum"
+      ],
+      "current": "低落台词+同一sleep姿势",
+      "visibility": "条件可见",
+      "notes": "普通与低落情绪需状态组合或变体，不能切回嬉笑脸"
+    },
+    {
+      "id": "morning.greet",
+      "category": "问候",
+      "entry": "早安进入/小礼物",
+      "assetIds": [
+        "wave",
+        "wag",
+        "present-find"
+      ],
+      "current": "greet返回wag，礼物静态弹层",
+      "visibility": "条件可见",
+      "notes": "骨头饼干或10金币用真实物件层"
+    },
+    {
+      "id": "away",
+      "category": "出走",
+      "entry": "两项归零后空小屋",
+      "assetIds": [],
+      "current": "隐藏当前宠物",
+      "visibility": "条件可见",
+      "notes": "无需生成宠物出走逃跑GIF，当前是空房状态"
+    },
+    {
+      "id": "findPet",
+      "category": "找回",
+      "entry": "找回成功",
+      "assetIds": [
+        "walk",
+        "wave",
+        "wag",
+        "sleep"
+      ],
+      "current": "当前清空pose/act恢复pet图",
+      "visibility": "条件可见",
+      "notes": "白天可用走近+挥爪。夜间保持sleep。余额不足不能播找回成功"
+    },
+    {
+      "id": "hide.start",
+      "category": "藏骨头",
+      "entry": "打开/切难度/翻错杯",
+      "assetIds": [
+        "sniff",
+        "think"
+      ],
+      "current": "杯子SVG，狗不变",
+      "visibility": "白天可见",
+      "notes": "动作是观察线索，不伪造成功结果"
+    },
+    {
+      "id": "hide.win",
+      "category": "藏骨头",
+      "entry": "翻到骨头",
+      "assetIds": [
+        "present-find",
+        "hop"
+      ],
+      "current": "前端hop（后端wag）",
+      "visibility": "白天条件可见",
+      "notes": "可展示骨头物件层"
+    },
+    {
+      "id": "wardrobe.equip",
+      "category": "穿戴",
+      "entry": "围巾/领结/帽子穿戴和收起",
+      "assetIds": [
+        "proud",
+        "wave"
+      ],
+      "current": "切换静止叠加图，没有专用动作",
+      "visibility": "拥有且非出走",
+      "notes": "配饰要可换层。固定项圈属于阶段身份，商店配饰另叠加"
+    },
+    {
+      "id": "shop.buy",
+      "category": "商店",
+      "entry": "买食物/玩具/装扮",
+      "assetIds": [
+        "proud"
+      ],
+      "current": "只更新库存/金币和文字",
+      "visibility": "可见",
+      "notes": "无需宠物做无关动作，成功轻反馈可复用proud"
+    },
+    {
+      "id": "jar",
+      "category": "储蓄罐",
+      "entry": "存金币及存满",
+      "assetIds": [
+        "shake",
+        "proud"
+      ],
+      "current": "只文字/数值变更",
+      "visibility": "日期及金币条件可见",
+      "notes": "可用爪子碰存钱罐物件层，缺钱不播成功"
+    },
+    {
+      "id": "trip.walk",
+      "category": "散步",
+      "entry": "在开放地点散步",
+      "assetIds": [
+        "walk",
+        "sniff"
+      ],
+      "current": "前端只用anim walk",
+      "visibility": "白天条件可见",
+      "notes": ""
+    },
+    {
+      "id": "trip.find",
+      "category": "散步",
+      "entry": "捡到普通纪念物",
+      "assetIds": [
+        "present-find"
+      ],
+      "current": "文字+walk",
+      "visibility": "白天条件可见",
+      "notes": "叶/橡子/枝/羽毛/松果/银杏叶等物件是变体，不直接复用卡片形状"
+    },
+    {
+      "id": "trip.card",
+      "category": "散步",
+      "entry": "获得新明信片",
+      "assetIds": [
+        "present-find"
+      ],
+      "current": "walk后立刻打开卡片弹层",
+      "visibility": "条件可见",
+      "notes": "动效应在弹窗内或打开前呈现，纪念册旧图为历史插画"
+    },
+    {
+      "id": "lines.idle",
+      "category": "闲聊状态",
+      "entry": "LINES.idle",
+      "assetIds": [
+        "sniff",
+        "wag",
+        "think",
+        "stretch-yawn",
+        "spin",
+        "blink",
+        "look",
+        "hop",
+        "wave"
+      ],
+      "current": [
+        "sniff",
+        "giggle",
+        "giggle",
+        "think",
+        "stretch",
+        "spin",
+        "blink",
+        "look",
+        "hop",
+        "wave",
+        "yawn",
+        "think",
+        "hop",
+        "look"
+      ],
+      "visibility": "按状态选中",
+      "notes": "饥饿/无聊/脏等单项不足40与三低恢复状态分别覆盖"
+    },
+    {
+      "id": "lines.math",
+      "category": "闲聊状态",
+      "entry": "LINES.math",
+      "assetIds": [
+        "stretch-yawn",
+        "think",
+        "look",
+        "hop",
+        "blink",
+        "wag"
+      ],
+      "current": [
+        "sleepy",
+        "think",
+        "look",
+        "hop",
+        "think",
+        "blink",
+        "giggle",
+        "think"
+      ],
+      "visibility": "按状态选中",
+      "notes": "饥饿/无聊/脏等单项不足40与三低恢复状态分别覆盖"
+    },
+    {
+      "id": "lines.state_hungry",
+      "category": "闲聊状态",
+      "entry": "LINES.state_hungry",
+      "assetIds": [
+        "sniff",
+        "look"
+      ],
+      "current": [
+        "sniff",
+        "sniff",
+        "look"
+      ],
+      "visibility": "按状态选中",
+      "notes": "饥饿/无聊/脏等单项不足40与三低恢复状态分别覆盖"
+    },
+    {
+      "id": "lines.state_bored",
+      "category": "闲聊状态",
+      "entry": "LINES.state_bored",
+      "assetIds": [
+        "hop",
+        "spin",
+        "wave"
+      ],
+      "current": [
+        "hop",
+        "spin",
+        "wave"
+      ],
+      "visibility": "按状态选中",
+      "notes": "饥饿/无聊/脏等单项不足40与三低恢复状态分别覆盖"
+    },
+    {
+      "id": "lines.state_dirty",
+      "category": "闲聊状态",
+      "entry": "LINES.state_dirty",
+      "assetIds": [
+        "look",
+        "hop",
+        "sniff"
+      ],
+      "current": [
+        "look",
+        "hop",
+        "sniff"
+      ],
+      "visibility": "按状态选中",
+      "notes": "饥饿/无聊/脏等单项不足40与三低恢复状态分别覆盖"
+    },
+    {
+      "id": "lines.state_rest",
+      "category": "闲聊状态",
+      "entry": "LINES.state_rest",
+      "assetIds": [
+        "low-rest"
+      ],
+      "current": [
+        "blink",
+        "look",
+        "blink",
+        "look"
+      ],
+      "visibility": "按状态选中",
+      "notes": "饥饿/无聊/脏等单项不足40与三低恢复状态分别覆盖"
+    },
+    {
+      "id": "lines.rest_tap",
+      "category": "闲聊状态",
+      "entry": "LINES.rest_tap",
+      "assetIds": [
+        "low-rest"
+      ],
+      "current": [
+        "blink",
+        "look",
+        "blink"
+      ],
+      "visibility": "按状态选中",
+      "notes": "饥饿/无聊/脏等单项不足40与三低恢复状态分别覆盖"
+    },
+    {
+      "id": "lines.rest_sleep",
+      "category": "闲聊状态",
+      "entry": "LINES.rest_sleep",
+      "assetIds": [
+        "sleep-low"
+      ],
+      "current": [
+        "无动作",
+        "无动作"
+      ],
+      "visibility": "按状态选中",
+      "notes": "饥饿/无聊/脏等单项不足40与三低恢复状态分别覆盖"
+    },
+    {
+      "id": "lines.time_morning",
+      "category": "闲聊状态",
+      "entry": "LINES.time_morning",
+      "assetIds": [
+        "stretch-yawn",
+        "wave"
+      ],
+      "current": [
+        "stretch",
+        "wave"
+      ],
+      "visibility": "按状态选中",
+      "notes": "饥饿/无聊/脏等单项不足40与三低恢复状态分别覆盖"
+    },
+    {
+      "id": "lines.time_evening",
+      "category": "闲聊状态",
+      "entry": "LINES.time_evening",
+      "assetIds": [
+        "look",
+        "sniff"
+      ],
+      "current": [
+        "look",
+        "sniff"
+      ],
+      "visibility": "按状态选中",
+      "notes": "饥饿/无聊/脏等单项不足40与三低恢复状态分别覆盖"
+    },
+    {
+      "id": "lines.time_late",
+      "category": "闲聊状态",
+      "entry": "LINES.time_late",
+      "assetIds": [
+        "sleep"
+      ],
+      "current": [
+        "无动作",
+        "无动作"
+      ],
+      "visibility": "按状态选中",
+      "notes": "饥饿/无聊/脏等单项不足40与三低恢复状态分别覆盖"
+    },
+    {
+      "id": "lines.after_practice",
+      "category": "闲聊状态",
+      "entry": "LINES.after_practice",
+      "assetIds": [
+        "hop",
+        "spin",
+        "wag",
+        "wave"
+      ],
+      "current": [
+        "hop",
+        "spin",
+        "giggle",
+        "wave"
+      ],
+      "visibility": "按状态选中",
+      "notes": "饥饿/无聊/脏等单项不足40与三低恢复状态分别覆盖"
+    },
+    {
+      "id": "lines.remember",
+      "category": "闲聊状态",
+      "entry": "LINES.remember",
+      "assetIds": [
+        "hop",
+        "think",
+        "spin",
+        "look",
+        "wag"
+      ],
+      "current": [
+        "hop",
+        "think",
+        "spin",
+        "look",
+        "giggle",
+        "think"
+      ],
+      "visibility": "按状态选中",
+      "notes": "饥饿/无聊/脏等单项不足40与三低恢复状态分别覆盖"
+    },
+    {
+      "id": "lines.tap",
+      "category": "闲聊状态",
+      "entry": "LINES.tap",
+      "assetIds": [
+        "wag",
+        "wave",
+        "hop",
+        "look",
+        "spin",
+        "blink",
+        "stretch-yawn"
+      ],
+      "current": [
+        "giggle",
+        "wave",
+        "hop",
+        "look",
+        "spin",
+        "blink",
+        "yawn",
+        "wave"
+      ],
+      "visibility": "按状态选中",
+      "notes": "饥饿/无聊/脏等单项不足40与三低恢复状态分别覆盖"
+    },
+    {
+      "id": "lines.tap_too_much",
+      "category": "闲聊状态",
+      "entry": "LINES.tap_too_much",
+      "assetIds": [
+        "wag",
+        "spin"
+      ],
+      "current": [
+        "giggle",
+        "spin"
+      ],
+      "visibility": "按状态选中",
+      "notes": "饥饿/无聊/脏等单项不足40与三低恢复状态分别覆盖"
+    },
+    {
+      "id": "scene.yard.0",
+      "category": "场景",
+      "entry": "explore(yard):踩到一片脆脆的叶子！咔嚓，像不像小饼干？",
+      "assetIds": [
+        "hop"
+      ],
+      "current": "hop",
+      "visibility": "s2/s3可开放",
+      "notes": "保留环境物件和文本语义，宠物仅做真实对应轻互动"
+    },
+    {
+      "id": "scene.yard.1",
+      "category": "场景",
+      "entry": "explore(yard):我找到一颗橡子！先闻一闻，再把它留给小松鼠。",
+      "assetIds": [
+        "sniff"
+      ],
+      "current": "sniff",
+      "visibility": "s2/s3可开放",
+      "notes": "保留环境物件和文本语义，宠物仅做真实对应轻互动"
+    },
+    {
+      "id": "scene.yard.2",
+      "category": "场景",
+      "entry": "explore(yard):风把叶子吹起来啦，我的尾巴也想跟着跳舞！",
+      "assetIds": [
+        "spin"
+      ],
+      "current": "spin",
+      "visibility": "s2/s3可开放",
+      "notes": "保留环境物件和文本语义，宠物仅做真实对应轻互动"
+    },
+    {
+      "id": "scene.yard.rest",
+      "category": "场景低状态",
+      "entry": "我们慢慢走，听落叶沙沙响。陪你看风景也很开心。",
+      "assetIds": [
+        "low-rest"
+      ],
+      "current": "blink",
+      "visibility": "条件可见",
+      "notes": ""
+    },
+    {
+      "id": "scene.yard.night",
+      "category": "场景夜间",
+      "entry": "院子里的叶子轻轻摇，小狗正在小屋做梦。明天再来听沙沙声吧。",
+      "assetIds": [],
+      "current": "无动作",
+      "visibility": "条件可见",
+      "notes": "狗在小屋睡，场景中不显示当前狗"
+    },
+    {
+      "id": "scene.park.0",
+      "category": "场景",
+      "entry": "explore(park):蝴蝶飞到那边啦！我轻轻跟过去，不打扰它。",
+      "assetIds": [
+        "look"
+      ],
+      "current": "look",
+      "visibility": "s3开放",
+      "notes": "保留环境物件和文本语义，宠物仅做真实对应轻互动"
+    },
+    {
+      "id": "scene.park.1",
+      "category": "场景",
+      "entry": "explore(park):这片草软软的，我想在这里伸一个大懒腰！",
+      "assetIds": [
+        "stretch-yawn"
+      ],
+      "current": "stretch",
+      "visibility": "s3开放",
+      "notes": "保留环境物件和文本语义，宠物仅做真实对应轻互动"
+    },
+    {
+      "id": "scene.park.2",
+      "category": "场景",
+      "entry": "explore(park):啾啾！小鸟是在叫我吗？我也摇摇尾巴打招呼。",
+      "assetIds": [
+        "wag"
+      ],
+      "current": "giggle",
+      "visibility": "s3开放",
+      "notes": "保留环境物件和文本语义，宠物仅做真实对应轻互动"
+    },
+    {
+      "id": "scene.park.rest",
+      "category": "场景低状态",
+      "entry": "在草坡上歇一歇吧。云朵慢慢走，我们也不用着急。",
+      "assetIds": [
+        "low-rest"
+      ],
+      "current": "blink",
+      "visibility": "条件可见",
+      "notes": ""
+    },
+    {
+      "id": "scene.park.night",
+      "category": "场景夜间",
+      "entry": "公园的星星亮起来了。小狗在小屋睡觉，我们轻轻看看夜景。",
+      "assetIds": [],
+      "current": "无动作",
+      "visibility": "条件可见",
+      "notes": "狗在小屋睡，场景中不显示当前狗"
+    },
+    {
+      "id": "scene.snow.0",
+      "category": "场景",
+      "entry": "explore(snow):看，我踩出了一串梅花脚印！下一朵会落在哪里呢？",
+      "assetIds": [
+        "hop"
+      ],
+      "current": "hop",
+      "visibility": "s4才开放",
+      "notes": "保留环境物件和文本语义，宠物仅做真实对应轻互动"
+    },
+    {
+      "id": "scene.snow.1",
+      "category": "场景",
+      "entry": "explore(snow):雪花落在鼻尖上，凉凉的，眨眼就不见啦！",
+      "assetIds": [
+        "blink"
+      ],
+      "current": "blink",
+      "visibility": "s4才开放",
+      "notes": "保留环境物件和文本语义，宠物仅做真实对应轻互动"
+    },
+    {
+      "id": "scene.snow.2",
+      "category": "场景",
+      "entry": "explore(snow):呼——我的小鼻子也会变出白白的云！",
+      "assetIds": [
+        "wag"
+      ],
+      "current": "giggle",
+      "visibility": "s4才开放",
+      "notes": "保留环境物件和文本语义，宠物仅做真实对应轻互动"
+    },
+    {
+      "id": "scene.snow.rest",
+      "category": "场景低状态",
+      "entry": "慢慢看雪花落下来，一片、两片……安安静静也很好玩。",
+      "assetIds": [
+        "low-rest"
+      ],
+      "current": "blink",
+      "visibility": "条件可见",
+      "notes": ""
+    },
+    {
+      "id": "scene.snow.night",
+      "category": "场景夜间",
+      "entry": "雪地静悄悄的，小狗在暖暖的小屋里睡着了。把新脚印留到明天吧。",
+      "assetIds": [],
+      "current": "无动作",
+      "visibility": "条件可见",
+      "notes": "狗在小屋睡，场景中不显示当前狗"
+    },
+    {
+      "id": "scene.hall.0",
+      "category": "场景",
+      "entry": "explore(hall):这里的回声真有趣！汪——咦，好像有人在回答我。",
+      "assetIds": [
+        "look"
+      ],
+      "current": "look",
+      "visibility": "毕业周开放",
+      "notes": "保留环境物件和文本语义，宠物仅做真实对应轻互动"
+    },
+    {
+      "id": "scene.hall.1",
+      "category": "场景",
+      "entry": "explore(hall):彩旗摇呀摇，像在给我们加油！我也挥挥小爪子。",
+      "assetIds": [
+        "wave"
+      ],
+      "current": "wave",
+      "visibility": "毕业周开放",
+      "notes": "保留环境物件和文本语义，宠物仅做真实对应轻互动"
+    },
+    {
+      "id": "scene.hall.2",
+      "category": "场景",
+      "entry": "explore(hall):练习一下小小的鞠躬，谢谢一直陪着我的你！",
+      "assetIds": [
+        "blink"
+      ],
+      "current": "blink",
+      "visibility": "毕业周开放",
+      "notes": "保留环境物件和文本语义，宠物仅做真实对应轻互动"
+    },
+    {
+      "id": "scene.hall.rest",
+      "category": "场景低状态",
+      "entry": "我们坐下来看看彩旗。那些一起进步的小事，我都记着呢。",
+      "assetIds": [
+        "low-rest"
+      ],
+      "current": "blink",
+      "visibility": "条件可见",
+      "notes": ""
+    },
+    {
+      "id": "scene.hall.night",
+      "category": "场景夜间",
+      "entry": "礼堂的彩旗也休息啦。小狗在小屋睡着了，明天再来排练吧。",
+      "assetIds": [],
+      "current": "无动作",
+      "visibility": "条件可见",
+      "notes": "狗在小屋睡，场景中不显示当前狗"
+    },
+    {
+      "id": "item.curtain.0",
+      "category": "永久道具",
+      "entry": "item(curtain):窗帘躲猫猫！你猜我的鼻子藏在哪一边？",
+      "assetIds": [
+        "look"
+      ],
+      "current": "look",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "粉色小窗帘需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.curtain.1",
+      "category": "永久道具",
+      "entry": "item(curtain):风一吹，小窗帘就跳舞啦，我也晃一晃！",
+      "assetIds": [
+        "spin"
+      ],
+      "current": "spin",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "粉色小窗帘需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.curtain.rest",
+      "category": "道具低状态",
+      "entry": "拉开一点窗帘，让软软的阳光陪我们坐一会儿。",
+      "assetIds": [
+        "low-rest"
+      ],
+      "current": "blink",
+      "visibility": "条件可见",
+      "notes": ""
+    },
+    {
+      "id": "item.curtain.night",
+      "category": "道具夜间",
+      "entry": "轻轻拉好窗帘，把月光留一小缝，陪小狗做梦。",
+      "assetIds": [],
+      "current": "无动作",
+      "visibility": "条件可见",
+      "notes": "夜间物品轻反馈保留，小狗在睡姿；不唤醒"
+    },
+    {
+      "id": "item.lantern.0",
+      "category": "永久道具",
+      "entry": "item(lantern):爪印福灯亮起来啦！像一颗住进小屋的星星。",
+      "assetIds": [
+        "look"
+      ],
+      "current": "look",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "爪印福灯需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.lantern.1",
+      "category": "永久道具",
+      "entry": "item(lantern):灯上也有小爪印！和我的爪子比一比，谁的大？",
+      "assetIds": [
+        "wave"
+      ],
+      "current": "wave",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "爪印福灯需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.lantern.rest",
+      "category": "道具低状态",
+      "entry": "暖暖的福灯亮着，坐在这里就觉得很安心。",
+      "assetIds": [
+        "low-rest"
+      ],
+      "current": "blink",
+      "visibility": "条件可见",
+      "notes": ""
+    },
+    {
+      "id": "item.lantern.night",
+      "category": "道具夜间",
+      "entry": "福灯轻轻亮着，给熟睡的小狗留一点暖光。",
+      "assetIds": [],
+      "current": "无动作",
+      "visibility": "条件可见",
+      "notes": "夜间物品轻反馈保留，小狗在睡姿；不唤醒"
+    },
+    {
+      "id": "item.pillow.0",
+      "category": "永久道具",
+      "entry": "item(pillow):这个饺子抱枕软乎乎，咦，里面装的是云朵吗？",
+      "assetIds": [
+        "sniff"
+      ],
+      "current": "sniff",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "晚安饺子抱枕需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.pillow.1",
+      "category": "永久道具",
+      "entry": "item(pillow):抱住我的大饺子，准备滚进一个甜甜的梦！",
+      "assetIds": [
+        "wag"
+      ],
+      "current": "giggle",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "晚安饺子抱枕需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.pillow.rest",
+      "category": "道具低状态",
+      "entry": "靠着软软的抱枕歇一会儿，舒服多啦。",
+      "assetIds": [
+        "low-rest"
+      ],
+      "current": "blink",
+      "visibility": "条件可见",
+      "notes": ""
+    },
+    {
+      "id": "item.pillow.night",
+      "category": "道具夜间",
+      "entry": "饺子抱枕挨着小狗，呼噜声像一首轻轻的小曲。",
+      "assetIds": [],
+      "current": "无动作",
+      "visibility": "条件可见",
+      "notes": "夜间物品轻反馈保留，小狗在睡姿；不唤醒"
+    },
+    {
+      "id": "item.house.0",
+      "category": "永久道具",
+      "entry": "item(house):欢迎来到我的森林木屋！请进，今天的点心是想象饼干。",
+      "assetIds": [
+        "wave"
+      ],
+      "current": "wave",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "森林木屋需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.house.1",
+      "category": "永久道具",
+      "entry": "item(house):木屋门口有个小影子，原来是我的尾巴！",
+      "assetIds": [
+        "look"
+      ],
+      "current": "look",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "森林木屋需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.house.rest",
+      "category": "道具低状态",
+      "entry": "在木屋门口坐坐吧，树叶会给我们唱歌。",
+      "assetIds": [
+        "low-rest"
+      ],
+      "current": "blink",
+      "visibility": "条件可见",
+      "notes": ""
+    },
+    {
+      "id": "item.house.night",
+      "category": "道具夜间",
+      "entry": "森林木屋的门轻轻关好了，等小狗睡醒再来做客。",
+      "assetIds": [],
+      "current": "无动作",
+      "visibility": "条件可见",
+      "notes": "夜间物品轻反馈保留，小狗在睡姿；不唤醒"
+    },
+    {
+      "id": "item.swing.0",
+      "category": "永久道具",
+      "entry": "item(swing):秋千荡一下，枫叶也跟着摇一下！谁在模仿谁呀？",
+      "assetIds": [
+        "spin"
+      ],
+      "current": "spin",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "枫叶秋千需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.swing.1",
+      "category": "永久道具",
+      "entry": "item(swing):一前一后，一高一低，小秋千像在跳慢慢的舞。",
+      "assetIds": [
+        "look"
+      ],
+      "current": "look",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "枫叶秋千需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.swing.rest",
+      "category": "道具低状态",
+      "entry": "让秋千轻轻晃，我们在旁边听风就好。",
+      "assetIds": [
+        "low-rest"
+      ],
+      "current": "blink",
+      "visibility": "条件可见",
+      "notes": ""
+    },
+    {
+      "id": "item.swing.night",
+      "category": "道具夜间",
+      "entry": "秋千慢慢停下来，把沙沙声留给小狗的梦。",
+      "assetIds": [],
+      "current": "无动作",
+      "visibility": "条件可见",
+      "notes": "夜间物品轻反馈保留，小狗在睡姿；不唤醒"
+    },
+    {
+      "id": "item.flower.0",
+      "category": "永久道具",
+      "entry": "item(flower):小花你好！我轻轻闻一闻，不把你摘下来。",
+      "assetIds": [
+        "sniff"
+      ],
+      "current": "sniff",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "木箱花园需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.flower.1",
+      "category": "永久道具",
+      "entry": "item(flower):花瓣上有一颗小露珠，亮得像藏了一颗星星！",
+      "assetIds": [
+        "look"
+      ],
+      "current": "look",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "木箱花园需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.flower.rest",
+      "category": "道具低状态",
+      "entry": "小花也在慢慢长大，我们一起闻闻花香吧。",
+      "assetIds": [
+        "low-rest"
+      ],
+      "current": "blink",
+      "visibility": "条件可见",
+      "notes": ""
+    },
+    {
+      "id": "item.flower.night",
+      "category": "道具夜间",
+      "entry": "花园静静地睡着了，明早再和小狗一起看露珠。",
+      "assetIds": [],
+      "current": "无动作",
+      "visibility": "条件可见",
+      "notes": "夜间物品轻反馈保留，小狗在睡姿；不唤醒"
+    },
+    {
+      "id": "item.kite.0",
+      "category": "永久道具",
+      "entry": "item(kite):风筝把尾巴借给风啦！我的尾巴可不会飞走。",
+      "assetIds": [
+        "wag"
+      ],
+      "current": "giggle",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "秋风菱形风筝需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.kite.1",
+      "category": "永久道具",
+      "entry": "item(kite):看呀，风筝在给云朵挠痒痒！",
+      "assetIds": [
+        "look"
+      ],
+      "current": "look",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "秋风菱形风筝需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.kite.rest",
+      "category": "道具低状态",
+      "entry": "坐在草地上看风筝也很好，风会帮它慢慢飞。",
+      "assetIds": [
+        "low-rest"
+      ],
+      "current": "blink",
+      "visibility": "条件可见",
+      "notes": ""
+    },
+    {
+      "id": "item.kite.night",
+      "category": "道具夜间",
+      "entry": "风筝收好啦，明天再和小狗一起去追风。",
+      "assetIds": [],
+      "current": "无动作",
+      "visibility": "条件可见",
+      "notes": "夜间物品轻反馈保留，小狗在睡姿；不唤醒"
+    },
+    {
+      "id": "item.mat.0",
+      "category": "永久道具",
+      "entry": "item(mat):野餐垫铺好！这一个格子给你，这一个格子给我。",
+      "assetIds": [
+        "wave"
+      ],
+      "current": "wave",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "格纹野餐垫需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.mat.1",
+      "category": "永久道具",
+      "entry": "item(mat):我把爪爪摆进格子里，嘿，差点排成一条直线！",
+      "assetIds": [
+        "think"
+      ],
+      "current": "think",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "格纹野餐垫需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.mat.rest",
+      "category": "道具低状态",
+      "entry": "野餐垫软软的，我们坐下来看看云。",
+      "assetIds": [
+        "low-rest"
+      ],
+      "current": "blink",
+      "visibility": "条件可见",
+      "notes": ""
+    },
+    {
+      "id": "item.mat.night",
+      "category": "道具夜间",
+      "entry": "野餐垫叠好了，等小狗睡醒，再来安排小小野餐。",
+      "assetIds": [],
+      "current": "无动作",
+      "visibility": "条件可见",
+      "notes": "夜间物品轻反馈保留，小狗在睡姿；不唤醒"
+    },
+    {
+      "id": "item.pond.0",
+      "category": "永久道具",
+      "entry": "item(pond):池塘里有另一只我！我一歪头，它也歪头。",
+      "assetIds": [
+        "think"
+      ],
+      "current": "think",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "睡莲小池需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.pond.1",
+      "category": "永久道具",
+      "entry": "item(pond):睡莲旁边冒了个小泡泡，噗！是谁在水下打招呼？",
+      "assetIds": [
+        "look"
+      ],
+      "current": "look",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "睡莲小池需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.pond.rest",
+      "category": "道具低状态",
+      "entry": "我们坐远一点，安静地看水面一圈一圈的小波纹。",
+      "assetIds": [
+        "low-rest"
+      ],
+      "current": "blink",
+      "visibility": "条件可见",
+      "notes": ""
+    },
+    {
+      "id": "item.pond.night",
+      "category": "道具夜间",
+      "entry": "月亮落在睡莲旁边，小狗明天来时还能看到水里的云。",
+      "assetIds": [],
+      "current": "无动作",
+      "visibility": "条件可见",
+      "notes": "夜间物品轻反馈保留，小狗在睡姿；不唤醒"
+    },
+    {
+      "id": "item.snowman.0",
+      "category": "永久道具",
+      "entry": "item(snowman):你好呀，雪人朋友！你的胡萝卜鼻子可真神气。",
+      "assetIds": [
+        "wave"
+      ],
+      "current": "wave",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "围巾雪人需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.snowman.1",
+      "category": "永久道具",
+      "entry": "item(snowman):我给雪人讲了个笑话，它一定把笑声藏进雪球里啦！",
+      "assetIds": [
+        "wag"
+      ],
+      "current": "giggle",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "围巾雪人需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.snowman.rest",
+      "category": "道具低状态",
+      "entry": "和雪人并排歇一会儿，看看谁先等到下一片雪花。",
+      "assetIds": [
+        "low-rest"
+      ],
+      "current": "blink",
+      "visibility": "条件可见",
+      "notes": ""
+    },
+    {
+      "id": "item.snowman.night",
+      "category": "道具夜间",
+      "entry": "雪人围好围巾，安静守着雪地。小狗正在暖屋里睡觉。",
+      "assetIds": [],
+      "current": "无动作",
+      "visibility": "条件可见",
+      "notes": "夜间物品轻反馈保留，小狗在睡姿；不唤醒"
+    },
+    {
+      "id": "item.sled.0",
+      "category": "永久道具",
+      "entry": "item(sled):雪橇小队准备好！我先站稳，你来喊“一二三”！",
+      "assetIds": [
+        "hop"
+      ],
+      "current": "hop",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "暖木雪橇需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.sled.1",
+      "category": "永久道具",
+      "entry": "item(sled):这两条雪橇痕好长呀，像给雪地画了两条线！",
+      "assetIds": [
+        "look"
+      ],
+      "current": "look",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "暖木雪橇需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.sled.rest",
+      "category": "道具低状态",
+      "entry": "先拍拍雪橇上的软雪，等精神好了再慢慢滑。",
+      "assetIds": [
+        "low-rest"
+      ],
+      "current": "blink",
+      "visibility": "条件可见",
+      "notes": ""
+    },
+    {
+      "id": "item.sled.night",
+      "category": "道具夜间",
+      "entry": "雪橇停在一旁啦，明天再带小狗去滑一小段。",
+      "assetIds": [],
+      "current": "无动作",
+      "visibility": "条件可见",
+      "notes": "夜间物品轻反馈保留，小狗在睡姿；不唤醒"
+    },
+    {
+      "id": "item.stove.0",
+      "category": "永久道具",
+      "entry": "item(stove):小暖炉噼啪响，像在讲一个暖乎乎的故事。",
+      "assetIds": [
+        "look"
+      ],
+      "current": "look",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "森林暖炉需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.stove.1",
+      "category": "永久道具",
+      "entry": "item(stove):隔着一点距离暖暖爪子，嘿，尾巴也觉得暖和啦！",
+      "assetIds": [
+        "stretch-yawn"
+      ],
+      "current": "stretch",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "森林暖炉需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.stove.rest",
+      "category": "道具低状态",
+      "entry": "离暖炉远一点坐好，暖意会慢慢跑过来。",
+      "assetIds": [
+        "low-rest"
+      ],
+      "current": "blink",
+      "visibility": "条件可见",
+      "notes": ""
+    },
+    {
+      "id": "item.stove.night",
+      "category": "道具夜间",
+      "entry": "暖炉的光软软的，把暖意留给小狗的梦。",
+      "assetIds": [],
+      "current": "无动作",
+      "visibility": "条件可见",
+      "notes": "夜间物品轻反馈保留，小狗在睡姿；不唤醒"
+    },
+    {
+      "id": "item.scarf.0",
+      "category": "永久道具",
+      "entry": "item(scarf):我的蓝围巾像一小片天空，走到哪里都带着晴天！",
+      "assetIds": [
+        "wag"
+      ],
+      "current": "giggle",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "蓝色围巾需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.scarf.1",
+      "category": "永久道具",
+      "entry": "item(scarf):围巾尾巴晃呀晃，和我的小尾巴成朋友啦。",
+      "assetIds": [
+        "spin"
+      ],
+      "current": "spin",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "蓝色围巾需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.scarf.rest",
+      "category": "道具低状态",
+      "entry": "围巾轻轻围着，暖暖地陪你待一会儿。",
+      "assetIds": [
+        "low-rest"
+      ],
+      "current": "blink",
+      "visibility": "条件可见",
+      "notes": ""
+    },
+    {
+      "id": "item.scarf.night",
+      "category": "道具夜间",
+      "entry": "蓝围巾收好了，等小狗睡醒再戴上。",
+      "assetIds": [],
+      "current": "无动作",
+      "visibility": "条件可见",
+      "notes": "夜间物品轻反馈保留，小狗在睡姿；不唤醒"
+    },
+    {
+      "id": "item.bow.0",
+      "category": "永久道具",
+      "entry": "item(bow):戴上枫叶领结，我就是秋天的小小迎宾员！",
+      "assetIds": [
+        "wave"
+      ],
+      "current": "wave",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "枫叶领结需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.bow.1",
+      "category": "永久道具",
+      "entry": "item(bow):领结像一只停在脖子上的蝴蝶，嘿嘿。",
+      "assetIds": [
+        "wag"
+      ],
+      "current": "giggle",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "枫叶领结需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.bow.rest",
+      "category": "道具低状态",
+      "entry": "领结整整齐齐的，今天慢慢来就很好。",
+      "assetIds": [
+        "low-rest"
+      ],
+      "current": "blink",
+      "visibility": "条件可见",
+      "notes": ""
+    },
+    {
+      "id": "item.bow.night",
+      "category": "道具夜间",
+      "entry": "小领结也休息啦，明天再打扮得漂漂亮亮。",
+      "assetIds": [],
+      "current": "无动作",
+      "visibility": "条件可见",
+      "notes": "夜间物品轻反馈保留，小狗在睡姿；不唤醒"
+    },
+    {
+      "id": "item.hat.0",
+      "category": "永久道具",
+      "entry": "item(hat):星星帽戴好！我的耳朵藏进了暖暖的小帐篷。",
+      "assetIds": [
+        "blink"
+      ],
+      "current": "blink",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "星星毛线帽需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.hat.1",
+      "category": "永久道具",
+      "entry": "item(hat):帽子上的星星会不会也想看看真正的星空？",
+      "assetIds": [
+        "look"
+      ],
+      "current": "look",
+      "visibility": "购买/月份/地点条件可见",
+      "notes": "星星毛线帽需保留真实物件层。不要把轻触描述升级成宠物真的坐上秋千/雪橇的新行为"
+    },
+    {
+      "id": "item.hat.rest",
+      "category": "道具低状态",
+      "entry": "帽子软软暖暖，陪我安静坐一会儿吧。",
+      "assetIds": [
+        "low-rest"
+      ],
+      "current": "blink",
+      "visibility": "条件可见",
+      "notes": ""
+    },
+    {
+      "id": "item.hat.night",
+      "category": "道具夜间",
+      "entry": "星星帽放好了，和小狗一起等天亮。",
+      "assetIds": [],
+      "current": "无动作",
+      "visibility": "条件可见",
+      "notes": "夜间物品轻反馈保留，小狗在睡姿；不唤醒"
+    },
+    {
+      "id": "trick.计算失误",
+      "category": "隐藏把戏",
+      "entry": "握手",
+      "assetIds": [
+        "shake"
+      ],
+      "current": {
+        "pose": "shake",
+        "anim": null
+      },
+      "visibility": "代码有弹层/处理器，当前页面无tricks入口",
+      "notes": "学会对应技能一级才可用。叼积木必须是积木，带路不应出现飞盘"
+    },
+    {
+      "id": "trick.审题",
+      "category": "隐藏把戏",
+      "entry": "嗅嗅找东西",
+      "assetIds": [
+        "sniff"
+      ],
+      "current": {
+        "pose": null,
+        "anim": "sniff"
+      },
+      "visibility": "代码有弹层/处理器，当前页面无tricks入口",
+      "notes": "学会对应技能一级才可用。叼积木必须是积木，带路不应出现飞盘"
+    },
+    {
+      "id": "trick.格式规范",
+      "category": "隐藏把戏",
+      "entry": "摇尾巴转圈",
+      "assetIds": [
+        "spin",
+        "wag"
+      ],
+      "current": {
+        "pose": "wag",
+        "anim": "spin"
+      },
+      "visibility": "代码有弹层/处理器，当前页面无tricks入口",
+      "notes": "学会对应技能一级才可用。叼积木必须是积木，带路不应出现飞盘"
+    },
+    {
+      "id": "trick.漏题",
+      "category": "隐藏把戏",
+      "entry": "绕小屋巡逻",
+      "assetIds": [
+        "walk"
+      ],
+      "current": {
+        "pose": null,
+        "anim": "walk"
+      },
+      "visibility": "代码有弹层/处理器，当前页面无tricks入口",
+      "notes": "学会对应技能一级才可用。叼积木必须是积木，带路不应出现飞盘"
+    },
+    {
+      "id": "trick.概念不清",
+      "category": "隐藏把戏",
+      "entry": "叼积木排队",
+      "assetIds": [
+        "carry-object"
+      ],
+      "current": {
+        "pose": "catch",
+        "anim": null
+      },
+      "visibility": "代码有弹层/处理器，当前页面无tricks入口",
+      "notes": "学会对应技能一级才可用。叼积木必须是积木，带路不应出现飞盘"
+    },
+    {
+      "id": "trick.策略缺失",
+      "category": "隐藏把戏",
+      "entry": "带路",
+      "assetIds": [
+        "present-find",
+        "walk"
+      ],
+      "current": {
+        "pose": "catch",
+        "anim": "hop"
+      },
+      "visibility": "代码有弹层/处理器，当前页面无tricks入口",
+      "notes": "学会对应技能一级才可用。叼积木必须是积木，带路不应出现飞盘"
+    },
+    {
+      "id": "q.neutral",
+      "category": "答题表情",
+      "entry": "答题中陪伴",
+      "assetIds": [
+        "idle",
+        "blink"
+      ],
+      "current": "happy头像",
+      "visibility": "可见",
+      "notes": ""
+    },
+    {
+      "id": "q.circle.good",
+      "category": "答题表情",
+      "entry": "圈词点评好",
+      "assetIds": [
+        "proud"
+      ],
+      "current": "proud头像+hop",
+      "visibility": "条件可见",
+      "notes": ""
+    },
+    {
+      "id": "q.circle.missing",
+      "category": "答题表情",
+      "entry": "漏圈/多圈点评",
+      "assetIds": [
+        "think"
+      ],
+      "current": "thinking头像",
+      "visibility": "条件可见",
+      "notes": "不与答对庆祝混用"
+    },
+    {
+      "id": "q.result.right",
+      "category": "答题表情",
+      "entry": "答对/短订正完成",
+      "assetIds": [
+        "proud"
+      ],
+      "current": "proud头像",
+      "visibility": "条件可见",
+      "notes": ""
+    },
+    {
+      "id": "q.result.wrong",
+      "category": "答题表情",
+      "entry": "答错/部分正确/短订正待完成",
+      "assetIds": [
+        "think",
+        "shy-encourage"
+      ],
+      "current": "thinking头像",
+      "visibility": "条件可见",
+      "notes": "鼓励可复用，避免明显悲伤"
+    },
+    {
+      "id": "q.cover",
+      "category": "答题表情",
+      "entry": "慢慢来遮罩",
+      "assetIds": [
+        "think"
+      ],
+      "current": "thinking头像",
+      "visibility": "条件可见",
+      "notes": ""
+    },
+    {
+      "id": "q.guard",
+      "category": "技能守护",
+      "entry": "3级技能拦截需回去改",
+      "assetIds": [
+        "shy-encourage",
+        "shake"
+      ],
+      "current": "shy头像+徽章弹层",
+      "visibility": "技能条件可见",
+      "notes": ""
+    },
+    {
+      "id": "q.skill.审题.1",
+      "category": "答题技能",
+      "entry": "灵鼻子 1级",
+      "assetIds": [
+        "sniff",
+        "shake"
+      ],
+      "current": "当前仅徽章/台词/题面标记变化，暂无对应全身动画",
+      "visibility": "技能等级及次数条件可见",
+      "notes": "文字效果如高亮/脚印/读音仍承担教学信息，GIF不能包含答案或改变判分"
+    },
+    {
+      "id": "q.skill.审题.2",
+      "category": "答题技能",
+      "entry": "灵鼻子 2级",
+      "assetIds": [
+        "sniff",
+        "shake"
+      ],
+      "current": "当前仅徽章/台词/题面标记变化，暂无对应全身动画",
+      "visibility": "技能等级及次数条件可见",
+      "notes": "文字效果如高亮/脚印/读音仍承担教学信息，GIF不能包含答案或改变判分"
+    },
+    {
+      "id": "q.skill.审题.3",
+      "category": "答题技能",
+      "entry": "灵鼻子 3级",
+      "assetIds": [
+        "shake",
+        "shy-encourage"
+      ],
+      "current": "当前仅徽章/台词/题面标记变化，暂无对应全身动画",
+      "visibility": "技能等级及次数条件可见",
+      "notes": "文字效果如高亮/脚印/读音仍承担教学信息，GIF不能包含答案或改变判分"
+    },
+    {
+      "id": "q.skill.概念不清.1",
+      "category": "答题技能",
+      "entry": "排排队 1级",
+      "assetIds": [
+        "carry-object",
+        "shake"
+      ],
+      "current": "当前仅徽章/台词/题面标记变化，暂无对应全身动画",
+      "visibility": "技能等级及次数条件可见",
+      "notes": "文字效果如高亮/脚印/读音仍承担教学信息，GIF不能包含答案或改变判分"
+    },
+    {
+      "id": "q.skill.概念不清.2",
+      "category": "答题技能",
+      "entry": "排排队 2级",
+      "assetIds": [
+        "carry-object",
+        "shake"
+      ],
+      "current": "当前仅徽章/台词/题面标记变化，暂无对应全身动画",
+      "visibility": "技能等级及次数条件可见",
+      "notes": "文字效果如高亮/脚印/读音仍承担教学信息，GIF不能包含答案或改变判分"
+    },
+    {
+      "id": "q.skill.概念不清.3",
+      "category": "答题技能",
+      "entry": "排排队 3级",
+      "assetIds": [
+        "shake",
+        "shy-encourage"
+      ],
+      "current": "当前仅徽章/台词/题面标记变化，暂无对应全身动画",
+      "visibility": "技能等级及次数条件可见",
+      "notes": "文字效果如高亮/脚印/读音仍承担教学信息，GIF不能包含答案或改变判分"
+    },
+    {
+      "id": "q.skill.计算失误.1",
+      "category": "答题技能",
+      "entry": "稳稳爪 1级",
+      "assetIds": [
+        "shake",
+        "think"
+      ],
+      "current": "当前仅徽章/台词/题面标记变化，暂无对应全身动画",
+      "visibility": "技能等级及次数条件可见",
+      "notes": "文字效果如高亮/脚印/读音仍承担教学信息，GIF不能包含答案或改变判分"
+    },
+    {
+      "id": "q.skill.计算失误.2",
+      "category": "答题技能",
+      "entry": "稳稳爪 2级",
+      "assetIds": [
+        "shake",
+        "think"
+      ],
+      "current": "当前仅徽章/台词/题面标记变化，暂无对应全身动画",
+      "visibility": "技能等级及次数条件可见",
+      "notes": "文字效果如高亮/脚印/读音仍承担教学信息，GIF不能包含答案或改变判分"
+    },
+    {
+      "id": "q.skill.计算失误.3",
+      "category": "答题技能",
+      "entry": "稳稳爪 3级",
+      "assetIds": [
+        "shake",
+        "shy-encourage"
+      ],
+      "current": "当前仅徽章/台词/题面标记变化，暂无对应全身动画",
+      "visibility": "技能等级及次数条件可见",
+      "notes": "文字效果如高亮/脚印/读音仍承担教学信息，GIF不能包含答案或改变判分"
+    },
+    {
+      "id": "q.skill.格式规范.1",
+      "category": "答题技能",
+      "entry": "收尾巴 1级",
+      "assetIds": [
+        "wave",
+        "blink"
+      ],
+      "current": "当前仅徽章/台词/题面标记变化，暂无对应全身动画",
+      "visibility": "技能等级及次数条件可见",
+      "notes": "文字效果如高亮/脚印/读音仍承担教学信息，GIF不能包含答案或改变判分"
+    },
+    {
+      "id": "q.skill.格式规范.2",
+      "category": "答题技能",
+      "entry": "收尾巴 2级",
+      "assetIds": [
+        "wave",
+        "blink"
+      ],
+      "current": "当前仅徽章/台词/题面标记变化，暂无对应全身动画",
+      "visibility": "技能等级及次数条件可见",
+      "notes": "文字效果如高亮/脚印/读音仍承担教学信息，GIF不能包含答案或改变判分"
+    },
+    {
+      "id": "q.skill.格式规范.3",
+      "category": "答题技能",
+      "entry": "收尾巴 3级",
+      "assetIds": [
+        "shake",
+        "shy-encourage"
+      ],
+      "current": "当前仅徽章/台词/题面标记变化，暂无对应全身动画",
+      "visibility": "技能等级及次数条件可见",
+      "notes": "文字效果如高亮/脚印/读音仍承担教学信息，GIF不能包含答案或改变判分"
+    },
+    {
+      "id": "q.skill.漏题.1",
+      "category": "答题技能",
+      "entry": "巡逻 1级",
+      "assetIds": [
+        "walk",
+        "think"
+      ],
+      "current": "当前仅徽章/台词/题面标记变化，暂无对应全身动画",
+      "visibility": "技能等级及次数条件可见",
+      "notes": "文字效果如高亮/脚印/读音仍承担教学信息，GIF不能包含答案或改变判分"
+    },
+    {
+      "id": "q.skill.漏题.2",
+      "category": "答题技能",
+      "entry": "巡逻 2级",
+      "assetIds": [
+        "walk",
+        "think"
+      ],
+      "current": "当前仅徽章/台词/题面标记变化，暂无对应全身动画",
+      "visibility": "技能等级及次数条件可见",
+      "notes": "文字效果如高亮/脚印/读音仍承担教学信息，GIF不能包含答案或改变判分"
+    },
+    {
+      "id": "q.skill.漏题.3",
+      "category": "答题技能",
+      "entry": "巡逻 3级",
+      "assetIds": [
+        "shake",
+        "shy-encourage"
+      ],
+      "current": "当前仅徽章/台词/题面标记变化，暂无对应全身动画",
+      "visibility": "技能等级及次数条件可见",
+      "notes": "文字效果如高亮/脚印/读音仍承担教学信息，GIF不能包含答案或改变判分"
+    },
+    {
+      "id": "q.skill.策略缺失.1",
+      "category": "答题技能",
+      "entry": "探路 1级",
+      "assetIds": [
+        "present-find",
+        "walk"
+      ],
+      "current": "当前仅徽章/台词/题面标记变化，暂无对应全身动画",
+      "visibility": "技能等级及次数条件可见",
+      "notes": "文字效果如高亮/脚印/读音仍承担教学信息，GIF不能包含答案或改变判分"
+    },
+    {
+      "id": "q.skill.策略缺失.2",
+      "category": "答题技能",
+      "entry": "探路 2级",
+      "assetIds": [
+        "present-find",
+        "walk"
+      ],
+      "current": "当前仅徽章/台词/题面标记变化，暂无对应全身动画",
+      "visibility": "技能等级及次数条件可见",
+      "notes": "文字效果如高亮/脚印/读音仍承担教学信息，GIF不能包含答案或改变判分"
+    },
+    {
+      "id": "q.skill.策略缺失.3",
+      "category": "答题技能",
+      "entry": "探路 3级",
+      "assetIds": [
+        "shake",
+        "shy-encourage"
+      ],
+      "current": "当前仅徽章/台词/题面标记变化，暂无对应全身动画",
+      "visibility": "技能等级及次数条件可见",
+      "notes": "文字效果如高亮/脚印/读音仍承担教学信息，GIF不能包含答案或改变判分"
+    },
+    {
+      "id": "celebrate.points",
+      "category": "庆祝",
+      "entry": "技能点+1/学本领",
+      "assetIds": [
+        "proud",
+        "hop"
+      ],
+      "current": "proud头像/徽章弹层",
+      "visibility": "条件可见",
+      "notes": ""
+    },
+    {
+      "id": "celebrate.daily",
+      "category": "庆祝",
+      "entry": "完成每日练习",
+      "assetIds": [
+        "wag",
+        "hop"
+      ],
+      "current": "wag静图+hop",
+      "visibility": "条件可见",
+      "notes": ""
+    },
+    {
+      "id": "celebrate.boss",
+      "category": "庆祝",
+      "entry": "闯关获胜/失败",
+      "assetIds": [
+        "proud",
+        "hop",
+        "shy-encourage"
+      ],
+      "current": "像素怪兽变化+结果文字",
+      "visibility": "周末条件可见",
+      "notes": "胜用前两者，失败用温和鼓励"
+    },
+    {
+      "id": "celebrate.growth",
+      "category": "庆祝",
+      "entry": "s2成长至s3",
+      "assetIds": [
+        "proud",
+        "wave"
+      ],
+      "current": "阶段切换+文字",
+      "visibility": "成长及日期条件可见",
+      "notes": "两阶段各有独立身份参考，可组成前后过渡。不能混淆星数/背包"
+    },
+    {
+      "id": "celebrate.graduation",
+      "category": "庆祝",
+      "entry": "毕业/寒假",
+      "assetIds": [
+        "wave",
+        "proud",
+        "hop"
+      ],
+      "current": "学士帽叠加+静态宠物+confetti",
+      "visibility": "毕业周条件可见",
+      "notes": "当前和下阶段早于s4，素材准备需注明未来入口，学士帽独立层"
+    },
+    {
+      "id": "event.blocks",
+      "category": "日常事件",
+      "entry": "积木排队",
+      "assetIds": [
+        "carry-object"
+      ],
+      "current": "当前统一wag",
+      "visibility": "日期/技能条件可见",
+      "notes": "需要物件层或语义专用变体：积木。独立完整GIF若烘焙物件，应另导出，不能仅用摇尾来代表完成事件"
+    },
+    {
+      "id": "event.leaf",
+      "category": "日常事件",
+      "entry": "扫一扫落叶",
+      "assetIds": [
+        "shake",
+        "carry-object"
+      ],
+      "current": "当前统一wag",
+      "visibility": "日期/技能条件可见",
+      "notes": "需要物件层或语义专用变体：小扫帚+红叶。独立完整GIF若烘焙物件，应另导出，不能仅用摇尾来代表完成事件"
+    },
+    {
+      "id": "event.bird",
+      "category": "日常事件",
+      "entry": "撒面包屑",
+      "assetIds": [
+        "shake",
+        "look"
+      ],
+      "current": "当前统一wag",
+      "visibility": "日期/技能条件可见",
+      "notes": "需要物件层或语义专用变体：面包屑+麻雀。独立完整GIF若烘焙物件，应另导出，不能仅用摇尾来代表完成事件"
+    },
+    {
+      "id": "event.dumpling",
+      "category": "日常事件",
+      "entry": "包饺子",
+      "assetIds": [
+        "paw-craft"
+      ],
+      "current": "当前统一wag",
+      "visibility": "日期/技能条件可见",
+      "notes": "需要物件层或语义专用变体：面团/饺子。独立完整GIF若烘焙物件，应另导出，不能仅用摇尾来代表完成事件"
+    },
+    {
+      "id": "event.snow",
+      "category": "日常事件",
+      "entry": "滚雪球",
+      "assetIds": [
+        "paw-craft"
+      ],
+      "current": "当前统一wag",
+      "visibility": "日期/技能条件可见",
+      "notes": "需要物件层或语义专用变体：雪球。独立完整GIF若烘焙物件，应另导出，不能仅用摇尾来代表完成事件"
+    },
+    {
+      "id": "event.calendar",
+      "category": "日常事件",
+      "entry": "挂日历",
+      "assetIds": [
+        "carry-object",
+        "shake"
+      ],
+      "current": "当前统一wag",
+      "visibility": "日期/技能条件可见",
+      "notes": "需要物件层或语义专用变体：日历。独立完整GIF若烘焙物件，应另导出，不能仅用摇尾来代表完成事件"
+    },
+    {
+      "id": "event.couplet",
+      "category": "日常事件",
+      "entry": "按春联纸",
+      "assetIds": [
+        "shake"
+      ],
+      "current": "当前统一wag",
+      "visibility": "日期/技能条件可见",
+      "notes": "需要物件层或语义专用变体：春联纸。独立完整GIF若烘焙物件，应另导出，不能仅用摇尾来代表完成事件"
+    }
+  ],
+  "coverage": {
+    "places": [
+      "yard",
+      "park",
+      "snow",
+      "hall"
+    ],
+    "permanentItems": [
+      "curtain",
+      "lantern",
+      "pillow",
+      "house",
+      "swing",
+      "flower",
+      "kite",
+      "mat",
+      "pond",
+      "snowman",
+      "sled",
+      "stove",
+      "scarf",
+      "bow",
+      "hat"
+    ],
+    "linePools": [
+      "idle",
+      "math",
+      "state_hungry",
+      "state_bored",
+      "state_dirty",
+      "state_rest",
+      "rest_tap",
+      "rest_sleep",
+      "time_morning",
+      "time_evening",
+      "time_late",
+      "after_practice",
+      "remember",
+      "tap",
+      "tap_too_much"
+    ],
+    "tricks": [
+      "计算失误",
+      "审题",
+      "格式规范",
+      "漏题",
+      "概念不清",
+      "策略缺失"
+    ],
+    "skills": [
+      "审题",
+      "概念不清",
+      "计算失误",
+      "格式规范",
+      "漏题",
+      "策略缺失"
+    ],
+    "dailyEvents": [
+      "blocks",
+      "leaf",
+      "bird",
+      "dumpling",
+      "snow",
+      "calendar",
+      "couplet"
+    ],
+    "unusedFaceAssets": [
+      "hungry",
+      "sleepy"
+    ]
+  },
+  "constraints": [
+    "出走时不显示当前宠物，照顾/穿戴/户外/本领学习暂停，仍可做题",
+    "睡后仅三种安静互动，场景不显示宠物，低状态保持低落但温和",
+    "小球/飞盘/叼积木/带路旧代码共catch，必须按入口和物件分流",
+    "配饰锚点只针对静止图，动作现有收起规则或逐帧锚点需另选，不把可购买配饰固定烘进基础GIF",
+    "4x2连续帧需统一裁剪/缩放，保留跳跃高度，不逐帧底对齐",
+    "减少动态效果设置应提供静帧",
+    "故事/历史明信片/日记照片是历史插画，本表不改为当前宠物互动"
+  ],
+  "sources": [
+    "kid/src/main.js:71-130",
+    "kid/src/main.js:217-244",
+    "kid/src/main.js:651-727",
+    "kid/src/main.js:1064-1078",
+    "kid/src/main.js:1152-1224",
+    "kid/src/main.js:1258-1303",
+    "kid/src/interactions.js",
+    "kid/src/lines.js",
+    "kid/server/game.js:1130-1268",
+    "shared/contract.js:94-174"
+  ],
+  "canonicalAliases": {
+    "laugh_wag": "wag",
+    "petting": "pat",
+    "offer_paw": "shake",
+    "sleep_pat": "night-pat",
+    "sleep_hum": "hum"
+  }
+}

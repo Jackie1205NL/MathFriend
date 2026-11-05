@@ -1,0 +1,146 @@
+{
+  "input": "raw/s2-think.png",
+  "sheet": {
+    "width": 1774,
+    "height": 887,
+    "grid": [
+      4,
+      2
+    ]
+  },
+  "crop": {
+    "left": 100,
+    "top": 58,
+    "width": 254,
+    "height": 322
+  },
+  "scale": 1.4409937888198758,
+  "size": 512,
+  "durations": [
+    160,
+    160,
+    160,
+    160,
+    160,
+    160,
+    160,
+    180
+  ],
+  "durationMs": 1300,
+  "loop": 0,
+  "bounds": [
+    {
+      "left": 100,
+      "top": 68,
+      "right": 352,
+      "bottom": 378,
+      "transparent": 136414
+    },
+    {
+      "left": 101,
+      "top": 67,
+      "right": 352,
+      "bottom": 378,
+      "transparent": 130550
+    },
+    {
+      "left": 103,
+      "top": 60,
+      "right": 352,
+      "bottom": 378,
+      "transparent": 133833
+    },
+    {
+      "left": 111,
+      "top": 58,
+      "right": 352,
+      "bottom": 378,
+      "transparent": 130406
+    },
+    {
+      "left": 112,
+      "top": 60,
+      "right": 352,
+      "bottom": 379,
+      "transparent": 132673
+    },
+    {
+      "left": 104,
+      "top": 62,
+      "right": 352,
+      "bottom": 379,
+      "transparent": 128325
+    },
+    {
+      "left": 101,
+      "top": 69,
+      "right": 352,
+      "bottom": 379,
+      "transparent": 128724
+    },
+    {
+      "left": 101,
+      "top": 69,
+      "right": 353,
+      "bottom": 379,
+      "transparent": 132860
+    }
+  ],
+  "frames": [
+    {
+      "frame": 0,
+      "transparent": 161939,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 1,
+      "transparent": 161716,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 2,
+      "transparent": 160913,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 3,
+      "transparent": 160484,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 4,
+      "transparent": 160432,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 5,
+      "transparent": 160455,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 6,
+      "transparent": 161564,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 7,
+      "transparent": 161965,
+      "alphaMismatch": 0
+    }
+  ],
+  "gif": "assets/s2-think.gif",
+  "source": {
+    "sha256": "d62f6953bbb518227395e8caa04e5336f16268ca0630d84d27c4ad0a64332c34",
+    "encoderSha256": "4a061a1e1b991d023fa7bebd7d5539c4ba4578394e9ff056e7e9b6a87c7c01fa",
+    "durations": [
+      160,
+      160,
+      160,
+      160,
+      160,
+      160,
+      160,
+      180
+    ]
+  }
+}

@@ -1,0 +1,146 @@
+{
+  "input": "raw/s3-night-pat.png",
+  "sheet": {
+    "width": 1774,
+    "height": 887,
+    "grid": [
+      4,
+      2
+    ]
+  },
+  "crop": {
+    "left": 38,
+    "top": 33,
+    "width": 391,
+    "height": 359
+  },
+  "scale": 1.186700767263427,
+  "size": 512,
+  "durations": [
+    220,
+    220,
+    220,
+    220,
+    220,
+    220,
+    220,
+    260
+  ],
+  "durationMs": 1800,
+  "loop": 0,
+  "bounds": [
+    {
+      "left": 38,
+      "top": 52,
+      "right": 427,
+      "bottom": 391,
+      "transparent": 95294
+    },
+    {
+      "left": 39,
+      "top": 45,
+      "right": 427,
+      "bottom": 390,
+      "transparent": 92688
+    },
+    {
+      "left": 38,
+      "top": 42,
+      "right": 427,
+      "bottom": 390,
+      "transparent": 90262
+    },
+    {
+      "left": 40,
+      "top": 33,
+      "right": 428,
+      "bottom": 388,
+      "transparent": 92905
+    },
+    {
+      "left": 38,
+      "top": 36,
+      "right": 427,
+      "bottom": 390,
+      "transparent": 92428
+    },
+    {
+      "left": 38,
+      "top": 46,
+      "right": 427,
+      "bottom": 390,
+      "transparent": 92824
+    },
+    {
+      "left": 38,
+      "top": 52,
+      "right": 427,
+      "bottom": 390,
+      "transparent": 94019
+    },
+    {
+      "left": 38,
+      "top": 52,
+      "right": 428,
+      "bottom": 391,
+      "transparent": 94872
+    }
+  ],
+  "frames": [
+    {
+      "frame": 0,
+      "transparent": 127309,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 1,
+      "transparent": 126708,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 2,
+      "transparent": 125208,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 3,
+      "transparent": 122880,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 4,
+      "transparent": 124173,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 5,
+      "transparent": 126451,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 6,
+      "transparent": 128510,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 7,
+      "transparent": 128876,
+      "alphaMismatch": 0
+    }
+  ],
+  "gif": "assets/s3-night-pat.gif",
+  "source": {
+    "sha256": "7d6116f31c29e2939d4b4157455ad9b245e3c9d7728e412905c8ec7ec467f0f5",
+    "encoderSha256": "4a061a1e1b991d023fa7bebd7d5539c4ba4578394e9ff056e7e9b6a87c7c01fa",
+    "durations": [
+      220,
+      220,
+      220,
+      220,
+      220,
+      220,
+      220,
+      260
+    ]
+  }
+}

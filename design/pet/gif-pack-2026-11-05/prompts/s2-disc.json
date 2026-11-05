@@ -1,0 +1,11 @@
+{
+  "id": "s2-disc",
+  "method": "复用上一轮已交付的内置image_gen连续帧，本轮未重新生图",
+  "source": "../gif-preview-2026-11-05/catch-raw.png",
+  "sourceBrief": "../gif-preview-2026-11-05/brief.md",
+  "sha256": "d1f0056ad7ccfb94cfd432c029a374ac4efa9e99cbad8e5accb9e9a6d877d111",
+  "references": [
+    "kid/public/pet/s2-act-catch.webp"
+  ],
+  "note": "保留原始连续帧，再用本轮统一编码脚本制作GIF。"
+}

@@ -1,0 +1,146 @@
+{
+  "input": "raw/s3-bath.png",
+  "sheet": {
+    "width": 1774,
+    "height": 887,
+    "grid": [
+      4,
+      2
+    ]
+  },
+  "crop": {
+    "left": 62,
+    "top": 42,
+    "width": 324,
+    "height": 376
+  },
+  "scale": 1.2340425531914894,
+  "size": 512,
+  "durations": [
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    400
+  ],
+  "durationMs": 1800,
+  "loop": 0,
+  "bounds": [
+    {
+      "left": 64,
+      "top": 48,
+      "right": 385,
+      "bottom": 415,
+      "transparent": 98659
+    },
+    {
+      "left": 65,
+      "top": 43,
+      "right": 385,
+      "bottom": 415,
+      "transparent": 95570
+    },
+    {
+      "left": 64,
+      "top": 43,
+      "right": 382,
+      "bottom": 415,
+      "transparent": 92293
+    },
+    {
+      "left": 62,
+      "top": 42,
+      "right": 383,
+      "bottom": 415,
+      "transparent": 100907
+    },
+    {
+      "left": 64,
+      "top": 43,
+      "right": 383,
+      "bottom": 415,
+      "transparent": 97705
+    },
+    {
+      "left": 65,
+      "top": 47,
+      "right": 383,
+      "bottom": 415,
+      "transparent": 97929
+    },
+    {
+      "left": 64,
+      "top": 47,
+      "right": 383,
+      "bottom": 415,
+      "transparent": 100310
+    },
+    {
+      "left": 64,
+      "top": 47,
+      "right": 384,
+      "bottom": 417,
+      "transparent": 102196
+    }
+  ],
+  "frames": [
+    {
+      "frame": 0,
+      "transparent": 135372,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 1,
+      "transparent": 133750,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 2,
+      "transparent": 133790,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 3,
+      "transparent": 135868,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 4,
+      "transparent": 134785,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 5,
+      "transparent": 136109,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 6,
+      "transparent": 136243,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 7,
+      "transparent": 135675,
+      "alphaMismatch": 0
+    }
+  ],
+  "gif": "assets/s3-bath.gif",
+  "source": {
+    "sha256": "76047d1354b133567268d030dc629eda51739ef023a0b4a82acd9085875d0a03",
+    "encoderSha256": "4a061a1e1b991d023fa7bebd7d5539c4ba4578394e9ff056e7e9b6a87c7c01fa",
+    "durations": [
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      400
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "id": "s2-wag",
+  "action": "Happy greeting with wagging curled tail and soft blinking. Eight loop poses: 1 puppy stands front three-quarter cheerful; 2 tail shifts left slightly; 3 tail farther left and eyes close into happy smile; 4 tail sweeps through center, head slightly bobs; 5 tail right; 6 tail farther right, eyes open; 7 tail returns center; 8 nearly exactly same body pose as frame1. Keep feet planted in identical position and torso motion very small. Single tail, no duplicate tails.",
+  "ref": "kid/public/pet/s2.webp",
+  "prompt": "ONE animation sprite sheet with EXACTLY EIGHT equal square cells arranged 4 columns by 2 rows, row-major order. Wide 2:1 canvas. Fixed orthographic camera, shared scale and ground baseline, all figures and props fully inside each cell with at least 12% clear margin and transparent gutters. Real alpha transparency outside characters/props: background pixels alpha EXACTLY ZERO, no white matte, no fake checkerboard, no cast shadows. No labels/numbers/text/borders/scenery. Not a poster or collage. Warm cute 2D flat shaded cartoon sticker art matching reference. Distinct smoothly progressive animation poses.\nEXACT shipped juvenile Shiba identity from reference: orange fur, cream muzzle chest paws and tail tip, thick dark-brown rounded outlines, glossy brown eyes, pink cheeks, ONE upright ear and ONE floppy ear, turquoise BLUE collar with exactly TWO gold five-pointed star tags, NO backpack, scarf or hat. Consistent same proportions and size in every frame.\nHappy greeting with wagging curled tail and soft blinking. Eight loop poses: 1 puppy stands front three-quarter cheerful; 2 tail shifts left slightly; 3 tail farther left and eyes close into happy smile; 4 tail sweeps through center, head slightly bobs; 5 tail right; 6 tail farther right, eyes open; 7 tail returns center; 8 nearly exactly same body pose as frame1. Keep feet planted in identical position and torso motion very small. Single tail, no duplicate tails.",
+  "refs": [
+    "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/pet/s2.webp",
+    "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/design/pet/gif-pack-2026-11-05/s2-layout.png"
+  ],
+  "source": "/Users/shushengye/.codex/generated_images/01a1213d-e802-78f2-b349-cd60cf20947e/exec-99659b14-af90-4f72-8f83-26fde7fb744d.png",
+  "tool": "built-in image_gen"
+}

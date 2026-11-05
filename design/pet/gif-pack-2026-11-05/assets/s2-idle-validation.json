@@ -1,0 +1,146 @@
+{
+  "input": "raw/s2-idle.png",
+  "sheet": {
+    "width": 1774,
+    "height": 887,
+    "grid": [
+      4,
+      2
+    ]
+  },
+  "crop": {
+    "left": 93,
+    "top": 64,
+    "width": 259,
+    "height": 314
+  },
+  "scale": 1.4777070063694266,
+  "size": 512,
+  "durations": [
+    220,
+    220,
+    220,
+    220,
+    220,
+    220,
+    220,
+    260
+  ],
+  "durationMs": 1800,
+  "loop": 0,
+  "bounds": [
+    {
+      "left": 94,
+      "top": 64,
+      "right": 351,
+      "bottom": 376,
+      "transparent": 137717
+    },
+    {
+      "left": 93,
+      "top": 64,
+      "right": 350,
+      "bottom": 376,
+      "transparent": 136776
+    },
+    {
+      "left": 94,
+      "top": 64,
+      "right": 350,
+      "bottom": 376,
+      "transparent": 138741
+    },
+    {
+      "left": 93,
+      "top": 65,
+      "right": 350,
+      "bottom": 376,
+      "transparent": 131754
+    },
+    {
+      "left": 94,
+      "top": 65,
+      "right": 350,
+      "bottom": 377,
+      "transparent": 138664
+    },
+    {
+      "left": 95,
+      "top": 65,
+      "right": 350,
+      "bottom": 377,
+      "transparent": 140276
+    },
+    {
+      "left": 94,
+      "top": 66,
+      "right": 349,
+      "bottom": 377,
+      "transparent": 141940
+    },
+    {
+      "left": 93,
+      "top": 66,
+      "right": 350,
+      "bottom": 377,
+      "transparent": 140960
+    }
+  ],
+  "frames": [
+    {
+      "frame": 0,
+      "transparent": 155481,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 1,
+      "transparent": 155439,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 2,
+      "transparent": 154788,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 3,
+      "transparent": 154394,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 4,
+      "transparent": 154437,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 5,
+      "transparent": 155455,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 6,
+      "transparent": 155558,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 7,
+      "transparent": 155465,
+      "alphaMismatch": 0
+    }
+  ],
+  "gif": "assets/s2-idle.gif",
+  "source": {
+    "sha256": "302186831da50e9787ce50707a5f423c3e5d15b1f4901fff6b7e08fab6bffbcf",
+    "encoderSha256": "4a061a1e1b991d023fa7bebd7d5539c4ba4578394e9ff056e7e9b6a87c7c01fa",
+    "durations": [
+      220,
+      220,
+      220,
+      220,
+      220,
+      220,
+      220,
+      260
+    ]
+  }
+}

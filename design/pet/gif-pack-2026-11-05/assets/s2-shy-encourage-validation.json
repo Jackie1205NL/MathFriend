@@ -1,0 +1,146 @@
+{
+  "input": "raw/s2-shy-encourage.png",
+  "sheet": {
+    "width": 1774,
+    "height": 887,
+    "grid": [
+      4,
+      2
+    ]
+  },
+  "crop": {
+    "left": 92,
+    "top": 62,
+    "width": 257,
+    "height": 317
+  },
+  "scale": 1.4637223974763407,
+  "size": 512,
+  "durations": [
+    160,
+    160,
+    160,
+    160,
+    160,
+    160,
+    160,
+    180
+  ],
+  "durationMs": 1300,
+  "loop": 0,
+  "bounds": [
+    {
+      "left": 95,
+      "top": 66,
+      "right": 346,
+      "bottom": 377,
+      "transparent": 144565
+    },
+    {
+      "left": 92,
+      "top": 81,
+      "right": 347,
+      "bottom": 377,
+      "transparent": 145501
+    },
+    {
+      "left": 94,
+      "top": 88,
+      "right": 346,
+      "bottom": 377,
+      "transparent": 146266
+    },
+    {
+      "left": 98,
+      "top": 95,
+      "right": 347,
+      "bottom": 377,
+      "transparent": 147107
+    },
+    {
+      "left": 96,
+      "top": 84,
+      "right": 346,
+      "bottom": 378,
+      "transparent": 146195
+    },
+    {
+      "left": 98,
+      "top": 62,
+      "right": 347,
+      "bottom": 378,
+      "transparent": 144505
+    },
+    {
+      "left": 96,
+      "top": 66,
+      "right": 348,
+      "bottom": 378,
+      "transparent": 145073
+    },
+    {
+      "left": 97,
+      "top": 66,
+      "right": 348,
+      "bottom": 377,
+      "transparent": 144618
+    }
+  ],
+  "frames": [
+    {
+      "frame": 0,
+      "transparent": 159367,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 1,
+      "transparent": 161769,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 2,
+      "transparent": 163224,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 3,
+      "transparent": 164810,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 4,
+      "transparent": 162472,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 5,
+      "transparent": 159141,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 6,
+      "transparent": 159579,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 7,
+      "transparent": 159494,
+      "alphaMismatch": 0
+    }
+  ],
+  "gif": "assets/s2-shy-encourage.gif",
+  "source": {
+    "sha256": "5e7088e9190088ac9d4b647b917841ec418c22d51cc46e416f6f203591ed006f",
+    "encoderSha256": "4a061a1e1b991d023fa7bebd7d5539c4ba4578394e9ff056e7e9b6a87c7c01fa",
+    "durations": [
+      160,
+      160,
+      160,
+      160,
+      160,
+      160,
+      160,
+      180
+    ]
+  }
+}

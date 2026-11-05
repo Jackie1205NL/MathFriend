@@ -1,0 +1,140 @@
+{
+  "checkedAt": "2026-11-05T15:28:41.818Z",
+  "browser": "156.0.8078.80",
+  "previewUrl": "http://127.0.0.1:5187/preview.html",
+  "offlinePreview": "解压成品包后直接打开 preview.html；无需孩子端服务或账号。",
+  "manifestSha256": "c138af33908f3bca750134ea2407fb7e87f176064a092fd90ab13447213a0ae6",
+  "assetSha256": {
+    "s2-idle": "d69d20ff90fd24aa0b3a117d0206726de30ddfcf8a30c823742c5b569d7f2ecf",
+    "s2-look": "d1836584bb58d82cc54f5b01182863429fb51f61e7fed9e9b9be64ce59413735",
+    "s2-sniff": "4848eaf885b85d07fe7cbb6c435adca4fa7ba9c1ad96037641858995ae9e177e",
+    "s2-blink": "26cf4765ac467332ac240a44f8707ae49435a0b39b3415d89a3006eadcdc4efa",
+    "s2-stretch-yawn": "a0588642b2f34248e3e1b357a1f9231261409b1db69c24620545132533899aec",
+    "s2-wag": "65731bfc6143c87961ffd50c7966ed41381e539d43031f1ee0ba5f8d49750d24",
+    "s2-hop": "7789f2d65d94d0c48253067ae9745ff6dfa01f5cb2716b5cff341f21c21b6327",
+    "s2-wave": "51ca49b06c4a87e79cedf20df75081525f384abcd1b20eb66f51c65e23eeb49e",
+    "s2-spin": "ccee8e7d40443b4d4451affd9caff9fbc8e587ed4c939a48514b5dfb77244aa2",
+    "s2-think": "d022488864e79117c9246667135c6b1b345602992e7c6a474174e9eefbfe9b4a",
+    "s2-low-rest": "4b25c2417e2544591f5e4d73b64074a69fc4a1eb66b4fc20006e490be17894d4",
+    "s2-eat": "900fd89bdaca14d7c8887b57fb6959aee0fb628774d513ba5cd0bbf51718db5f",
+    "s2-bath": "462078aacf2c934fc1aa6d2c258144a964e03afb807b9e32c6cd87ba6ae8a248",
+    "s2-pat": "6a4d192435f4f34cf7a6e5d3d0b2f6168a3f062ae54747d2d444e6fbee15c287",
+    "s2-shake": "48970665b5462b6460d8184abdd907e3503fb64e81f007d0a35de6a434487140",
+    "s2-ball": "4a7528471fdb60fa25bb2d45d5f088fcca8890e6187014ebb70d8bcca401230b",
+    "s2-disc": "ac962e985afaa39e32a0ce74829524ef374de9bb0b65d8a4b914e482481d5fb6",
+    "s2-walk": "d19bb6387d730363fb7f257614e6d8b66b6177865f918fc1fa6dd905f9881e55",
+    "s2-carry-object": "28ede6525c9ac9fcc53aacc30983ebd852fd9bd9fc688ff6bd1cac82a485ed3a",
+    "s2-present-find": "75cc9b939a200a174759f18712c32c5d939e565a95b554458bc9a0f58a46eaa4",
+    "s2-sleep": "2234216c3e865e2c408e49111b936fb8d32d3d57c17c9d534c5371521f134e67",
+    "s2-blanket": "5926865b2e56fbb320dae74778fa389551faa7109c714d550605ef04905f34d6",
+    "s2-night-pat": "1d529acfebd1e29d921f5376f4042d6e6a8c34fd72983cfd5c6bb38283544666",
+    "s2-hum": "d42ccb6363e7a65a27bf8d8c4f36e436585dacc8f80ee70563d93cbf42160005",
+    "s2-sleep-low": "70630709b77691adf90c59f7612f1ffa807b4d0b86f140b3c4bf3d6ead310bda",
+    "s2-proud": "d7f77a462a299811a7391b393d32e630ff0089083cd763330974d4ccbc78a506",
+    "s2-shy-encourage": "0fcc19ea2631abc14318a2c22d9434dad1fff5412ed8a97ffe385da7e8e613d3",
+    "s2-paw-craft": "b9a2477153b3e0f32d1e8b6f3b56e127a0c2e0529931ce5152f4d6073cee2c15",
+    "s3-idle": "f5551749812795c381f4e97239114dbeed2cba84ca4ff1ebc44b01ab4db1e71c",
+    "s3-look": "784e379a89ef6150cc96478b5709507a4eb9d491592145f426a40ada803ec271",
+    "s3-sniff": "21f1566a0c77a286149b31b06637ffd206e9aace1c496125df4f18fa478098bb",
+    "s3-blink": "79276fe6855e1a7186f0c39761ffcabb5697423464a705b0ed102aaab6e307a0",
+    "s3-stretch-yawn": "8b58572b07738dbf2b3246354db1b9987465514eefc870b1c4e78517908a5bab",
+    "s3-wag": "b9a0d51a56a41f5b7029777b85d99ba96b8b2044ed0bf9a3f9120bc133f51ffe",
+    "s3-hop": "54a29a7f159848d99a01eb3e0808c2cd3e21cadb776fdb1dbce16cbc4d4e275f",
+    "s3-wave": "0f38fb91cabe37856d6fa93926b20b5e9d2350646d7b4d0d8d2605d4ca48abb1",
+    "s3-spin": "c5e80d78d165ae3b8d2cbb9ccfce86dc7cdc6c3d6bef28040e480e6527e8c817",
+    "s3-think": "727a3b90cd5b525c5f548a1b18a77c618445466d8b20e1993a1af4dbe2e14e0a",
+    "s3-low-rest": "ef495f40e9931c03527541cecbf2b5ae5f2f91298d730aa2e933852676c21b92",
+    "s3-eat": "4cea3eb08da24b49d97aa823d38798a61431129fc050969d489bbf513e72920a",
+    "s3-bath": "fafb2569a7c2f16f1e7875397e8a8b34eb8342ec56dc5db4f48d3eeddd3bf07c",
+    "s3-pat": "f23b35d5cf4c801b080a6e9c3fa8ea0b8dca683e7a5a0f9c5041915340ce2c97",
+    "s3-shake": "a680ac0d4de21eabc31eb9c31feff14ec0fda16e82ad496273b11b93fe0ac907",
+    "s3-ball": "cc798393e5d2cbfd36b59c36d10001edc6b1f69e4e74978db006b87b21ad1d08",
+    "s3-disc": "e63be945b153acc954bc57c3b1177150cc009958dd0a6fe00ae8de2c4400109f",
+    "s3-walk": "aff63b695be44ac43ab50402d0cc90126be113ea57549bd62b2d80bd70f0436b",
+    "s3-carry-object": "a0bd910f6c23ef9c3ef7c3fca843f0d86867d8bf7a6088c6ad2b0e11a49bdc30",
+    "s3-present-find": "137c4f775b239ed61abec34751b720612ee54287808776d99bbfd18cd80d80ef",
+    "s3-sleep": "4c8581a47e9eb3c4666a30ad3948d420c993e5701b78c092c35f4601fcd13d57",
+    "s3-blanket": "5aa078e43116c05f516ecd14e12ddfd907bb70d005d819ba1f95dd266488f72e",
+    "s3-night-pat": "cf0da0bec0c6c7254872b681603015bf1515ec2b55264906323f8920b2c608f0",
+    "s3-hum": "01d48393cce158f93383e11a7727e8a4aa670ab573246f3e4412ba95f12659de",
+    "s3-sleep-low": "9bb1981805bc2185a8145d75a982698ef9c4a91bc2a03c1366360e53a8d1fb60",
+    "s3-proud": "7e4271d45793d8fbda916535b51dd7874bacd08e6ce729278cd141267328b49d",
+    "s3-shy-encourage": "b117be00a42be67a84245d36d4f5e177d1b34eb15924e04c22562633f86de611",
+    "s3-paw-craft": "095e0db547cbf10336fd8d7b0a289ac8aea61de7ab1b0abc6fa932a0a7eaf5d9"
+  },
+  "technicalFramesDecoded": 448,
+  "browserGifImagesLoaded": 56,
+  "viewports": [
+    {
+      "viewport": 390,
+      "scroll": 390,
+      "lazy": true
+    },
+    {
+      "viewport": 744,
+      "scroll": 744,
+      "lazy": true
+    }
+  ],
+  "playback": [
+    {
+      "id": "s2-sleep",
+      "elapsedMs": 2568,
+      "cycleMs": 2200,
+      "samples": 11,
+      "distinctScreenshots": 8
+    },
+    {
+      "id": "s2-disc",
+      "elapsedMs": 2043,
+      "cycleMs": 1600,
+      "samples": 9,
+      "distinctScreenshots": 7
+    },
+    {
+      "id": "s2-think",
+      "elapsedMs": 1635,
+      "cycleMs": 1300,
+      "samples": 7,
+      "distinctScreenshots": 6
+    },
+    {
+      "id": "s2-low-rest",
+      "elapsedMs": 2098,
+      "cycleMs": 1800,
+      "samples": 9,
+      "distinctScreenshots": 8
+    },
+    {
+      "id": "s3-sleep",
+      "elapsedMs": 2568,
+      "cycleMs": 2200,
+      "samples": 11,
+      "distinctScreenshots": 8
+    },
+    {
+      "id": "s3-disc",
+      "elapsedMs": 1865,
+      "cycleMs": 1600,
+      "samples": 8,
+      "distinctScreenshots": 7
+    },
+    {
+      "id": "s3-think",
+      "elapsedMs": 1637,
+      "cycleMs": 1300,
+      "samples": 7,
+      "distinctScreenshots": 6
+    },
+    {
+      "id": "s3-low-rest",
+      "elapsedMs": 2084,
+      "cycleMs": 1800,
+      "samples": 9,
+      "distinctScreenshots": 8
+    }
+  ],
+  "errors": [],
+  "externalRequests": [],
+  "scope": "全部GIF由技术流程完整解码，浏览器载入全部GIF；连续跨周期播放只覆盖列出的代表动作，不声称全部动作都人工完整观看。"
+}

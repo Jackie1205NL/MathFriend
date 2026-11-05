@@ -1,0 +1,4 @@
+/packages/
+/assets/*-frames/0[1-7].png
+/assets/*-frames/timing.ffconcat
+.DS_Store

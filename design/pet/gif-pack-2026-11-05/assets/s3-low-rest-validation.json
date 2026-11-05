@@ -1,0 +1,146 @@
+{
+  "input": "raw/s3-low-rest.png",
+  "sheet": {
+    "width": 1774,
+    "height": 887,
+    "grid": [
+      4,
+      2
+    ]
+  },
+  "crop": {
+    "left": 55,
+    "top": 91,
+    "width": 365,
+    "height": 294
+  },
+  "scale": 1.2712328767123289,
+  "size": 512,
+  "durations": [
+    220,
+    220,
+    220,
+    220,
+    220,
+    220,
+    220,
+    260
+  ],
+  "durationMs": 1800,
+  "loop": 0,
+  "bounds": [
+    {
+      "left": 57,
+      "top": 91,
+      "right": 418,
+      "bottom": 383,
+      "transparent": 118523
+    },
+    {
+      "left": 58,
+      "top": 91,
+      "right": 418,
+      "bottom": 380,
+      "transparent": 116856
+    },
+    {
+      "left": 55,
+      "top": 109,
+      "right": 418,
+      "bottom": 376,
+      "transparent": 118800
+    },
+    {
+      "left": 55,
+      "top": 123,
+      "right": 419,
+      "bottom": 377,
+      "transparent": 123011
+    },
+    {
+      "left": 57,
+      "top": 107,
+      "right": 417,
+      "bottom": 378,
+      "transparent": 122937
+    },
+    {
+      "left": 58,
+      "top": 99,
+      "right": 414,
+      "bottom": 384,
+      "transparent": 114945
+    },
+    {
+      "left": 58,
+      "top": 99,
+      "right": 414,
+      "bottom": 384,
+      "transparent": 114721
+    },
+    {
+      "left": 58,
+      "top": 97,
+      "right": 418,
+      "bottom": 384,
+      "transparent": 116920
+    }
+  ],
+  "frames": [
+    {
+      "frame": 0,
+      "transparent": 145837,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 1,
+      "transparent": 146829,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 2,
+      "transparent": 152456,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 3,
+      "transparent": 155559,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 4,
+      "transparent": 151923,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 5,
+      "transparent": 148466,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 6,
+      "transparent": 148512,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 7,
+      "transparent": 148250,
+      "alphaMismatch": 0
+    }
+  ],
+  "gif": "assets/s3-low-rest.gif",
+  "source": {
+    "sha256": "a7ae46e8dcb4b550f59259ba1324972d6c0a989bf1e91bf51544ea3b89d187b3",
+    "encoderSha256": "4a061a1e1b991d023fa7bebd7d5539c4ba4578394e9ff056e7e9b6a87c7c01fa",
+    "durations": [
+      220,
+      220,
+      220,
+      220,
+      220,
+      220,
+      220,
+      260
+    ]
+  }
+}

@@ -1,0 +1,146 @@
+{
+  "input": "raw/s3-sleep.png",
+  "sheet": {
+    "width": 1774,
+    "height": 887,
+    "grid": [
+      4,
+      2
+    ]
+  },
+  "crop": {
+    "left": 31,
+    "top": 39,
+    "width": 385,
+    "height": 340
+  },
+  "scale": 1.2051948051948052,
+  "size": 512,
+  "durations": [
+    270,
+    270,
+    270,
+    270,
+    270,
+    270,
+    270,
+    310
+  ],
+  "durationMs": 2200,
+  "loop": 0,
+  "bounds": [
+    {
+      "left": 31,
+      "top": 53,
+      "right": 413,
+      "bottom": 377,
+      "transparent": 104315
+    },
+    {
+      "left": 32,
+      "top": 52,
+      "right": 413,
+      "bottom": 377,
+      "transparent": 104165
+    },
+    {
+      "left": 31,
+      "top": 47,
+      "right": 413,
+      "bottom": 377,
+      "transparent": 102710
+    },
+    {
+      "left": 32,
+      "top": 39,
+      "right": 413,
+      "bottom": 377,
+      "transparent": 101483
+    },
+    {
+      "left": 31,
+      "top": 47,
+      "right": 413,
+      "bottom": 377,
+      "transparent": 103166
+    },
+    {
+      "left": 32,
+      "top": 54,
+      "right": 415,
+      "bottom": 378,
+      "transparent": 104857
+    },
+    {
+      "left": 31,
+      "top": 57,
+      "right": 413,
+      "bottom": 377,
+      "transparent": 105314
+    },
+    {
+      "left": 32,
+      "top": 56,
+      "right": 413,
+      "bottom": 377,
+      "transparent": 105414
+    }
+  ],
+  "frames": [
+    {
+      "frame": 0,
+      "transparent": 133751,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 1,
+      "transparent": 133247,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 2,
+      "transparent": 131350,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 3,
+      "transparent": 129917,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 4,
+      "transparent": 131475,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 5,
+      "transparent": 133731,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 6,
+      "transparent": 134693,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 7,
+      "transparent": 134969,
+      "alphaMismatch": 0
+    }
+  ],
+  "gif": "assets/s3-sleep.gif",
+  "source": {
+    "sha256": "651f456dbb15b69cc21260f675a13eaff920a6d4e3cbf365b6ea9fc2eadf1640",
+    "encoderSha256": "4a061a1e1b991d023fa7bebd7d5539c4ba4578394e9ff056e7e9b6a87c7c01fa",
+    "durations": [
+      270,
+      270,
+      270,
+      270,
+      270,
+      270,
+      270,
+      310
+    ]
+  }
+}

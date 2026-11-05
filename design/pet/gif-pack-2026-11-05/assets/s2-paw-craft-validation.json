@@ -1,0 +1,146 @@
+{
+  "input": "raw/s2-paw-craft.png",
+  "sheet": {
+    "width": 1774,
+    "height": 887,
+    "grid": [
+      4,
+      2
+    ]
+  },
+  "crop": {
+    "left": 87,
+    "top": 55,
+    "width": 276,
+    "height": 339
+  },
+  "scale": 1.368731563421829,
+  "size": 512,
+  "durations": [
+    220,
+    220,
+    220,
+    220,
+    220,
+    220,
+    220,
+    260
+  ],
+  "durationMs": 1800,
+  "loop": 0,
+  "bounds": [
+    {
+      "left": 87,
+      "top": 55,
+      "right": 361,
+      "bottom": 393,
+      "transparent": 133112
+    },
+    {
+      "left": 88,
+      "top": 55,
+      "right": 362,
+      "bottom": 386,
+      "transparent": 132488
+    },
+    {
+      "left": 87,
+      "top": 55,
+      "right": 361,
+      "bottom": 386,
+      "transparent": 135481
+    },
+    {
+      "left": 88,
+      "top": 55,
+      "right": 362,
+      "bottom": 388,
+      "transparent": 133206
+    },
+    {
+      "left": 87,
+      "top": 55,
+      "right": 361,
+      "bottom": 386,
+      "transparent": 134331
+    },
+    {
+      "left": 88,
+      "top": 56,
+      "right": 362,
+      "bottom": 386,
+      "transparent": 133404
+    },
+    {
+      "left": 87,
+      "top": 55,
+      "right": 361,
+      "bottom": 386,
+      "transparent": 133337
+    },
+    {
+      "left": 88,
+      "top": 55,
+      "right": 362,
+      "bottom": 393,
+      "transparent": 132753
+    }
+  ],
+  "frames": [
+    {
+      "frame": 0,
+      "transparent": 153274,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 1,
+      "transparent": 155122,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 2,
+      "transparent": 156929,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 3,
+      "transparent": 153209,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 4,
+      "transparent": 154657,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 5,
+      "transparent": 156118,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 6,
+      "transparent": 154158,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 7,
+      "transparent": 153350,
+      "alphaMismatch": 0
+    }
+  ],
+  "gif": "assets/s2-paw-craft.gif",
+  "source": {
+    "sha256": "0216f569270b4d7538814ae010a71e1b451d1fbc41c3d38c5cf63f2df3dcf1e6",
+    "encoderSha256": "4a061a1e1b991d023fa7bebd7d5539c4ba4578394e9ff056e7e9b6a87c7c01fa",
+    "durations": [
+      220,
+      220,
+      220,
+      220,
+      220,
+      220,
+      220,
+      260
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "id": "s3-pat",
+  "prompt": "Precise cleanup of this 8-frame 4-column x 2-row sprite sheet. Preserve ALL EIGHT existing orange Shiba dogs in their exact poses, cell positions, sizes, TWO UPRIGHT EARS, blue collar with THREE gold stars and RED BACKPACK. Remove the hovering HUMAN HANDS completely and remove ALL background noise/colors/white/red/yellow/gray halos outside the dogs. Outside the eight dog silhouettes must have alpha EXACTLY ZERO, including corners, gutters, margins and between paws; absolutely no checkerboard, white matte, shadows, color noise or background paint. Preserve the cream fur INSIDE the dogs fully opaque and clean, all brown outlines and red backpacks. Do not move/crop/resize the dogs or change the equal4x2grid. Their closed-eye head lean is the petting reaction; no hands needed. Return a clean transparent PNG sprite sheet, not a GIF, not a new scene. Real empty alpha 0 background is essential, previous corner alpha2–5 and colorful noise were unusable.",
+  "reference": "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/design/pet/gif-pack-2026-11-05/raw/s3-pat.png",
+  "source": "/Users/shushengye/.codex/generated_images/01a1213d-e802-78f2-b349-cd60cf20947e/exec-d19f96b3-c7be-4ed9-861b-420d22d6f140.png",
+  "tool": "built-in image_gen"
+}

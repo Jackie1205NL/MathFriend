@@ -1,0 +1,1715 @@
+{
+  "version": 1,
+  "date": "2026-11-05",
+  "method": "当前内置image_gen连续帧 + sharp/FFmpeg合成，不指定模型，不是Image2.6原生GIF",
+  "stages": [
+    {
+      "id": 2,
+      "name": "少年",
+      "identity": "蓝色项圈，两颗金星，一耳竖一耳垂，无背包",
+      "reference": "kid/public/pet/s2.webp"
+    },
+    {
+      "id": 3,
+      "name": "青年",
+      "identity": "蓝色项圈，三颗金星，两耳竖起，红色背包",
+      "reference": "kid/public/pet/s3.webp"
+    }
+  ],
+  "items": [
+    {
+      "id": "s2-idle",
+      "stage": 2,
+      "action": "idle",
+      "name": "安静呼吸",
+      "category": "日常",
+      "raw": "raw/s2-idle.png",
+      "durations": [
+        220,
+        220,
+        220,
+        220,
+        220,
+        220,
+        220,
+        260
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "home.idle：进入小屋及12秒闲聊",
+        "q.neutral：答题中陪伴"
+      ],
+      "note": "站立或坐好，胸口微起伏，耳朵轻动"
+    },
+    {
+      "id": "s2-look",
+      "stage": 2,
+      "action": "look",
+      "name": "好奇看向一侧",
+      "category": "日常",
+      "raw": "raw/s2-look.png",
+      "durations": [
+        150,
+        150,
+        150,
+        150,
+        150,
+        150,
+        150,
+        150
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "home.tap：点击小狗/连续戳",
+        "lines.idle：LINES.idle",
+        "lines.math：LINES.math",
+        "lines.state_hungry：LINES.state_hungry",
+        "lines.state_dirty：LINES.state_dirty",
+        "lines.time_evening：LINES.time_evening",
+        "lines.remember：LINES.remember",
+        "lines.tap：LINES.tap",
+        "scene.park.0：explore(park):蝴蝶飞到那边啦！我轻轻跟过去，不打扰它。",
+        "scene.hall.0：explore(hall):这里的回声真有趣！汪——咦，好像有人在回答我。",
+        "item.curtain.0：item(curtain):窗帘躲猫猫！你猜我的鼻子藏在哪一边？",
+        "item.lantern.0：item(lantern):爪印福灯亮起来啦！像一颗住进小屋的星星。",
+        "item.house.1：item(house):木屋门口有个小影子，原来是我的尾巴！",
+        "item.swing.1：item(swing):一前一后，一高一低，小秋千像在跳慢慢的舞。",
+        "item.flower.1：item(flower):花瓣上有一颗小露珠，亮得像藏了一颗星星！",
+        "item.kite.1：item(kite):看呀，风筝在给云朵挠痒痒！",
+        "item.pond.1：item(pond):睡莲旁边冒了个小泡泡，噗！是谁在水下打招呼？",
+        "item.sled.1：item(sled):这两条雪橇痕好长呀，像给雪地画了两条线！",
+        "item.stove.0：item(stove):小暖炉噼啪响，像在讲一个暖乎乎的故事。",
+        "item.hat.1：item(hat):帽子上的星星会不会也想看看真正的星空？",
+        "event.bird：撒面包屑"
+      ],
+      "note": "眼睛跟随目标，轻转头，再回正"
+    },
+    {
+      "id": "s2-sniff",
+      "stage": 2,
+      "action": "sniff",
+      "name": "嗅嗅",
+      "category": "探索",
+      "raw": "raw/s2-sniff.png",
+      "durations": [
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        160
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "hide.start：打开/切难度/翻错杯",
+        "trip.walk：在开放地点散步",
+        "lines.idle：LINES.idle",
+        "lines.state_hungry：LINES.state_hungry",
+        "lines.state_dirty：LINES.state_dirty",
+        "lines.time_evening：LINES.time_evening",
+        "scene.yard.1：explore(yard):我找到一颗橡子！先闻一闻，再把它留给小松鼠。",
+        "item.pillow.0：item(pillow):这个饺子抱枕软乎乎，咦，里面装的是云朵吗？",
+        "item.flower.0：item(flower):小花你好！我轻轻闻一闻，不把你摘下来。",
+        "trick.审题：嗅嗅找东西",
+        "q.skill.审题.1：灵鼻子 1级",
+        "q.skill.审题.2：灵鼻子 2级"
+      ],
+      "note": "鼻尖前探嗅两下，轻轻缩回"
+    },
+    {
+      "id": "s2-blink",
+      "stage": 2,
+      "action": "blink",
+      "name": "眨眼点头",
+      "category": "日常",
+      "raw": "raw/s2-blink.png",
+      "durations": [
+        110,
+        110,
+        110,
+        110,
+        110,
+        110,
+        110,
+        130
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "home.tap：点击小狗/连续戳",
+        "lines.idle：LINES.idle",
+        "lines.math：LINES.math",
+        "lines.tap：LINES.tap",
+        "scene.snow.1：explore(snow):雪花落在鼻尖上，凉凉的，眨眼就不见啦！",
+        "scene.hall.2：explore(hall):练习一下小小的鞠躬，谢谢一直陪着我的你！",
+        "item.hat.0：item(hat):星星帽戴好！我的耳朵藏进了暖暖的小帐篷。",
+        "q.neutral：答题中陪伴",
+        "q.skill.格式规范.1：收尾巴 1级",
+        "q.skill.格式规范.2：收尾巴 2级"
+      ],
+      "note": "眨眼、轻点头、回到待机"
+    },
+    {
+      "id": "s2-stretch-yawn",
+      "stage": 2,
+      "action": "stretch-yawn",
+      "name": "伸懒腰和打哈欠",
+      "category": "日常",
+      "raw": "raw/s2-stretch-yawn.png",
+      "durations": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "home.tap：点击小狗/连续戳",
+        "lines.idle：LINES.idle",
+        "lines.math：LINES.math",
+        "lines.time_morning：LINES.time_morning",
+        "lines.tap：LINES.tap",
+        "scene.park.1：explore(park):这片草软软的，我想在这里伸一个大懒腰！",
+        "item.stove.1：item(stove):隔着一点距离暖暖爪子，嘿，尾巴也觉得暖和啦！"
+      ],
+      "note": "前爪伸展，微张嘴打哈欠，再站好"
+    },
+    {
+      "id": "s2-wag",
+      "stage": 2,
+      "action": "wag",
+      "name": "开心摇尾",
+      "category": "日常",
+      "raw": "raw/s2-wag.png",
+      "durations": [
+        150,
+        150,
+        150,
+        150,
+        150,
+        150,
+        150,
+        150
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "home.tap：点击小狗/连续戳",
+        "care.pat：摸摸，前三次/之后",
+        "morning.greet：早安进入/小礼物",
+        "findPet：找回成功",
+        "lines.idle：LINES.idle",
+        "lines.math：LINES.math",
+        "lines.after_practice：LINES.after_practice",
+        "lines.remember：LINES.remember",
+        "lines.tap：LINES.tap",
+        "lines.tap_too_much：LINES.tap_too_much",
+        "scene.park.2：explore(park):啾啾！小鸟是在叫我吗？我也摇摇尾巴打招呼。",
+        "scene.snow.2：explore(snow):呼——我的小鼻子也会变出白白的云！",
+        "item.pillow.1：item(pillow):抱住我的大饺子，准备滚进一个甜甜的梦！",
+        "item.kite.0：item(kite):风筝把尾巴借给风啦！我的尾巴可不会飞走。",
+        "item.snowman.1：item(snowman):我给雪人讲了个笑话，它一定把笑声藏进雪球里啦！",
+        "item.scarf.0：item(scarf):我的蓝围巾像一小片天空，走到哪里都带着晴天！",
+        "item.bow.1：item(bow):领结像一只停在脖子上的蝴蝶，嘿嘿。",
+        "trick.格式规范：摇尾巴转圈",
+        "celebrate.daily：完成每日练习"
+      ],
+      "note": "弯眼轻笑，尾巴摇动，身体不跳"
+    },
+    {
+      "id": "s2-hop",
+      "stage": 2,
+      "action": "hop",
+      "name": "开心小跳",
+      "category": "玩耍",
+      "raw": "raw/s2-hop.png",
+      "durations": [
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        160
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "home.tap：点击小狗/连续戳",
+        "hide.win：翻到骨头",
+        "lines.idle：LINES.idle",
+        "lines.math：LINES.math",
+        "lines.state_bored：LINES.state_bored",
+        "lines.state_dirty：LINES.state_dirty",
+        "lines.after_practice：LINES.after_practice",
+        "lines.remember：LINES.remember",
+        "lines.tap：LINES.tap",
+        "scene.yard.0：explore(yard):踩到一片脆脆的叶子！咔嚓，像不像小饼干？",
+        "scene.snow.0：explore(snow):看，我踩出了一串梅花脚印！下一朵会落在哪里呢？",
+        "item.sled.0：item(sled):雪橇小队准备好！我先站稳，你来喊“一二三”！",
+        "celebrate.points：技能点+1/学本领",
+        "celebrate.daily：完成每日练习",
+        "celebrate.boss：闯关获胜/失败",
+        "celebrate.graduation：毕业/寒假"
+      ],
+      "note": "稍蹲、跳起一次、落地，脚底基线固定"
+    },
+    {
+      "id": "s2-wave",
+      "stage": 2,
+      "action": "wave",
+      "name": "招呼挥爪",
+      "category": "日常",
+      "raw": "raw/s2-wave.png",
+      "durations": [
+        150,
+        150,
+        150,
+        150,
+        150,
+        150,
+        150,
+        150
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "home.tap：点击小狗/连续戳",
+        "morning.greet：早安进入/小礼物",
+        "findPet：找回成功",
+        "wardrobe.equip：围巾/领结/帽子穿戴和收起",
+        "lines.idle：LINES.idle",
+        "lines.state_bored：LINES.state_bored",
+        "lines.time_morning：LINES.time_morning",
+        "lines.after_practice：LINES.after_practice",
+        "lines.tap：LINES.tap",
+        "scene.hall.1：explore(hall):彩旗摇呀摇，像在给我们加油！我也挥挥小爪子。",
+        "item.lantern.1：item(lantern):灯上也有小爪印！和我的爪子比一比，谁的大？",
+        "item.house.0：item(house):欢迎来到我的森林木屋！请进，今天的点心是想象饼干。",
+        "item.mat.0：item(mat):野餐垫铺好！这一个格子给你，这一个格子给我。",
+        "item.snowman.0：item(snowman):你好呀，雪人朋友！你的胡萝卜鼻子可真神气。",
+        "item.bow.0：item(bow):戴上枫叶领结，我就是秋天的小小迎宾员！",
+        "q.skill.格式规范.1：收尾巴 1级",
+        "q.skill.格式规范.2：收尾巴 2级",
+        "celebrate.growth：s2成长至s3",
+        "celebrate.graduation：毕业/寒假"
+      ],
+      "note": "抬一只前爪，挥两下，放回地面"
+    },
+    {
+      "id": "s2-spin",
+      "stage": 2,
+      "action": "spin",
+      "name": "摇尾转圈",
+      "category": "玩耍",
+      "raw": "raw/s2-spin.png",
+      "durations": [
+        170,
+        170,
+        170,
+        170,
+        170,
+        170,
+        170,
+        210
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "home.tap：点击小狗/连续戳",
+        "lines.idle：LINES.idle",
+        "lines.state_bored：LINES.state_bored",
+        "lines.after_practice：LINES.after_practice",
+        "lines.remember：LINES.remember",
+        "lines.tap：LINES.tap",
+        "lines.tap_too_much：LINES.tap_too_much",
+        "scene.yard.2：explore(yard):风把叶子吹起来啦，我的尾巴也想跟着跳舞！",
+        "item.curtain.1：item(curtain):风一吹，小窗帘就跳舞啦，我也晃一晃！",
+        "item.swing.0：item(swing):秋千荡一下，枫叶也跟着摇一下！谁在模仿谁呀？",
+        "item.scarf.1：item(scarf):围巾尾巴晃呀晃，和我的小尾巴成朋友啦。",
+        "trick.格式规范：摇尾巴转圈"
+      ],
+      "note": "原地转一小圈，回到原站位"
+    },
+    {
+      "id": "s2-think",
+      "stage": 2,
+      "action": "think",
+      "name": "歪头思考",
+      "category": "答题反馈",
+      "raw": "raw/s2-think.png",
+      "durations": [
+        160,
+        160,
+        160,
+        160,
+        160,
+        160,
+        160,
+        180
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "toy.empty：食物/香皂/玩具库存不足",
+        "hide.start：打开/切难度/翻错杯",
+        "lines.idle：LINES.idle",
+        "lines.math：LINES.math",
+        "lines.remember：LINES.remember",
+        "item.mat.1：item(mat):我把爪爪摆进格子里，嘿，差点排成一条直线！",
+        "item.pond.0：item(pond):池塘里有另一只我！我一歪头，它也歪头。",
+        "q.circle.missing：漏圈/多圈点评",
+        "q.result.wrong：答错/部分正确/短订正待完成",
+        "q.cover：慢慢来遮罩",
+        "q.skill.计算失误.1：稳稳爪 1级",
+        "q.skill.计算失误.2：稳稳爪 2级",
+        "q.skill.漏题.1：巡逻 1级",
+        "q.skill.漏题.2：巡逻 2级"
+      ],
+      "note": "歪头，耳朵小动，停顿，再回正"
+    },
+    {
+      "id": "s2-low-rest",
+      "stage": 2,
+      "action": "low-rest",
+      "name": "低状态安心休息",
+      "category": "情绪",
+      "raw": "raw/s2-low-rest.png",
+      "durations": [
+        220,
+        220,
+        220,
+        220,
+        220,
+        220,
+        220,
+        260
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "home.low：三需求均小于30时闲聊及戳小狗",
+        "lines.state_rest：LINES.state_rest",
+        "lines.rest_tap：LINES.rest_tap",
+        "scene.yard.rest：我们慢慢走，听落叶沙沙响。陪你看风景也很开心。",
+        "scene.park.rest：在草坡上歇一歇吧。云朵慢慢走，我们也不用着急。",
+        "scene.snow.rest：慢慢看雪花落下来，一片、两片……安安静静也很好玩。",
+        "scene.hall.rest：我们坐下来看看彩旗。那些一起进步的小事，我都记着呢。",
+        "item.curtain.rest：拉开一点窗帘，让软软的阳光陪我们坐一会儿。",
+        "item.lantern.rest：暖暖的福灯亮着，坐在这里就觉得很安心。",
+        "item.pillow.rest：靠着软软的抱枕歇一会儿，舒服多啦。",
+        "item.house.rest：在木屋门口坐坐吧，树叶会给我们唱歌。",
+        "item.swing.rest：让秋千轻轻晃，我们在旁边听风就好。",
+        "item.flower.rest：小花也在慢慢长大，我们一起闻闻花香吧。",
+        "item.kite.rest：坐在草地上看风筝也很好，风会帮它慢慢飞。",
+        "item.mat.rest：野餐垫软软的，我们坐下来看看云。",
+        "item.pond.rest：我们坐远一点，安静地看水面一圈一圈的小波纹。",
+        "item.snowman.rest：和雪人并排歇一会儿，看看谁先等到下一片雪花。",
+        "item.sled.rest：先拍拍雪橇上的软雪，等精神好了再慢慢滑。",
+        "item.stove.rest：离暖炉远一点坐好，暖意会慢慢跑过来。",
+        "item.scarf.rest：围巾轻轻围着，暖暖地陪你待一会儿。",
+        "item.bow.rest：领结整整齐齐的，今天慢慢来就很好。",
+        "item.hat.rest：帽子软软暖暖，陪我安静坐一会儿吧。"
+      ],
+      "note": "身体略低，缓眨眼，轻呼吸，保持希望感"
+    },
+    {
+      "id": "s2-eat",
+      "stage": 2,
+      "action": "eat",
+      "name": "低头吃东西",
+      "category": "照顾",
+      "raw": "raw/s2-eat.png",
+      "durations": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "care.food：feed(cookie/rice/bento)"
+      ],
+      "note": "低头对准食物层、吃一口、咀嚼、抬头舔嘴"
+    },
+    {
+      "id": "s2-bath",
+      "stage": 2,
+      "action": "bath",
+      "name": "泡泡澡",
+      "category": "照顾",
+      "raw": "raw/s2-bath.png",
+      "durations": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        400
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "care.soap：洗澡"
+      ],
+      "note": "泡泡轻动、眨眼、头和耳朵摆动，盆底固定"
+    },
+    {
+      "id": "s2-pat",
+      "stage": 2,
+      "action": "pat",
+      "name": "被轻轻摸头",
+      "category": "照顾",
+      "raw": "raw/s2-pat.png",
+      "durations": [
+        150,
+        150,
+        150,
+        150,
+        150,
+        150,
+        150,
+        150
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "care.pat：摸摸，前三次/之后"
+      ],
+      "note": "闭眼微抬头，轻轻靠向抚摸方向"
+    },
+    {
+      "id": "s2-shake",
+      "stage": 2,
+      "action": "shake",
+      "name": "抬爪握手或指一指",
+      "category": "日常",
+      "raw": "raw/s2-shake.png",
+      "durations": [
+        150,
+        150,
+        150,
+        150,
+        150,
+        150,
+        150,
+        150
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "jar：存金币及存满",
+        "trick.计算失误：握手",
+        "q.guard：3级技能拦截需回去改",
+        "q.skill.审题.1：灵鼻子 1级",
+        "q.skill.审题.2：灵鼻子 2级",
+        "q.skill.审题.3：灵鼻子 3级",
+        "q.skill.概念不清.1：排排队 1级",
+        "q.skill.概念不清.2：排排队 2级",
+        "q.skill.概念不清.3：排排队 3级",
+        "q.skill.计算失误.1：稳稳爪 1级",
+        "q.skill.计算失误.2：稳稳爪 2级",
+        "q.skill.计算失误.3：稳稳爪 3级",
+        "q.skill.格式规范.3：收尾巴 3级",
+        "q.skill.漏题.3：巡逻 3级",
+        "q.skill.策略缺失.3：探路 3级",
+        "event.leaf：扫一扫落叶",
+        "event.bird：撒面包屑",
+        "event.calendar：挂日历",
+        "event.couplet：按春联纸"
+      ],
+      "note": "抬起前爪，向目标伸一下，收回"
+    },
+    {
+      "id": "s2-ball",
+      "stage": 2,
+      "action": "ball",
+      "name": "追球接球",
+      "category": "玩耍",
+      "raw": "raw/s2-ball.png",
+      "durations": [
+        220,
+        220,
+        220,
+        220,
+        220,
+        220,
+        220,
+        260
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "toy.ball：ball(ball)"
+      ],
+      "note": "看着小球滚动、小步追、前爪按住或叼回"
+    },
+    {
+      "id": "s2-disc",
+      "stage": 2,
+      "action": "disc",
+      "name": "跃起接飞盘",
+      "category": "玩耍",
+      "raw": "raw/s2-disc.png",
+      "durations": [
+        160,
+        160,
+        180,
+        200,
+        200,
+        180,
+        160,
+        360
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "toy.disc：ball(disc)"
+      ],
+      "note": "跟随蓝飞盘、压身、跃接、落地"
+    },
+    {
+      "id": "s2-walk",
+      "stage": 2,
+      "action": "walk",
+      "name": "散步巡逻",
+      "category": "探索",
+      "raw": "raw/s2-walk.png",
+      "durations": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "findPet：找回成功",
+        "trip.walk：在开放地点散步",
+        "trick.漏题：绕小屋巡逻",
+        "trick.策略缺失：带路",
+        "q.skill.漏题.1：巡逻 1级",
+        "q.skill.漏题.2：巡逻 2级",
+        "q.skill.策略缺失.1：探路 1级",
+        "q.skill.策略缺失.2：探路 2级"
+      ],
+      "note": "两至三步小幅走动，首尾相接，脚底固定"
+    },
+    {
+      "id": "s2-carry-object",
+      "stage": 2,
+      "action": "carry-object",
+      "name": "叼起并放好物件",
+      "category": "物件互动",
+      "raw": "raw/s2-carry-object.png",
+      "durations": [
+        220,
+        220,
+        220,
+        220,
+        220,
+        220,
+        220,
+        260
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "trick.概念不清：叼积木排队",
+        "q.skill.概念不清.1：排排队 1级",
+        "q.skill.概念不清.2：排排队 2级",
+        "event.blocks：积木排队",
+        "event.leaf：扫一扫落叶",
+        "event.calendar：挂日历"
+      ],
+      "note": "低头叼起对应物件、抬头、在目标处放好"
+    },
+    {
+      "id": "s2-present-find",
+      "stage": 2,
+      "action": "present-find",
+      "name": "展示发现或带路",
+      "category": "探索",
+      "raw": "raw/s2-present-find.png",
+      "durations": [
+        180,
+        180,
+        180,
+        180,
+        180,
+        180,
+        180,
+        240
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "morning.greet：早安进入/小礼物",
+        "hide.win：翻到骨头",
+        "trip.find：捡到普通纪念物",
+        "trip.card：获得新明信片",
+        "trick.策略缺失：带路",
+        "q.skill.策略缺失.1：探路 1级",
+        "q.skill.策略缺失.2：探路 2级"
+      ],
+      "note": "看向发现、抬爪或叼着展示、回望孩子"
+    },
+    {
+      "id": "s2-sleep",
+      "stage": 2,
+      "action": "sleep",
+      "name": "熟睡呼吸",
+      "category": "晚安",
+      "raw": "raw/s2-sleep.png",
+      "durations": [
+        270,
+        270,
+        270,
+        270,
+        270,
+        270,
+        270,
+        310
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "night.sleep：入睡及睡眠闲聊",
+        "findPet：找回成功",
+        "lines.time_late：LINES.time_late"
+      ],
+      "note": "蜷卧呼吸、耳尖或鼻子小动"
+    },
+    {
+      "id": "s2-blanket",
+      "stage": 2,
+      "action": "blanket",
+      "name": "盖好被子",
+      "category": "晚安",
+      "raw": "raw/s2-blanket.png",
+      "durations": [
+        250,
+        250,
+        250,
+        250,
+        250,
+        250,
+        250,
+        250
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "night.blanket：quiet(blanket)",
+        "night.low：三低时睡眠及晚安互动"
+      ],
+      "note": "被角落下或掖好，鼻尖缩进一点，再安睡"
+    },
+    {
+      "id": "s2-night-pat",
+      "stage": 2,
+      "action": "night-pat",
+      "name": "睡后轻轻摸摸",
+      "category": "晚安",
+      "raw": "raw/s2-night-pat.png",
+      "durations": [
+        220,
+        220,
+        220,
+        220,
+        220,
+        220,
+        220,
+        260
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "night.pat：quiet(pat)",
+        "night.low：三低时睡眠及晚安互动"
+      ],
+      "note": "蜷卧中前爪靠近，表情放松，仍闭眼"
+    },
+    {
+      "id": "s2-hum",
+      "stage": 2,
+      "action": "hum",
+      "name": "听晚安曲",
+      "category": "晚安",
+      "raw": "raw/s2-hum.png",
+      "durations": [
+        270,
+        270,
+        270,
+        270,
+        270,
+        270,
+        270,
+        310
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "night.hum：quiet(hum)",
+        "night.low：三低时睡眠及晚安互动"
+      ],
+      "note": "蜷卧，耳尖轻动，呼吸渐缓，仍闭眼"
+    },
+    {
+      "id": "s2-sleep-low",
+      "stage": 2,
+      "action": "sleep-low",
+      "name": "低状态睡梦",
+      "category": "情绪",
+      "raw": "raw/s2-sleep-low.png",
+      "durations": [
+        270,
+        270,
+        270,
+        270,
+        270,
+        270,
+        270,
+        310
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "night.low：三低时睡眠及晚安互动",
+        "lines.rest_sleep：LINES.rest_sleep"
+      ],
+      "note": "略蜷缩，轻叹气，随后慢慢放松"
+    },
+    {
+      "id": "s2-proud",
+      "stage": 2,
+      "action": "proud",
+      "name": "认真完成后的得意表情",
+      "category": "答题反馈",
+      "raw": "raw/s2-proud.png",
+      "durations": [
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        160
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "wardrobe.equip：围巾/领结/帽子穿戴和收起",
+        "shop.buy：买食物/玩具/装扮",
+        "jar：存金币及存满",
+        "q.circle.good：圈词点评好",
+        "q.result.right：答对/短订正完成",
+        "celebrate.points：技能点+1/学本领",
+        "celebrate.boss：闯关获胜/失败",
+        "celebrate.growth：s2成长至s3",
+        "celebrate.graduation：毕业/寒假"
+      ],
+      "note": "明亮眼睛，轻点头，露出小笑容"
+    },
+    {
+      "id": "s2-shy-encourage",
+      "stage": 2,
+      "action": "shy-encourage",
+      "name": "犯错后温和鼓励",
+      "category": "答题反馈",
+      "raw": "raw/s2-shy-encourage.png",
+      "durations": [
+        160,
+        160,
+        160,
+        160,
+        160,
+        160,
+        160,
+        180
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "q.result.wrong：答错/部分正确/短订正待完成",
+        "q.guard：3级技能拦截需回去改",
+        "q.skill.审题.3：灵鼻子 3级",
+        "q.skill.概念不清.3：排排队 3级",
+        "q.skill.计算失误.3：稳稳爪 3级",
+        "q.skill.格式规范.3：收尾巴 3级",
+        "q.skill.漏题.3：巡逻 3级",
+        "q.skill.策略缺失.3：探路 3级",
+        "celebrate.boss：闯关获胜/失败"
+      ],
+      "note": "轻低头、温柔眨眼、抬头再试，不悲伤责备"
+    },
+    {
+      "id": "s2-paw-craft",
+      "stage": 2,
+      "action": "paw-craft",
+      "name": "双爪动手帮忙",
+      "category": "物件互动",
+      "raw": "raw/s2-paw-craft.png",
+      "durations": [
+        220,
+        220,
+        220,
+        220,
+        220,
+        220,
+        220,
+        260
+      ],
+      "reference": "kid/public/pet/s2.webp",
+      "coverage": [
+        "event.dumpling：包饺子",
+        "event.snow：滚雪球"
+      ],
+      "note": "两只前爪慢慢靠拢或滚一滚，配合真实物件做小手工"
+    },
+    {
+      "id": "s3-idle",
+      "stage": 3,
+      "action": "idle",
+      "name": "安静呼吸",
+      "category": "日常",
+      "raw": "raw/s3-idle.png",
+      "durations": [
+        220,
+        220,
+        220,
+        220,
+        220,
+        220,
+        220,
+        260
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "home.idle：进入小屋及12秒闲聊",
+        "q.neutral：答题中陪伴"
+      ],
+      "note": "站立或坐好，胸口微起伏，耳朵轻动"
+    },
+    {
+      "id": "s3-look",
+      "stage": 3,
+      "action": "look",
+      "name": "好奇看向一侧",
+      "category": "日常",
+      "raw": "raw/s3-look.png",
+      "durations": [
+        150,
+        150,
+        150,
+        150,
+        150,
+        150,
+        150,
+        150
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "home.tap：点击小狗/连续戳",
+        "lines.idle：LINES.idle",
+        "lines.math：LINES.math",
+        "lines.state_hungry：LINES.state_hungry",
+        "lines.state_dirty：LINES.state_dirty",
+        "lines.time_evening：LINES.time_evening",
+        "lines.remember：LINES.remember",
+        "lines.tap：LINES.tap",
+        "scene.park.0：explore(park):蝴蝶飞到那边啦！我轻轻跟过去，不打扰它。",
+        "scene.hall.0：explore(hall):这里的回声真有趣！汪——咦，好像有人在回答我。",
+        "item.curtain.0：item(curtain):窗帘躲猫猫！你猜我的鼻子藏在哪一边？",
+        "item.lantern.0：item(lantern):爪印福灯亮起来啦！像一颗住进小屋的星星。",
+        "item.house.1：item(house):木屋门口有个小影子，原来是我的尾巴！",
+        "item.swing.1：item(swing):一前一后，一高一低，小秋千像在跳慢慢的舞。",
+        "item.flower.1：item(flower):花瓣上有一颗小露珠，亮得像藏了一颗星星！",
+        "item.kite.1：item(kite):看呀，风筝在给云朵挠痒痒！",
+        "item.pond.1：item(pond):睡莲旁边冒了个小泡泡，噗！是谁在水下打招呼？",
+        "item.sled.1：item(sled):这两条雪橇痕好长呀，像给雪地画了两条线！",
+        "item.stove.0：item(stove):小暖炉噼啪响，像在讲一个暖乎乎的故事。",
+        "item.hat.1：item(hat):帽子上的星星会不会也想看看真正的星空？",
+        "event.bird：撒面包屑"
+      ],
+      "note": "眼睛跟随目标，轻转头，再回正"
+    },
+    {
+      "id": "s3-sniff",
+      "stage": 3,
+      "action": "sniff",
+      "name": "嗅嗅",
+      "category": "探索",
+      "raw": "raw/s3-sniff.png",
+      "durations": [
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        160
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "hide.start：打开/切难度/翻错杯",
+        "trip.walk：在开放地点散步",
+        "lines.idle：LINES.idle",
+        "lines.state_hungry：LINES.state_hungry",
+        "lines.state_dirty：LINES.state_dirty",
+        "lines.time_evening：LINES.time_evening",
+        "scene.yard.1：explore(yard):我找到一颗橡子！先闻一闻，再把它留给小松鼠。",
+        "item.pillow.0：item(pillow):这个饺子抱枕软乎乎，咦，里面装的是云朵吗？",
+        "item.flower.0：item(flower):小花你好！我轻轻闻一闻，不把你摘下来。",
+        "trick.审题：嗅嗅找东西",
+        "q.skill.审题.1：灵鼻子 1级",
+        "q.skill.审题.2：灵鼻子 2级"
+      ],
+      "note": "鼻尖前探嗅两下，轻轻缩回"
+    },
+    {
+      "id": "s3-blink",
+      "stage": 3,
+      "action": "blink",
+      "name": "眨眼点头",
+      "category": "日常",
+      "raw": "raw/s3-blink.png",
+      "durations": [
+        110,
+        110,
+        110,
+        110,
+        110,
+        110,
+        110,
+        130
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "home.tap：点击小狗/连续戳",
+        "lines.idle：LINES.idle",
+        "lines.math：LINES.math",
+        "lines.tap：LINES.tap",
+        "scene.snow.1：explore(snow):雪花落在鼻尖上，凉凉的，眨眼就不见啦！",
+        "scene.hall.2：explore(hall):练习一下小小的鞠躬，谢谢一直陪着我的你！",
+        "item.hat.0：item(hat):星星帽戴好！我的耳朵藏进了暖暖的小帐篷。",
+        "q.neutral：答题中陪伴",
+        "q.skill.格式规范.1：收尾巴 1级",
+        "q.skill.格式规范.2：收尾巴 2级"
+      ],
+      "note": "眨眼、轻点头、回到待机"
+    },
+    {
+      "id": "s3-stretch-yawn",
+      "stage": 3,
+      "action": "stretch-yawn",
+      "name": "伸懒腰和打哈欠",
+      "category": "日常",
+      "raw": "raw/s3-stretch-yawn.png",
+      "durations": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "home.tap：点击小狗/连续戳",
+        "lines.idle：LINES.idle",
+        "lines.math：LINES.math",
+        "lines.time_morning：LINES.time_morning",
+        "lines.tap：LINES.tap",
+        "scene.park.1：explore(park):这片草软软的，我想在这里伸一个大懒腰！",
+        "item.stove.1：item(stove):隔着一点距离暖暖爪子，嘿，尾巴也觉得暖和啦！"
+      ],
+      "note": "前爪伸展，微张嘴打哈欠，再站好"
+    },
+    {
+      "id": "s3-wag",
+      "stage": 3,
+      "action": "wag",
+      "name": "开心摇尾",
+      "category": "日常",
+      "raw": "raw/s3-wag.png",
+      "durations": [
+        150,
+        150,
+        150,
+        150,
+        150,
+        150,
+        150,
+        150
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "home.tap：点击小狗/连续戳",
+        "care.pat：摸摸，前三次/之后",
+        "morning.greet：早安进入/小礼物",
+        "findPet：找回成功",
+        "lines.idle：LINES.idle",
+        "lines.math：LINES.math",
+        "lines.after_practice：LINES.after_practice",
+        "lines.remember：LINES.remember",
+        "lines.tap：LINES.tap",
+        "lines.tap_too_much：LINES.tap_too_much",
+        "scene.park.2：explore(park):啾啾！小鸟是在叫我吗？我也摇摇尾巴打招呼。",
+        "scene.snow.2：explore(snow):呼——我的小鼻子也会变出白白的云！",
+        "item.pillow.1：item(pillow):抱住我的大饺子，准备滚进一个甜甜的梦！",
+        "item.kite.0：item(kite):风筝把尾巴借给风啦！我的尾巴可不会飞走。",
+        "item.snowman.1：item(snowman):我给雪人讲了个笑话，它一定把笑声藏进雪球里啦！",
+        "item.scarf.0：item(scarf):我的蓝围巾像一小片天空，走到哪里都带着晴天！",
+        "item.bow.1：item(bow):领结像一只停在脖子上的蝴蝶，嘿嘿。",
+        "trick.格式规范：摇尾巴转圈",
+        "celebrate.daily：完成每日练习"
+      ],
+      "note": "弯眼轻笑，尾巴摇动，身体不跳"
+    },
+    {
+      "id": "s3-hop",
+      "stage": 3,
+      "action": "hop",
+      "name": "开心小跳",
+      "category": "玩耍",
+      "raw": "raw/s3-hop.png",
+      "durations": [
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        160
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "home.tap：点击小狗/连续戳",
+        "hide.win：翻到骨头",
+        "lines.idle：LINES.idle",
+        "lines.math：LINES.math",
+        "lines.state_bored：LINES.state_bored",
+        "lines.state_dirty：LINES.state_dirty",
+        "lines.after_practice：LINES.after_practice",
+        "lines.remember：LINES.remember",
+        "lines.tap：LINES.tap",
+        "scene.yard.0：explore(yard):踩到一片脆脆的叶子！咔嚓，像不像小饼干？",
+        "scene.snow.0：explore(snow):看，我踩出了一串梅花脚印！下一朵会落在哪里呢？",
+        "item.sled.0：item(sled):雪橇小队准备好！我先站稳，你来喊“一二三”！",
+        "celebrate.points：技能点+1/学本领",
+        "celebrate.daily：完成每日练习",
+        "celebrate.boss：闯关获胜/失败",
+        "celebrate.graduation：毕业/寒假"
+      ],
+      "note": "稍蹲、跳起一次、落地，脚底基线固定"
+    },
+    {
+      "id": "s3-wave",
+      "stage": 3,
+      "action": "wave",
+      "name": "招呼挥爪",
+      "category": "日常",
+      "raw": "raw/s3-wave.png",
+      "durations": [
+        150,
+        150,
+        150,
+        150,
+        150,
+        150,
+        150,
+        150
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "home.tap：点击小狗/连续戳",
+        "morning.greet：早安进入/小礼物",
+        "findPet：找回成功",
+        "wardrobe.equip：围巾/领结/帽子穿戴和收起",
+        "lines.idle：LINES.idle",
+        "lines.state_bored：LINES.state_bored",
+        "lines.time_morning：LINES.time_morning",
+        "lines.after_practice：LINES.after_practice",
+        "lines.tap：LINES.tap",
+        "scene.hall.1：explore(hall):彩旗摇呀摇，像在给我们加油！我也挥挥小爪子。",
+        "item.lantern.1：item(lantern):灯上也有小爪印！和我的爪子比一比，谁的大？",
+        "item.house.0：item(house):欢迎来到我的森林木屋！请进，今天的点心是想象饼干。",
+        "item.mat.0：item(mat):野餐垫铺好！这一个格子给你，这一个格子给我。",
+        "item.snowman.0：item(snowman):你好呀，雪人朋友！你的胡萝卜鼻子可真神气。",
+        "item.bow.0：item(bow):戴上枫叶领结，我就是秋天的小小迎宾员！",
+        "q.skill.格式规范.1：收尾巴 1级",
+        "q.skill.格式规范.2：收尾巴 2级",
+        "celebrate.growth：s2成长至s3",
+        "celebrate.graduation：毕业/寒假"
+      ],
+      "note": "抬一只前爪，挥两下，放回地面"
+    },
+    {
+      "id": "s3-spin",
+      "stage": 3,
+      "action": "spin",
+      "name": "摇尾转圈",
+      "category": "玩耍",
+      "raw": "raw/s3-spin.png",
+      "durations": [
+        170,
+        170,
+        170,
+        170,
+        170,
+        170,
+        170,
+        210
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "home.tap：点击小狗/连续戳",
+        "lines.idle：LINES.idle",
+        "lines.state_bored：LINES.state_bored",
+        "lines.after_practice：LINES.after_practice",
+        "lines.remember：LINES.remember",
+        "lines.tap：LINES.tap",
+        "lines.tap_too_much：LINES.tap_too_much",
+        "scene.yard.2：explore(yard):风把叶子吹起来啦，我的尾巴也想跟着跳舞！",
+        "item.curtain.1：item(curtain):风一吹，小窗帘就跳舞啦，我也晃一晃！",
+        "item.swing.0：item(swing):秋千荡一下，枫叶也跟着摇一下！谁在模仿谁呀？",
+        "item.scarf.1：item(scarf):围巾尾巴晃呀晃，和我的小尾巴成朋友啦。",
+        "trick.格式规范：摇尾巴转圈"
+      ],
+      "note": "原地转一小圈，回到原站位"
+    },
+    {
+      "id": "s3-think",
+      "stage": 3,
+      "action": "think",
+      "name": "歪头思考",
+      "category": "答题反馈",
+      "raw": "raw/s3-think.png",
+      "durations": [
+        160,
+        160,
+        160,
+        160,
+        160,
+        160,
+        160,
+        180
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "toy.empty：食物/香皂/玩具库存不足",
+        "hide.start：打开/切难度/翻错杯",
+        "lines.idle：LINES.idle",
+        "lines.math：LINES.math",
+        "lines.remember：LINES.remember",
+        "item.mat.1：item(mat):我把爪爪摆进格子里，嘿，差点排成一条直线！",
+        "item.pond.0：item(pond):池塘里有另一只我！我一歪头，它也歪头。",
+        "q.circle.missing：漏圈/多圈点评",
+        "q.result.wrong：答错/部分正确/短订正待完成",
+        "q.cover：慢慢来遮罩",
+        "q.skill.计算失误.1：稳稳爪 1级",
+        "q.skill.计算失误.2：稳稳爪 2级",
+        "q.skill.漏题.1：巡逻 1级",
+        "q.skill.漏题.2：巡逻 2级"
+      ],
+      "note": "歪头，耳朵小动，停顿，再回正"
+    },
+    {
+      "id": "s3-low-rest",
+      "stage": 3,
+      "action": "low-rest",
+      "name": "低状态安心休息",
+      "category": "情绪",
+      "raw": "raw/s3-low-rest.png",
+      "durations": [
+        220,
+        220,
+        220,
+        220,
+        220,
+        220,
+        220,
+        260
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "home.low：三需求均小于30时闲聊及戳小狗",
+        "lines.state_rest：LINES.state_rest",
+        "lines.rest_tap：LINES.rest_tap",
+        "scene.yard.rest：我们慢慢走，听落叶沙沙响。陪你看风景也很开心。",
+        "scene.park.rest：在草坡上歇一歇吧。云朵慢慢走，我们也不用着急。",
+        "scene.snow.rest：慢慢看雪花落下来，一片、两片……安安静静也很好玩。",
+        "scene.hall.rest：我们坐下来看看彩旗。那些一起进步的小事，我都记着呢。",
+        "item.curtain.rest：拉开一点窗帘，让软软的阳光陪我们坐一会儿。",
+        "item.lantern.rest：暖暖的福灯亮着，坐在这里就觉得很安心。",
+        "item.pillow.rest：靠着软软的抱枕歇一会儿，舒服多啦。",
+        "item.house.rest：在木屋门口坐坐吧，树叶会给我们唱歌。",
+        "item.swing.rest：让秋千轻轻晃，我们在旁边听风就好。",
+        "item.flower.rest：小花也在慢慢长大，我们一起闻闻花香吧。",
+        "item.kite.rest：坐在草地上看风筝也很好，风会帮它慢慢飞。",
+        "item.mat.rest：野餐垫软软的，我们坐下来看看云。",
+        "item.pond.rest：我们坐远一点，安静地看水面一圈一圈的小波纹。",
+        "item.snowman.rest：和雪人并排歇一会儿，看看谁先等到下一片雪花。",
+        "item.sled.rest：先拍拍雪橇上的软雪，等精神好了再慢慢滑。",
+        "item.stove.rest：离暖炉远一点坐好，暖意会慢慢跑过来。",
+        "item.scarf.rest：围巾轻轻围着，暖暖地陪你待一会儿。",
+        "item.bow.rest：领结整整齐齐的，今天慢慢来就很好。",
+        "item.hat.rest：帽子软软暖暖，陪我安静坐一会儿吧。"
+      ],
+      "note": "身体略低，缓眨眼，轻呼吸，保持希望感"
+    },
+    {
+      "id": "s3-eat",
+      "stage": 3,
+      "action": "eat",
+      "name": "低头吃东西",
+      "category": "照顾",
+      "raw": "raw/s3-eat.png",
+      "durations": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "care.food：feed(cookie/rice/bento)"
+      ],
+      "note": "低头对准食物层、吃一口、咀嚼、抬头舔嘴"
+    },
+    {
+      "id": "s3-bath",
+      "stage": 3,
+      "action": "bath",
+      "name": "泡泡澡",
+      "category": "照顾",
+      "raw": "raw/s3-bath.png",
+      "durations": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        400
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "care.soap：洗澡"
+      ],
+      "note": "泡泡轻动、眨眼、头和耳朵摆动，盆底固定"
+    },
+    {
+      "id": "s3-pat",
+      "stage": 3,
+      "action": "pat",
+      "name": "被轻轻摸头",
+      "category": "照顾",
+      "raw": "raw/s3-pat.png",
+      "durations": [
+        150,
+        150,
+        150,
+        150,
+        150,
+        150,
+        150,
+        150
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "care.pat：摸摸，前三次/之后"
+      ],
+      "note": "闭眼微抬头，轻轻靠向抚摸方向"
+    },
+    {
+      "id": "s3-shake",
+      "stage": 3,
+      "action": "shake",
+      "name": "抬爪握手或指一指",
+      "category": "日常",
+      "raw": "raw/s3-shake.png",
+      "durations": [
+        150,
+        150,
+        150,
+        150,
+        150,
+        150,
+        150,
+        150
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "jar：存金币及存满",
+        "trick.计算失误：握手",
+        "q.guard：3级技能拦截需回去改",
+        "q.skill.审题.1：灵鼻子 1级",
+        "q.skill.审题.2：灵鼻子 2级",
+        "q.skill.审题.3：灵鼻子 3级",
+        "q.skill.概念不清.1：排排队 1级",
+        "q.skill.概念不清.2：排排队 2级",
+        "q.skill.概念不清.3：排排队 3级",
+        "q.skill.计算失误.1：稳稳爪 1级",
+        "q.skill.计算失误.2：稳稳爪 2级",
+        "q.skill.计算失误.3：稳稳爪 3级",
+        "q.skill.格式规范.3：收尾巴 3级",
+        "q.skill.漏题.3：巡逻 3级",
+        "q.skill.策略缺失.3：探路 3级",
+        "event.leaf：扫一扫落叶",
+        "event.bird：撒面包屑",
+        "event.calendar：挂日历",
+        "event.couplet：按春联纸"
+      ],
+      "note": "抬起前爪，向目标伸一下，收回"
+    },
+    {
+      "id": "s3-ball",
+      "stage": 3,
+      "action": "ball",
+      "name": "追球接球",
+      "category": "玩耍",
+      "raw": "raw/s3-ball.png",
+      "durations": [
+        220,
+        220,
+        220,
+        220,
+        220,
+        220,
+        220,
+        260
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "toy.ball：ball(ball)"
+      ],
+      "note": "看着小球滚动、小步追、前爪按住或叼回"
+    },
+    {
+      "id": "s3-disc",
+      "stage": 3,
+      "action": "disc",
+      "name": "跃起接飞盘",
+      "category": "玩耍",
+      "raw": "raw/s3-disc.png",
+      "durations": [
+        160,
+        160,
+        180,
+        200,
+        200,
+        180,
+        160,
+        360
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "toy.disc：ball(disc)"
+      ],
+      "note": "跟随蓝飞盘、压身、跃接、落地"
+    },
+    {
+      "id": "s3-walk",
+      "stage": 3,
+      "action": "walk",
+      "name": "散步巡逻",
+      "category": "探索",
+      "raw": "raw/s3-walk.png",
+      "durations": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "findPet：找回成功",
+        "trip.walk：在开放地点散步",
+        "trick.漏题：绕小屋巡逻",
+        "trick.策略缺失：带路",
+        "q.skill.漏题.1：巡逻 1级",
+        "q.skill.漏题.2：巡逻 2级",
+        "q.skill.策略缺失.1：探路 1级",
+        "q.skill.策略缺失.2：探路 2级"
+      ],
+      "note": "两至三步小幅走动，首尾相接，脚底固定"
+    },
+    {
+      "id": "s3-carry-object",
+      "stage": 3,
+      "action": "carry-object",
+      "name": "叼起并放好物件",
+      "category": "物件互动",
+      "raw": "raw/s3-carry-object.png",
+      "durations": [
+        220,
+        220,
+        220,
+        220,
+        220,
+        220,
+        220,
+        260
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "trick.概念不清：叼积木排队",
+        "q.skill.概念不清.1：排排队 1级",
+        "q.skill.概念不清.2：排排队 2级",
+        "event.blocks：积木排队",
+        "event.leaf：扫一扫落叶",
+        "event.calendar：挂日历"
+      ],
+      "note": "低头叼起对应物件、抬头、在目标处放好"
+    },
+    {
+      "id": "s3-present-find",
+      "stage": 3,
+      "action": "present-find",
+      "name": "展示发现或带路",
+      "category": "探索",
+      "raw": "raw/s3-present-find.png",
+      "durations": [
+        180,
+        180,
+        180,
+        180,
+        180,
+        180,
+        180,
+        240
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "morning.greet：早安进入/小礼物",
+        "hide.win：翻到骨头",
+        "trip.find：捡到普通纪念物",
+        "trip.card：获得新明信片",
+        "trick.策略缺失：带路",
+        "q.skill.策略缺失.1：探路 1级",
+        "q.skill.策略缺失.2：探路 2级"
+      ],
+      "note": "看向发现、抬爪或叼着展示、回望孩子"
+    },
+    {
+      "id": "s3-sleep",
+      "stage": 3,
+      "action": "sleep",
+      "name": "熟睡呼吸",
+      "category": "晚安",
+      "raw": "raw/s3-sleep.png",
+      "durations": [
+        270,
+        270,
+        270,
+        270,
+        270,
+        270,
+        270,
+        310
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "night.sleep：入睡及睡眠闲聊",
+        "findPet：找回成功",
+        "lines.time_late：LINES.time_late"
+      ],
+      "note": "蜷卧呼吸、耳尖或鼻子小动"
+    },
+    {
+      "id": "s3-blanket",
+      "stage": 3,
+      "action": "blanket",
+      "name": "盖好被子",
+      "category": "晚安",
+      "raw": "raw/s3-blanket.png",
+      "durations": [
+        250,
+        250,
+        250,
+        250,
+        250,
+        250,
+        250,
+        250
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "night.blanket：quiet(blanket)",
+        "night.low：三低时睡眠及晚安互动"
+      ],
+      "note": "被角落下或掖好，鼻尖缩进一点，再安睡"
+    },
+    {
+      "id": "s3-night-pat",
+      "stage": 3,
+      "action": "night-pat",
+      "name": "睡后轻轻摸摸",
+      "category": "晚安",
+      "raw": "raw/s3-night-pat.png",
+      "durations": [
+        220,
+        220,
+        220,
+        220,
+        220,
+        220,
+        220,
+        260
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "night.pat：quiet(pat)",
+        "night.low：三低时睡眠及晚安互动"
+      ],
+      "note": "蜷卧中前爪靠近，表情放松，仍闭眼"
+    },
+    {
+      "id": "s3-hum",
+      "stage": 3,
+      "action": "hum",
+      "name": "听晚安曲",
+      "category": "晚安",
+      "raw": "raw/s3-hum.png",
+      "durations": [
+        270,
+        270,
+        270,
+        270,
+        270,
+        270,
+        270,
+        310
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "night.hum：quiet(hum)",
+        "night.low：三低时睡眠及晚安互动"
+      ],
+      "note": "蜷卧，耳尖轻动，呼吸渐缓，仍闭眼"
+    },
+    {
+      "id": "s3-sleep-low",
+      "stage": 3,
+      "action": "sleep-low",
+      "name": "低状态睡梦",
+      "category": "情绪",
+      "raw": "raw/s3-sleep-low.png",
+      "durations": [
+        270,
+        270,
+        270,
+        270,
+        270,
+        270,
+        270,
+        310
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "night.low：三低时睡眠及晚安互动",
+        "lines.rest_sleep：LINES.rest_sleep"
+      ],
+      "note": "略蜷缩，轻叹气，随后慢慢放松"
+    },
+    {
+      "id": "s3-proud",
+      "stage": 3,
+      "action": "proud",
+      "name": "认真完成后的得意表情",
+      "category": "答题反馈",
+      "raw": "raw/s3-proud.png",
+      "durations": [
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        160
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "wardrobe.equip：围巾/领结/帽子穿戴和收起",
+        "shop.buy：买食物/玩具/装扮",
+        "jar：存金币及存满",
+        "q.circle.good：圈词点评好",
+        "q.result.right：答对/短订正完成",
+        "celebrate.points：技能点+1/学本领",
+        "celebrate.boss：闯关获胜/失败",
+        "celebrate.growth：s2成长至s3",
+        "celebrate.graduation：毕业/寒假"
+      ],
+      "note": "明亮眼睛，轻点头，露出小笑容"
+    },
+    {
+      "id": "s3-shy-encourage",
+      "stage": 3,
+      "action": "shy-encourage",
+      "name": "犯错后温和鼓励",
+      "category": "答题反馈",
+      "raw": "raw/s3-shy-encourage.png",
+      "durations": [
+        160,
+        160,
+        160,
+        160,
+        160,
+        160,
+        160,
+        180
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "q.result.wrong：答错/部分正确/短订正待完成",
+        "q.guard：3级技能拦截需回去改",
+        "q.skill.审题.3：灵鼻子 3级",
+        "q.skill.概念不清.3：排排队 3级",
+        "q.skill.计算失误.3：稳稳爪 3级",
+        "q.skill.格式规范.3：收尾巴 3级",
+        "q.skill.漏题.3：巡逻 3级",
+        "q.skill.策略缺失.3：探路 3级",
+        "celebrate.boss：闯关获胜/失败"
+      ],
+      "note": "轻低头、温柔眨眼、抬头再试，不悲伤责备"
+    },
+    {
+      "id": "s3-paw-craft",
+      "stage": 3,
+      "action": "paw-craft",
+      "name": "双爪动手帮忙",
+      "category": "物件互动",
+      "raw": "raw/s3-paw-craft.png",
+      "durations": [
+        220,
+        220,
+        220,
+        220,
+        220,
+        220,
+        220,
+        260
+      ],
+      "reference": "kid/public/pet/s3.webp",
+      "coverage": [
+        "event.dumpling：包饺子",
+        "event.snow：滚雪球"
+      ],
+      "note": "两只前爪慢慢靠拢或滚一滚，配合真实物件做小手工"
+    }
+  ],
+  "coverageSource": "coverage.json",
+  "scope": "28种可复用基础动作 × 少年/青年两阶段，共56张GIF。场景、食物、配饰等具体对象保持独立图层；附入口映射，未接入孩子端。"
+}

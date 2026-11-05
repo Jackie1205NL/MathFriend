@@ -1,0 +1,146 @@
+{
+  "input": "raw/s3-stretch-yawn.png",
+  "sheet": {
+    "width": 1774,
+    "height": 887,
+    "grid": [
+      4,
+      2
+    ]
+  },
+  "crop": {
+    "left": 35,
+    "top": 58,
+    "width": 339,
+    "height": 335
+  },
+  "scale": 1.368731563421829,
+  "size": 512,
+  "durations": [
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200
+  ],
+  "durationMs": 1600,
+  "loop": 0,
+  "bounds": [
+    {
+      "left": 88,
+      "top": 58,
+      "right": 356,
+      "bottom": 380,
+      "transparent": 134095
+    },
+    {
+      "left": 75,
+      "top": 75,
+      "right": 359,
+      "bottom": 385,
+      "transparent": 132554
+    },
+    {
+      "left": 56,
+      "top": 112,
+      "right": 369,
+      "bottom": 390,
+      "transparent": 129586
+    },
+    {
+      "left": 35,
+      "top": 122,
+      "right": 373,
+      "bottom": 392,
+      "transparent": 129189
+    },
+    {
+      "left": 56,
+      "top": 120,
+      "right": 373,
+      "bottom": 390,
+      "transparent": 127700
+    },
+    {
+      "left": 80,
+      "top": 77,
+      "right": 364,
+      "bottom": 386,
+      "transparent": 130250
+    },
+    {
+      "left": 80,
+      "top": 62,
+      "right": 358,
+      "bottom": 382,
+      "transparent": 132041
+    },
+    {
+      "left": 88,
+      "top": 59,
+      "right": 357,
+      "bottom": 381,
+      "transparent": 134307
+    }
+  ],
+  "frames": [
+    {
+      "frame": 0,
+      "transparent": 153980,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 1,
+      "transparent": 151298,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 2,
+      "transparent": 143919,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 3,
+      "transparent": 142666,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 4,
+      "transparent": 145098,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 5,
+      "transparent": 147764,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 6,
+      "transparent": 150124,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 7,
+      "transparent": 153920,
+      "alphaMismatch": 0
+    }
+  ],
+  "gif": "assets/s3-stretch-yawn.gif",
+  "source": {
+    "sha256": "7e6f5140917eb6edacbea28c61e8c886898c7094c7e4eabab0bafdf7e348ebf6",
+    "encoderSha256": "4a061a1e1b991d023fa7bebd7d5539c4ba4578394e9ff056e7e9b6a87c7c01fa",
+    "durations": [
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      200
+    ]
+  }
+}

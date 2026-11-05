@@ -1,0 +1,146 @@
+{
+  "input": "raw/s3-present-find.png",
+  "sheet": {
+    "width": 1774,
+    "height": 887,
+    "grid": [
+      4,
+      2
+    ]
+  },
+  "crop": {
+    "left": 73,
+    "top": 40,
+    "width": 316,
+    "height": 368
+  },
+  "scale": 1.2608695652173914,
+  "size": 512,
+  "durations": [
+    180,
+    180,
+    180,
+    180,
+    180,
+    180,
+    180,
+    240
+  ],
+  "durationMs": 1500,
+  "loop": 0,
+  "bounds": [
+    {
+      "left": 100,
+      "top": 46,
+      "right": 384,
+      "bottom": 406,
+      "transparent": 123178
+    },
+    {
+      "left": 94,
+      "top": 45,
+      "right": 385,
+      "bottom": 406,
+      "transparent": 121580
+    },
+    {
+      "left": 78,
+      "top": 43,
+      "right": 384,
+      "bottom": 406,
+      "transparent": 120042
+    },
+    {
+      "left": 75,
+      "top": 41,
+      "right": 388,
+      "bottom": 406,
+      "transparent": 115018
+    },
+    {
+      "left": 73,
+      "top": 40,
+      "right": 387,
+      "bottom": 406,
+      "transparent": 118080
+    },
+    {
+      "left": 76,
+      "top": 47,
+      "right": 387,
+      "bottom": 407,
+      "transparent": 118988
+    },
+    {
+      "left": 91,
+      "top": 44,
+      "right": 385,
+      "bottom": 407,
+      "transparent": 119757
+    },
+    {
+      "left": 101,
+      "top": 45,
+      "right": 385,
+      "bottom": 407,
+      "transparent": 121339
+    }
+  ],
+  "frames": [
+    {
+      "frame": 0,
+      "transparent": 153275,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 1,
+      "transparent": 152494,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 2,
+      "transparent": 151170,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 3,
+      "transparent": 148290,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 4,
+      "transparent": 149533,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 5,
+      "transparent": 147555,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 6,
+      "transparent": 152569,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 7,
+      "transparent": 153176,
+      "alphaMismatch": 0
+    }
+  ],
+  "gif": "assets/s3-present-find.gif",
+  "source": {
+    "sha256": "be46ea5384b31a7375ff9149ebee80b0e43b9170527a24a2727c17ebf34cc089",
+    "encoderSha256": "4a061a1e1b991d023fa7bebd7d5539c4ba4578394e9ff056e7e9b6a87c7c01fa",
+    "durations": [
+      180,
+      180,
+      180,
+      180,
+      180,
+      180,
+      180,
+      240
+    ]
+  }
+}

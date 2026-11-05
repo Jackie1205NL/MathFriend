@@ -1,0 +1,146 @@
+{
+  "input": "raw/s2-wave.png",
+  "sheet": {
+    "width": 1774,
+    "height": 887,
+    "grid": [
+      4,
+      2
+    ]
+  },
+  "crop": {
+    "left": 75,
+    "top": 69,
+    "width": 282,
+    "height": 312
+  },
+  "scale": 1.4871794871794872,
+  "size": 512,
+  "durations": [
+    150,
+    150,
+    150,
+    150,
+    150,
+    150,
+    150,
+    150
+  ],
+  "durationMs": 1200,
+  "loop": 0,
+  "bounds": [
+    {
+      "left": 107,
+      "top": 69,
+      "right": 355,
+      "bottom": 379,
+      "transparent": 144757
+    },
+    {
+      "left": 103,
+      "top": 69,
+      "right": 355,
+      "bottom": 379,
+      "transparent": 145985
+    },
+    {
+      "left": 100,
+      "top": 69,
+      "right": 355,
+      "bottom": 379,
+      "transparent": 145528
+    },
+    {
+      "left": 75,
+      "top": 69,
+      "right": 355,
+      "bottom": 379,
+      "transparent": 144245
+    },
+    {
+      "left": 79,
+      "top": 70,
+      "right": 355,
+      "bottom": 380,
+      "transparent": 144540
+    },
+    {
+      "left": 97,
+      "top": 70,
+      "right": 355,
+      "bottom": 380,
+      "transparent": 146322
+    },
+    {
+      "left": 107,
+      "top": 70,
+      "right": 355,
+      "bottom": 380,
+      "transparent": 144871
+    },
+    {
+      "left": 107,
+      "top": 71,
+      "right": 356,
+      "bottom": 380,
+      "transparent": 144688
+    }
+  ],
+  "frames": [
+    {
+      "frame": 0,
+      "transparent": 156883,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 1,
+      "transparent": 158189,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 2,
+      "transparent": 158343,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 3,
+      "transparent": 156850,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 4,
+      "transparent": 156311,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 5,
+      "transparent": 158732,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 6,
+      "transparent": 157711,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 7,
+      "transparent": 157014,
+      "alphaMismatch": 0
+    }
+  ],
+  "gif": "assets/s2-wave.gif",
+  "source": {
+    "sha256": "8d7c03a28045009f6d1e2ee12d09d1396d37a8bcbad7168d3efa5bfb5536e3f6",
+    "encoderSha256": "4a061a1e1b991d023fa7bebd7d5539c4ba4578394e9ff056e7e9b6a87c7c01fa",
+    "durations": [
+      150,
+      150,
+      150,
+      150,
+      150,
+      150,
+      150,
+      150
+    ]
+  }
+}

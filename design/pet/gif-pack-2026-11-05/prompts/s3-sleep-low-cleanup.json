@@ -1,0 +1,7 @@
+{
+  "id": "s3-sleep-low",
+  "prompt": "BACKGROUND EXTRACTION ONLY for this 8-frame 4 columns by 2 rows animation sprite sheet. Preserve exactly all EIGHT sleeping Shiba dogs, wicker baskets, cream bedding, all body proportions, poses, expressions, frame positions and sizes. Preserve two erect ears, THREE gold star tags on BLUE collar and RED backpack; preserve cream fur and bedding fully opaque. Remove ALL red/gray/yellow/black noisy background and halos around the eight baskets, between frames, at corners, in margins. Outside the dog/basket/bedding silhouettes must have alpha EXACTLY ZERO. No red aura, no white matte, no color noise, no shadows, no checkerboard drawing, no background paint, no words. Do NOT remove the real red backpacks INSIDE the brown character outline. Do not crop/resize/rearrange/redraw the figures. Keep the gentle low-energy sleeping faces followed by slight relaxation/smile; do not add tears or distressed faces. Clean real-alpha transparent PNG, same 4x2 equal cell layout and dimensions.",
+  "reference": "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/design/pet/gif-pack-2026-11-05/raw/s3-sleep-low.png",
+  "source": "/Users/shushengye/.codex/generated_images/01a1213d-e802-78f2-b349-cd60cf20947e/exec-064713f6-d814-41f0-bb70-f989f13ad86a.png",
+  "tool": "built-in image_gen"
+}

@@ -1,0 +1,146 @@
+{
+  "input": "raw/s2-bath.png",
+  "sheet": {
+    "width": 1774,
+    "height": 887,
+    "grid": [
+      4,
+      2
+    ]
+  },
+  "crop": {
+    "left": 91,
+    "top": 72,
+    "width": 267,
+    "height": 291
+  },
+  "scale": 1.5945017182130585,
+  "size": 512,
+  "durations": [
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    400
+  ],
+  "durationMs": 1800,
+  "loop": 0,
+  "bounds": [
+    {
+      "left": 91,
+      "top": 77,
+      "right": 352,
+      "bottom": 361,
+      "transparent": 138458
+    },
+    {
+      "left": 91,
+      "top": 76,
+      "right": 352,
+      "bottom": 361,
+      "transparent": 139533
+    },
+    {
+      "left": 92,
+      "top": 75,
+      "right": 355,
+      "bottom": 361,
+      "transparent": 139073
+    },
+    {
+      "left": 91,
+      "top": 77,
+      "right": 353,
+      "bottom": 361,
+      "transparent": 139426
+    },
+    {
+      "left": 92,
+      "top": 77,
+      "right": 357,
+      "bottom": 362,
+      "transparent": 139991
+    },
+    {
+      "left": 91,
+      "top": 78,
+      "right": 352,
+      "bottom": 362,
+      "transparent": 138326
+    },
+    {
+      "left": 92,
+      "top": 72,
+      "right": 352,
+      "bottom": 362,
+      "transparent": 139067
+    },
+    {
+      "left": 91,
+      "top": 78,
+      "right": 352,
+      "bottom": 362,
+      "transparent": 137783
+    }
+  ],
+  "frames": [
+    {
+      "frame": 0,
+      "transparent": 132152,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 1,
+      "transparent": 131872,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 2,
+      "transparent": 135146,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 3,
+      "transparent": 132834,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 4,
+      "transparent": 133700,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 5,
+      "transparent": 132463,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 6,
+      "transparent": 132023,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 7,
+      "transparent": 132548,
+      "alphaMismatch": 0
+    }
+  ],
+  "gif": "assets/s2-bath.gif",
+  "source": {
+    "sha256": "0c1d73813f43bea784660c46f992d4192572b6a87d7fb9657e86a61a6836656f",
+    "encoderSha256": "4a061a1e1b991d023fa7bebd7d5539c4ba4578394e9ff056e7e9b6a87c7c01fa",
+    "durations": [
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      400
+    ]
+  }
+}

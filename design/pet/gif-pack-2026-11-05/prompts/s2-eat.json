@@ -1,0 +1,12 @@
+{
+  "id": "s2-eat",
+  "action": "Eating food from a blue dog bowl. Eight poses: 1 happy puppy stands facing bowl; 2 head lowers toward bowl; 3 mouth takes small bite; 4 eyes close and cheeks softly chew; 5 second small chew with subtle ear bounce; 6 lifts head; 7 licks lips once, pink tongue small; 8 happy satisfied eyes looking forward. Keep bowl fixed in identical position/size, no moving bowl, all four legs anatomically correct. Food stays inside bowl; no floating food.",
+  "ref": "kid/public/pet/s2-act-eat.webp",
+  "prompt": "ONE animation sprite sheet with EXACTLY EIGHT equal square cells arranged 4 columns by 2 rows, row-major order. Wide 2:1 canvas. Fixed orthographic camera, shared scale and ground baseline, all figures and props fully inside each cell with at least 12% clear margin and transparent gutters. Real alpha transparency outside characters/props: background pixels alpha EXACTLY ZERO, no white matte, no fake checkerboard, no cast shadows. No labels/numbers/text/borders/scenery. Not a poster or collage. Warm cute 2D flat shaded cartoon sticker art matching reference. Distinct smoothly progressive animation poses.\nEXACT shipped juvenile Shiba identity from reference: orange fur, cream muzzle chest paws and tail tip, thick dark-brown rounded outlines, glossy brown eyes, pink cheeks, ONE upright ear and ONE floppy ear, turquoise BLUE collar with exactly TWO gold five-pointed star tags, NO backpack, scarf or hat. Consistent same proportions and size in every frame.\nEating food from a blue dog bowl. Eight poses: 1 happy puppy stands facing bowl; 2 head lowers toward bowl; 3 mouth takes small bite; 4 eyes close and cheeks softly chew; 5 second small chew with subtle ear bounce; 6 lifts head; 7 licks lips once, pink tongue small; 8 happy satisfied eyes looking forward. Keep bowl fixed in identical position/size, no moving bowl, all four legs anatomically correct. Food stays inside bowl; no floating food.",
+  "refs": [
+    "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/kid/public/pet/s2-act-eat.webp",
+    "/Users/shushengye/Downloads/同步空间/Personal/亲自教学/数学 AI 教陪/design/pet/gif-pack-2026-11-05/s2-layout.png"
+  ],
+  "source": "/Users/shushengye/.codex/generated_images/01a1213d-e802-78f2-b349-cd60cf20947e/exec-aefeaa03-f5bc-436b-8e6c-fd8586ce4293.png",
+  "tool": "built-in image_gen"
+}

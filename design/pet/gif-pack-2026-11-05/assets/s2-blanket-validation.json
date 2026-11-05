@@ -1,0 +1,146 @@
+{
+  "input": "raw/s2-blanket.png",
+  "sheet": {
+    "width": 1774,
+    "height": 887,
+    "grid": [
+      4,
+      2
+    ]
+  },
+  "crop": {
+    "left": 18,
+    "top": 30,
+    "width": 408,
+    "height": 356
+  },
+  "scale": 1.1372549019607843,
+  "size": 512,
+  "durations": [
+    250,
+    250,
+    250,
+    250,
+    250,
+    250,
+    250,
+    250
+  ],
+  "durationMs": 2000,
+  "loop": 0,
+  "bounds": [
+    {
+      "left": 18,
+      "top": 30,
+      "right": 425,
+      "bottom": 384,
+      "transparent": 88002
+    },
+    {
+      "left": 19,
+      "top": 30,
+      "right": 425,
+      "bottom": 384,
+      "transparent": 88049
+    },
+    {
+      "left": 18,
+      "top": 30,
+      "right": 425,
+      "bottom": 384,
+      "transparent": 87995
+    },
+    {
+      "left": 19,
+      "top": 30,
+      "right": 425,
+      "bottom": 384,
+      "transparent": 88099
+    },
+    {
+      "left": 19,
+      "top": 31,
+      "right": 425,
+      "bottom": 385,
+      "transparent": 88408
+    },
+    {
+      "left": 19,
+      "top": 31,
+      "right": 425,
+      "bottom": 384,
+      "transparent": 88130
+    },
+    {
+      "left": 19,
+      "top": 31,
+      "right": 424,
+      "bottom": 384,
+      "transparent": 88358
+    },
+    {
+      "left": 19,
+      "top": 31,
+      "right": 425,
+      "bottom": 384,
+      "transparent": 88213
+    }
+  ],
+  "frames": [
+    {
+      "frame": 0,
+      "transparent": 125196,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 1,
+      "transparent": 125320,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 2,
+      "transparent": 125226,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 3,
+      "transparent": 125224,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 4,
+      "transparent": 125653,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 5,
+      "transparent": 125428,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 6,
+      "transparent": 125528,
+      "alphaMismatch": 0
+    },
+    {
+      "frame": 7,
+      "transparent": 125480,
+      "alphaMismatch": 0
+    }
+  ],
+  "gif": "assets/s2-blanket.gif",
+  "source": {
+    "sha256": "b966dfab8c4ff633cb82d6dbf42eb00b3dfa8eab0d06b0a31b301ac0002d99d9",
+    "encoderSha256": "4a061a1e1b991d023fa7bebd7d5539c4ba4578394e9ff056e7e9b6a87c7c01fa",
+    "durations": [
+      250,
+      250,
+      250,
+      250,
+      250,
+      250,
+      250,
+      250
+    ]
+  }
+}
