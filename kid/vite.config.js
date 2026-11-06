@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
 import { defineConfig } from 'vite'
 import { createApi } from './server/game.js'
+import { MOTION_ASSETS } from './src/pet-motion.js'
 
 const root = path.dirname(fileURLToPath(import.meta.url))
 const DEV_DIR = path.join(os.tmpdir(), 'shuban-kid-dev')
@@ -13,8 +14,7 @@ const DEV_DIR = path.join(os.tmpdir(), 'shuban-kid-dev')
 // 原图只保留在设计包；开发和发布共用同一份白名单，不把原始帧、提示词或题库带到站点。
 function petMotionAssets() {
   const pack = path.join(root, '..', 'design', 'pet', 'gif-pack-2026-11-05')
-  const { items } = JSON.parse(fs.readFileSync(path.join(pack, 'manifest.json'), 'utf8'))
-  const portraits = new Set(['idle', 'think', 'proud', 'shy-encourage']), files = new Map()
+  const files = new Map()
   const crop = { left: 25, top: 10, width: 350, height: 350 }
   const add = (name, file, portrait = false) => {
     let cached
@@ -26,11 +26,10 @@ function petMotionAssets() {
       return gif ? image.gif({ effort: 3, dither: 0 }).toBuffer() : image.png().toBuffer()
     })())
   }
-  for (const { id, action } of items) {
-    if (!/^s[23]-[a-z]+(?:-[a-z]+)*$/.test(id) || files.has('/' + id + '.gif')) throw new Error('宠物动画清单中的动作 ID 无效或重复')
-    const gif = path.join(pack, 'assets', id + '.gif'), poster = path.join(pack, 'assets', id + '-frames', '00.png')
-    add(id + '.gif', gif); add(id + '.png', poster)
-    if (portraits.has(action)) { add(id + '-face.gif', gif, true); add(id + '-face.png', poster, true) }
+  for (const { stage, action, portrait, ext, file } of MOTION_ASSETS) {
+    const id = `s${stage}-${action}`
+    const source = ext === 'gif' ? path.join(pack, 'assets', id + '.gif') : path.join(pack, 'assets', id + '-frames', '00.png')
+    add(file, source, portrait)
   }
   return {
     name: 'kid-pet-motion',

@@ -1,95 +1,77 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import { MOTION_ACTIONS, normalizeMotionAction, resolveMotion } from '../src/pet-motion.js'
+import vm from 'node:vm'
+import { MOTION_ACTIONS, MOTION_ASSETS, normalizeMotionAction, resolveMotion } from '../src/pet-motion.js'
 
 const manifest = JSON.parse(fs.readFileSync(new URL('../../design/pet/gif-pack-2026-11-05/manifest.json', import.meta.url)))
+const files = new Set(MOTION_ASSETS.map(x => '/pet/motion/' + x.file))
 
-test('两阶段全部56个动作指向已确认素材，单次播放时长覆盖完整的八帧', () => {
+test('精简输出20张GIF和30张静帧，所有旧入口及减少动态地址均存在且时长匹配新动作', () => {
   assert.equal(MOTION_ACTIONS.length, 28)
-  assert.equal(manifest.items.length, 56)
+  assert.equal(MOTION_ASSETS.filter(x => x.ext === 'gif').length, 20)
+  assert.equal(MOTION_ASSETS.length, 50)
   for (const item of manifest.items) {
-    const motion = resolveMotion({ stage: item.stage, action: item.action })
-    assert.equal(motion.action, item.action, item.id)
-    assert.equal(motion.loop, false, item.id)
-    assert.equal(motion.durationMs, item.durations.reduce((sum, ms) => sum + ms, 0), item.id)
-    for (const [url, file] of [[motion.src, `${item.id}.gif`], [motion.poster, `${item.id}-frames/00.png`]]) {
-      assert.ok(fs.existsSync(new URL(`../../design/pet/gif-pack-2026-11-05/assets/${file}`, import.meta.url)), url)
+    for (const portrait of [false, true]) for (const reduced of [false, true]) {
+      const motion = resolveMotion({ stage: item.stage, action: item.action, portrait, reduced })
+      if (!motion) { assert.ok(portrait && ['sleep', 'sleep-low', 'blanket', 'night-pat', 'hum'].includes(item.action)); continue }
+      assert.ok(files.has(motion.src), motion.src)
+      assert.ok(files.has(motion.poster), motion.poster)
+      const target = manifest.items.find(x => x.stage === item.stage && x.action === motion.action)
+      assert.equal(motion.durationMs, target.durations.reduce((sum, ms) => sum + ms, 0))
+      if (reduced) assert.equal(motion.src, motion.poster)
     }
-    assert.equal(motion.src, `/pet/motion/${item.id}.gif`)
-    assert.equal(motion.poster, `/pet/motion/${item.id}.png`)
+  }
+  for (const { stage, action, ext } of MOTION_ASSETS) {
+    const file = ext === 'gif' ? `s${stage}-${action}.gif` : `s${stage}-${action}-frames/00.png`
+    assert.ok(fs.existsSync(new URL('../../design/pet/gif-pack-2026-11-05/assets/' + file, import.meta.url)))
   }
 })
 
-test('其他成长阶段和出走不分配动画，保持旧素材与空房边界', () => {
-  for (const stage of [undefined, null, 0, 1, 4, 5, '2', -1]) assert.equal(resolveMotion({ stage, action: 'disc' }), null)
+test('SW缓存清单精确匹配发布清单，并升级清除旧大包', () => {
+  const worker = fs.readFileSync(new URL('../public/pet-motion-sw.js', import.meta.url), 'utf8')
+  const context = vm.createContext({})
+  vm.runInContext(worker.slice(0, worker.indexOf('const allowed')) + ';globalThis.files=FILES;globalThis.cache=CACHE', context)
+  assert.deepEqual([...context.files].sort(), [...files].sort())
+  assert.equal(context.cache, 'mathfriend-pet-motion-v2')
+  assert.match(worker, /name !== CACHE.*caches.delete\(name\)/)
+})
+
+test('日常与场景合并代表动作，球盘与护理结果仍表达真实活动', () => {
   for (const stage of [2, 3]) {
-    assert.equal(resolveMotion({ stage, away: true }), null)
-    assert.equal(resolveMotion({ stage, away: true, action: 'eat', portrait: true }), null)
+    assert.equal(resolveMotion({ stage }).src, `/pet/motion/s${stage}-idle.png`)
+    for (const action of ['look', 'sniff', 'blink', 'stretch-yawn', 'hop', 'wave', 'spin', 'pat', 'shake', 'carry-object', 'paw-craft']) assert.equal(resolveMotion({ stage, action }).action, 'wag')
+    assert.equal(resolveMotion({ stage, action: 'present-find' }).action, 'walk')
+    for (const action of ['eat', 'bath', 'ball', 'disc']) assert.equal(resolveMotion({ stage, action, low: true }).action, action)
+    assert.equal(resolveMotion({ stage, action: 'think' }).src, `/pet/motion/s${stage}-think.png`)
+    assert.equal(resolveMotion({ stage, action: 'proud' }).src, `/pet/motion/s${stage}-proud.png`)
   }
 })
 
-test('旧闲聊动作能复用对应动作，玩具和护理的歧义由调用方明确区分', () => {
-  for (const [old, current] of Object.entries({ giggle: 'wag', yawn: 'stretch-yawn', stretch: 'stretch-yawn', sleepy: 'stretch-yawn', happy: 'idle', thinking: 'think', shy: 'shy-encourage' })) {
-    assert.equal(normalizeMotionAction(old), current)
-    assert.equal(resolveMotion({ stage: 2, action: old }).action, current)
-  }
-  assert.equal(normalizeMotionAction('catch'), null)
-  assert.equal(normalizeMotionAction('shake'), 'shake')
-  assert.equal(resolveMotion({ stage: 2, action: 'pat' }).action, 'pat')
-  for (const action of ['../disc', 'constructor', 'toString', 'disc?bad', {}, 2, false]) {
+test('其他阶段和出走不分配素材；非法动作及catch歧义不会猜成玩具', () => {
+  for (const stage of [undefined, null, 0, 1, 4, 5, '2', -1]) assert.equal(resolveMotion({ stage, action: 'disc' }), null)
+  for (const stage of [2, 3]) assert.equal(resolveMotion({ stage, away: true, action: 'eat' }), null)
+  for (const action of ['catch', '../disc', 'constructor', 'toString', 'disc?bad', {}, 2, false]) {
     assert.equal(normalizeMotionAction(action), null)
     assert.equal(resolveMotion({ stage: 2, action }), null)
   }
 })
 
-test('安静陪伴按睡眠和状态切换，显式照顾不被低状态掩盖', () => {
-  for (const stage of [2, 3]) {
-    for (const [sleeping, low, action] of [[false, false, 'idle'], [false, true, 'low-rest'], [true, false, 'sleep'], [true, true, 'sleep-low']]) {
-      const motion = resolveMotion({ stage, sleeping, low })
-      assert.equal(motion.action, action)
-      assert.equal(motion.loop, true)
-    }
-    for (const action of ['eat', 'bath', 'pat', 'ball', 'disc']) {
-      const motion = resolveMotion({ stage, low: true, action })
-      assert.equal(motion.action, action)
-      assert.equal(motion.loop, false)
-    }
-  }
-})
-
-test('睡后保留三种独立轻互动，日间请求不会播放嬉戏或成功照顾', () => {
-  for (const low of [false, true]) {
-    for (const action of ['blanket', 'night-pat', 'hum']) {
-      const motion = resolveMotion({ stage: 3, action, sleeping: true, low })
-      assert.equal(motion.action, action)
-      assert.equal(motion.loop, false)
-    }
-    for (const action of ['eat', 'bath', 'pat', 'ball', 'disc', 'hop', 'catch', 'bad-action']) {
-      const motion = resolveMotion({ stage: 3, action, sleeping: true, low })
+test('睡觉只用普通与低状态两张GIF，三种轻互动及延迟日间请求保持睡姿', () => {
+  for (const stage of [2, 3]) for (const low of [false, true]) {
+    for (const action of [undefined, 'blanket', 'night-pat', 'hum', 'eat', 'bath', 'disc', 'hop']) {
+      const motion = resolveMotion({ stage, action, sleeping: true, low })
       assert.equal(motion.action, low ? 'sleep-low' : 'sleep')
-      assert.equal(motion.loop, true)
+      assert.equal(resolveMotion({ stage, action, sleeping: true, low, portrait: true }), null)
     }
+    assert.equal(resolveMotion({ stage, low: true }).src, `/pet/motion/s${stage}-low-rest.png`)
   }
 })
 
-test('减少动态只取透明静帧；头像仅使用四种实际肖像，不把睡姿换成笑脸', () => {
-  const faces = new Set(['idle', 'think', 'proud', 'shy-encourage'])
+test('答题常态静帧，只在思考和完成反馈使用两个表情GIF', () => {
   for (const stage of [2, 3]) {
-    for (const action of MOTION_ACTIONS) {
-      const motion = resolveMotion({ stage, action, reduced: true })
-      assert.equal(motion.src, motion.poster)
-      assert.ok(motion.src.endsWith('.png'))
-      const portrait = resolveMotion({ stage, action, portrait: true })
-      if (['sleep', 'sleep-low', 'blanket', 'night-pat', 'hum'].includes(action)) assert.equal(portrait, null)
-      else {
-        assert.ok(faces.has(portrait.action), action)
-        assert.equal(portrait.src, `/pet/motion/s${stage}-${portrait.action}-face.gif`)
-        assert.equal(portrait.poster, `/pet/motion/s${stage}-${portrait.action}-face.png`)
-        assert.equal(portrait.durationMs, resolveMotion({ stage, action: portrait.action }).durationMs)
-      }
-    }
-    assert.equal(resolveMotion({ stage, sleeping: true, portrait: true }), null)
-    assert.equal(resolveMotion({ stage, low: true, portrait: true }).action, 'think')
+    assert.equal(resolveMotion({ stage, portrait: true }).src, `/pet/motion/s${stage}-idle-face.png`)
+    for (const action of ['thinking', 'shy', 'shy-encourage']) assert.equal(resolveMotion({ stage, action, portrait: true }).src, `/pet/motion/s${stage}-think-face.gif`)
+    assert.equal(resolveMotion({ stage, action: 'proud', portrait: true }).src, `/pet/motion/s${stage}-proud-face.gif`)
   }
 })

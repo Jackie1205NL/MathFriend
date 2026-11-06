@@ -16,6 +16,19 @@ const PROUD = new Set(['proud', 'wag', 'hop', 'wave', 'spin', 'present-find'])
 
 export const MOTION_ACTIONS = Object.freeze(Object.keys(DURATION))
 
+// 每种场景只保留代表动作，其余台词共享同一张图。
+const SHARED = Object.freeze({
+  look: 'wag', sniff: 'wag', blink: 'wag', 'stretch-yawn': 'wag', hop: 'wag', wave: 'wag', spin: 'wag',
+  pat: 'wag', shake: 'wag', 'carry-object': 'wag', 'present-find': 'walk', 'paw-craft': 'wag',
+  blanket: 'sleep', 'night-pat': 'sleep', hum: 'sleep', 'shy-encourage': 'think',
+})
+const BODY_GIFS = ['wag', 'eat', 'bath', 'ball', 'disc', 'walk', 'sleep', 'sleep-low']
+const BODY_POSTERS = [...BODY_GIFS, 'idle', 'low-rest', 'think', 'proud']
+const FACE_GIFS = ['think', 'proud'], FACE_POSTERS = ['idle', ...FACE_GIFS]
+export const MOTION_ASSETS = Object.freeze([2, 3].flatMap(stage =>
+  [[BODY_GIFS, false, 'gif'], [BODY_POSTERS, false, 'png'], [FACE_GIFS, true, 'gif'], [FACE_POSTERS, true, 'png']]
+    .flatMap(([actions, portrait, ext]) => actions.map(action => ({ stage, action, portrait, ext, file: `s${stage}-${action}${portrait ? '-face' : ''}.${ext}` })))))
+
 // catch 必须由调用处按实际玩具区分 ball/disc；护理的 shake 也要明确换成 pat。
 export function normalizeMotionAction(action) {
   if (typeof action !== 'string') return null
@@ -30,8 +43,11 @@ export function resolveMotion({ stage, action, sleeping = false, low = false, aw
   // 睡后只允许安静互动；旧的日间动作或延迟到达的请求不能把小狗叫醒。
   if (sleeping && !NIGHT.has(selected)) { selected = low ? 'sleep-low' : 'sleep'; loop = true }
   if (!selected || portrait && NIGHT.has(selected)) return null
-  if (portrait) selected = selected === 'shy-encourage' ? selected : selected === 'think' || selected === 'low-rest' ? 'think' : PROUD.has(selected) ? 'proud' : 'idle'
+  if (sleeping && low) selected = 'sleep-low'
+  if (portrait) selected = selected === 'shy-encourage' || selected === 'think' || selected === 'low-rest' ? 'think' : PROUD.has(selected) ? 'proud' : 'idle'
+  else selected = SHARED[selected] || selected
   const base = `/pet/motion/s${stage}-${selected}${portrait ? '-face' : ''}`
   const poster = base + '.png'
-  return { action: selected, src: base + (reduced ? '.png' : '.gif'), poster, durationMs: DURATION[selected], loop }
+  const animated = (portrait ? FACE_GIFS : BODY_GIFS).includes(selected)
+  return { action: selected, src: base + (reduced || !animated ? '.png' : '.gif'), poster, durationMs: DURATION[selected], loop }
 }

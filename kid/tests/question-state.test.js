@@ -61,9 +61,9 @@ test('真实护理结果分别接入球、飞盘、摸头与洗澡，库存不�
   const f = await fixture(t), { ui } = f, state = f.data.get('state')
   Object.assign(state, { minStage: 2, st: 2, name: '豆豆', kid: '小朋友', own: {}, toy: { ball: 1, disc: 1 }, bag: { cookie: 1, soap: 1 } })
   ui.load(await (await f.request('/state')).json())
-  for (const [action, value, expected] of [['ball', 'ball', 'ball'], ['ball', 'disc', 'disc'], ['care', 'pat', 'pat'], ['feed', 'cookie', 'eat'], ['care', 'soap', 'bath'], ['ball', 'disc', 'think']]) {
+  for (const [action, value, expected] of [['ball', 'ball', 'ball'], ['ball', 'disc', 'disc'], ['care', 'pat', 'wag'], ['feed', 'cookie', 'eat'], ['care', 'soap', 'bath'], ['ball', 'disc', 'think']]) {
     await ui.act(action, value)
-    assert.match(ui.pet(), new RegExp(`/pet/motion/s2-${expected}\\.gif`), `${action}(${value})`)
+    assert.match(ui.pet(), new RegExp(`/pet/motion/s2-${expected}\\.${expected === 'think' ? 'png' : 'gif'}`), `${action}(${value})`)
   }
   assert.equal(f.data.get('state').toy.disc, 0)
   assert.equal(f.data.get('state').bag.cookie, 0)
@@ -76,7 +76,7 @@ test('真实夜间答复保持三种轻互动，误发日间玩具请求不播�
   assert.equal((await f.request('/dev/clock', { date: DATE, time: '23:00' })).status, 200)
   // api() 会同步服务端时钟；直接传入真实 view 用同一时差模拟页面已登录。
   await ui.act('greet')
-  for (const [value, expected] of [['blanket', 'blanket'], ['pat', 'night-pat'], ['hum', 'hum']]) {
+  for (const [value, expected] of [['blanket', 'sleep'], ['pat', 'sleep'], ['hum', 'sleep']]) {
     await ui.act('quiet', value)
     assert.match(ui.pet(), new RegExp(`/pet/motion/s3-${expected}\\.gif`), value)
   }
@@ -106,7 +106,7 @@ test('动作从图片载入后才计时，过期图片与旧超时不能结束�
   assert.ok(finish)
   finish.fn()
   assert.equal(ui.motion(), null)
-  assert.match(ui.pet(), /\/pet\/motion\/s2-idle\.gif/)
+  assert.match(ui.pet(), /\/pet\/motion\/s2-idle\.png/)
 })
 
 test('当前答句离题/刷新后保留，Set、多空、竖式格子和清空编辑均可序列化恢复', async t => {
