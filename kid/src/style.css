@@ -595,3 +595,20 @@ table.dash tr.idle td{color:#a5ad9f}
 .review-complete{text-align:center;display:grid;gap:12px}.review-complete>img{width:90px;height:90px;object-fit:contain;margin:0 auto}.review-complete h2{font-size:29px}
 .review-corrected{background:var(--ok);border-radius:13px;padding:12px;display:grid;gap:4px}.review-corrected small{font-size:15px;color:var(--dim)}.review-corrected b{font-size:26px}
 @media(max-width:600px){.result-details{font-size:14px}.review-verdict b{font-size:23px}.review-question{font-size:17px}.review-keep{padding:11px 13px;gap:9px}.review-keep b{font-size:17px}.review-keep p{font-size:19px}.review-original{font-size:14px}.review-task{gap:12px}.review-task h2{font-size:22px}.review-prompt{font-size:16px}.review-answer{font-size:23px;gap:10px}.review-answer input{height:54px;width:130px;font-size:28px}.review-units button{min-height:48px;font-size:19px}.review-guidance,.review-feedback{font-size:15px;padding:10px 12px}.review-actions button,.review-link{font-size:14px}.review-actions button:last-child{font-size:13px}.review-table>div{font-size:13px}.review-table b{font-size:23px}.review-complete h2{font-size:25px}.review-corrected b{font-size:23px}}
+
+/* 宠物动作由 GIF 播放，CSS 只移动独立的物件层。 */
+.motion-pet .wear{aspect-ratio:1;width:auto}.motion-pet .wear>img{height:100%;width:100%;object-fit:contain}
+.motion-stage{position:relative;height:230px;width:100%;min-width:0}.motion-stage .pet{height:100%;bottom:0}.motion-stage.compact{height:150px}
+.morning .motion-stage{width:120px;height:120px;flex:none}.morning .motion-stage img{width:100%;height:100%}
+.shop-feedback{display:flex;align-items:center;gap:12px}.shop-feedback .motion-stage{width:140px;flex:none}
+.dog{position:relative}.motion-body-dock{border-radius:18px;overflow:visible;background:transparent}.motion-body-dock>img{object-fit:contain}
+.motion-object{position:absolute;left:22%;top:65%;width:24%;height:22%;display:grid;place-items:center;pointer-events:none}
+.motion-object>svg,.motion-object>img{display:block;width:100%;height:100%;object-fit:contain}.motion-object .item-art{width:100%;height:100%}
+.motion-object-icon{font:700 28px var(--sans);line-height:1;color:#c74432}
+.wear:has(>[data-motion-action="carry-object"]) .motion-object{left:14%;top:64%;animation:carry-prop 1.8s linear}
+.wear:has(>[data-motion-action="paw-craft"]) .motion-object{left:24%;top:75%;width:25%}
+.wear:has(>[data-motion-action="present-find"]) .motion-object{left:12%;top:60%}
+.motion-body-dock .motion-object{left:10%;top:58%;width:32%;height:28%}.motion-body-dock .motion-object-icon{font-size:16px}
+@keyframes carry-prop{0%,25%,75%,100%{transform:translateY(10px)}40%,60%{transform:translateY(-20px)}}
+@media(max-width:600px){.motion-stage{height:190px}.motion-stage.compact{height:120px}.shop-feedback .motion-stage{width:105px}.morning .motion-stage{width:90px;height:90px}.motion-object-icon{font-size:21px}}
+@media(prefers-reduced-motion:reduce){.motion-object{animation:none!important}}

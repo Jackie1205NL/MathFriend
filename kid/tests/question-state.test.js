@@ -3,6 +3,8 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs/promises'
 import vm from 'node:vm'
 import * as contract from '../../shared/contract.js'
+import * as petMotion from '../src/pet-motion.js'
+import { itemArt, itemIcon, itemScene } from '../src/pet-items.js'
 import { createApi } from '../server/game.js'
 
 // 运行实际页面状态函数；不启动服务，DOM/计时器由此处替身接住。
@@ -30,7 +32,7 @@ async function fixture(t, items = [word, oral]) {
   let intercept = async (path, body, send) => send()
   const app = { innerHTML: '', setAttribute() {}, querySelectorAll: () => [] }
   const document = { getElementById: () => app, querySelector: () => null, addEventListener: (k, fn) => (events[k] ||= []).push(fn) }
-  const context = vm.createContext({ ...contract, document, window: { addEventListener() {}, scrollTo() {} }, structuredClone, Set, Date, AbortController, crypto: globalThis.crypto,
+  const context = vm.createContext({ ...contract, ...petMotion, itemArt, itemIcon, itemScene, document, window: { addEventListener() {}, scrollTo() {} }, structuredClone, Set, Date, AbortController, crypto: globalThis.crypto,
     setInterval() {}, setTimeout(fn, ms) { const id = ++timerId; timers.set(id, { fn, ms }); return id }, clearTimeout(id) { timers.delete(id) }, localStorage: { getItem: k => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, v) },
     ops: { start() {}, stop() {}, state() {}, act() {}, api() {} },
     fetch: async (url, opts = {}) => { const path = url.replace('/api/kid', ''), body = opts.body && JSON.parse(opts.body); calls.push({ path, body }); return intercept(path, body, () => request(path, body), opts.signal) },
@@ -45,6 +47,7 @@ async function fixture(t, items = [word, oral]) {
       get: () => ({ Q, V, page, busy }), edit: x => Object.assign(Q, x), enter, storeDraft, save,
       back: QA.backto, go: A.go, stepgo: QA.stepgo, recover: QA.recover, key: QA.key, unit: QA.unit,
       html: vQ, home: vHome, quests: vQuests, sig: sigOf, redraw: render, review: reviewAction, reviewkey: QA.reviewkey, next: QA.next,
+      pet: petHtml, act: (a, v) => A[a](v), motion: () => petMotion, motionLoaded,
       click(a, v) { const el = { dataset: { a, v }, disabled: false, classList: { contains: () => false } }; onAct({ target: { closest: () => el } }) },
     }`, context)
   const ui = context.ui
@@ -52,6 +55,58 @@ async function fixture(t, items = [word, oral]) {
   return { ui, data, request, storage, events, rendered, calls, timers, view, intercept: fn => { intercept = fn } }
 }
 const json = x => JSON.parse(JSON.stringify(x))
+
+test('真实护理结果分别接入球、飞盘、摸头与洗澡，库存不足只显示思考', async t => {
+  const f = await fixture(t), { ui } = f, state = f.data.get('state')
+  Object.assign(state, { minStage: 2, st: 2, name: '豆豆', kid: '小朋友', own: {}, toy: { ball: 1, disc: 1 }, bag: { cookie: 1, soap: 1 } })
+  ui.load(await (await f.request('/state')).json())
+  for (const [action, value, expected] of [['ball', 'ball', 'ball'], ['ball', 'disc', 'disc'], ['care', 'pat', 'pat'], ['feed', 'cookie', 'eat'], ['care', 'soap', 'bath'], ['ball', 'disc', 'think']]) {
+    await ui.act(action, value)
+    assert.match(ui.pet(), new RegExp(`/pet/motion/s2-${expected}\\.gif`), `${action}(${value})`)
+  }
+  assert.equal(f.data.get('state').toy.disc, 0)
+  assert.equal(f.data.get('state').bag.cookie, 0)
+  assert.equal(f.data.get('state').bag.soap, 0)
+})
+
+test('真实夜间答复保持三种轻互动，误发日间玩具请求不播放接盘或消耗库存', async t => {
+  const f = await fixture(t), { ui } = f, state = f.data.get('state')
+  Object.assign(state, { minStage: 3, st: 3, name: '豆豆', kid: '小朋友', own: {}, toy: { disc: 1 }, needs: { full: 80, mood: 80, clean: 80, at: Date.parse(`${DATE}T23:00:00+08:00`) } })
+  assert.equal((await f.request('/dev/clock', { date: DATE, time: '23:00' })).status, 200)
+  // api() 会同步服务端时钟；直接传入真实 view 用同一时差模拟页面已登录。
+  await ui.act('greet')
+  for (const [value, expected] of [['blanket', 'blanket'], ['pat', 'night-pat'], ['hum', 'hum']]) {
+    await ui.act('quiet', value)
+    assert.match(ui.pet(), new RegExp(`/pet/motion/s3-${expected}\\.gif`), value)
+  }
+  await ui.act('ball', 'disc')
+  assert.match(ui.pet(), /\/pet\/motion\/s3-sleep\.gif/)
+  assert.equal(f.data.get('state').toy.disc, 1)
+})
+
+test('动作从图片载入后才计时，过期图片与旧超时不能结束后来点击的新动作', async t => {
+  const f = await fixture(t), { ui } = f
+  Object.assign(f.data.get('state'), { minStage: 2, st: 2, own: {}, toy: { ball: 2, disc: 2 } })
+  ui.load(await (await f.request('/state')).json())
+  await ui.act('ball', 'disc')
+  const first = ui.motion(), fallback = [...f.timers.values()].find(timer => timer.ms === 20000)
+  assert.equal(first.started, 0)
+  assert.ok(![...f.timers.values()].some(timer => timer.ms === 1600), '冷加载期间不能预先扣掉接盘时长')
+  await ui.act('ball', 'ball')
+  const second = ui.motion()
+  assert.notEqual(second.serial, first.serial)
+  ui.motionLoaded({ dataset: { motionRun: String(first.serial) } })
+  assert.equal(second.started, 0, '上一张图延迟完成不得启动新动作的倒计时')
+  fallback.fn()
+  assert.equal(ui.motion()?.serial, second.serial, '已排队的旧超时不得清除新动作')
+  ui.motionLoaded({ dataset: { motionRun: String(second.serial) } })
+  assert.equal(second.started, Date.now())
+  const finish = [...f.timers.values()].find(timer => timer.ms === 1800)
+  assert.ok(finish)
+  finish.fn()
+  assert.equal(ui.motion(), null)
+  assert.match(ui.pet(), /\/pet\/motion\/s2-idle\.gif/)
+})
 
 test('当前答句离题/刷新后保留，Set、多空、竖式格子和清空编辑均可序列化恢复', async t => {
   const f = await fixture(t), { ui } = f

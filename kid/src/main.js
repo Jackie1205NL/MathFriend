@@ -1,12 +1,13 @@
 // 孩子端页面：小屋、学期地图、今日任务、题型、本领、小卖部、纪念册。答案和金币都在后端（kid/server/game.js），这里只负责显示和把操作发过去。
 import './style.css'
 import { SKILLS, needsRest, petRest, wornAccessory, SKILL_COST, GOODS, STORY_PAGES, STAGES, SCARF_AT, SEASON, PLACES, POSTCARDS, JAR, TRICKS, POSE_MS, placeOpen, addDays, dayDiff,
-  SKILL_AT, SKILL_L2, STEP_NAME, toTokens, showExpr, validExpr, stripParens, nextOp, canTap, calcOp, reduceAt, isOp } from '../../shared/contract.js'
+  SKILL_AT, SKILL_L2, STEP_NAME, toTokens, showExpr, validExpr, stripParens, nextOp, canTap, calcOp, reduceAt, isOp, eventOf } from '../../shared/contract.js'
 import { LINES } from './lines.js'
 import { STORY } from './story.js'
 import { itemArt, itemIcon, itemScene } from './pet-items.js'
 import { postcardSource } from './postcards.js'
 import { interactionReaction } from './interactions.js'
+import { normalizeMotionAction, resolveMotion } from './pet-motion.js'
 import * as ops from './oplog.js'
 
 const app = document.getElementById('app')
@@ -17,6 +18,8 @@ let touchedItem = ''
 let sp = null          // 故事书里正在看的那一页
 const POSES = ['eat', 'bath', 'catch', 'shake', 'wag', 'sleep']
 const ACT = { blink: 'squish', look: 'look', yawn: 'squish', stretch: 'stretch', hop: 'hop', spin: 'spin', sniff: 'sniff', wave: 'hop', think: 'think', giggle: 'giggle', sleepy: 'squish', walk: 'walk' }
+const motionPreference = window.matchMedia?.('(prefers-reduced-motion: reduce)')
+let petMotion = null, motionSerial = 0, motionTimer = 0
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 const pick = a => a[Math.floor(Math.random() * a.length)]
 const md = d => `${+d.slice(5, 7)}/${+d.slice(8, 10)}`
@@ -68,11 +71,78 @@ const CAP = '<svg class="cap" viewBox="0 0 100 60" aria-hidden="true"><polygon p
 const propAttrs = k => `data-a="item" data-v="${k}" aria-label="摸摸${esc(GOODS.find(g => g.k === k)?.n || k)}"`
 const propClass = k => `prop-hit${touchedItem === k ? ' touched' : ''}`
 const wornAttrs = (k, interactive) => interactive ? ` ${propAttrs(k)} role="button" tabindex="0"` : ''
+const motionScope = () => page === 'q' ? `q:${Q?.id}` : page === 'place' ? `place:${place}` : page
+const activeMotion = () => petMotion?.scope === motionScope() ? petMotion : null
+function stopMotion() {
+  clearTimeout(motionTimer); clearTimeout(poseTimer)
+  petMotion = null; pose = ''; act = ''
+}
+function finishMotion(serial) {
+  if (!petMotion || petMotion.serial !== serial) return
+  const visible = petMotion.scope === motionScope()
+  stopMotion()
+  if (visible) render()
+}
+function motionLoaded(img) {
+  const playing = activeMotion()
+  if (!playing || playing.started || String(playing.serial) !== img.dataset.motionRun) return
+  playing.started = Date.now()
+  clearTimeout(motionTimer)
+  motionTimer = setTimeout(() => finishMotion(playing.serial), playing.durationMs)
+}
+// 复用实际图片节点，输入、提示和计时器重绘不重启 GIF。
+function paint(html) {
+  if (!document.createElement || !app.replaceChildren || !app.querySelectorAll) { app.innerHTML = html; return }
+  const old = new Map([...app.querySelectorAll('img[data-motion-key]')].map(img => [img.dataset.motionKey, img]))
+  const template = document.createElement('template'); template.innerHTML = html
+  const shared = new Set([...template.content.querySelectorAll('img[data-motion-key]')]
+    .filter(img => old.get(img.dataset.motionKey)?.getAttribute('src') === img.getAttribute('src')).map(img => img.dataset.motionKey))
+  const keys = node => node.nodeType === 1 ? [node, ...node.querySelectorAll('img[data-motion-key]')].map(n => n.dataset.motionKey).filter(k => shared.has(k)) : []
+  function updateChildren(parent, next) {
+    const before = [...parent.childNodes], after = [...next.childNodes]
+    after.forEach((node, index) => {
+      const previous = before[index]
+      if (!previous) { parent.appendChild(node); return }
+      const nextKeys = keys(node)
+      const keep = previous.nodeType === 1 && node.nodeType === 1 && previous.tagName === node.tagName && keys(previous).some(k => nextKeys.includes(k))
+      if (!keep) { previous.replaceWith(node); return }
+      // 播放中的图片和整条祖先链都留在原处，避免原生 GIF 因 detach 从首帧重播。
+      if (previous.outerHTML === node.outerHTML) return
+      for (const attribute of [...previous.attributes]) if (!node.hasAttribute(attribute.name)) previous.removeAttribute(attribute.name)
+      for (const attribute of [...node.attributes]) if (previous.getAttribute(attribute.name) !== attribute.value) previous.setAttribute(attribute.name, attribute.value)
+      updateChildren(previous, node)
+    })
+    before.slice(after.length).forEach(node => node.remove())
+  }
+  if (shared.size) updateChildren(app, template.content)
+  else app.replaceChildren(template.content)
+  for (const img of app.querySelectorAll('img[data-motion-run]')) if (img.complete && img.naturalWidth) motionLoaded(img)
+}
+function motionImage(motion, { slot = 'pet', fallback, alt = '', playing = activeMotion() } = {}) {
+  const run = playing ? ` data-motion-run="${playing.serial}"` : ''
+  const src = motion.src + (playing && !motionPreference?.matches ? `?play=${playing.serial}` : '')
+  const key = `${slot}:${stage()}:${motion.action}:${playing?.serial || 'ambient'}:${!!motionPreference?.matches}`
+  return `<img src="${src}" alt="${alt}" data-motion-key="${key}" data-motion-action="${motion.action}" data-motion-fallback="${fallback || motion.poster}"${run}>`
+}
+function motionProp(prop) {
+  if (!prop) return ''
+  const artwork = prop === 'blocks' ? '<svg viewBox="0 0 90 60" aria-hidden="true"><rect x="4" y="26" width="27" height="27" rx="4" fill="#f2b943"/><rect x="32" y="8" width="27" height="27" rx="4" fill="#61accd"/><rect x="60" y="26" width="27" height="27" rx="4" fill="#e99174"/></svg>'
+    : prop === 'bone' ? itemIcon('cookie')
+      : prop === 'card' ? '<svg viewBox="0 0 90 60" aria-hidden="true"><rect x="3" y="3" width="84" height="54" rx="5" fill="#fff4d5" stroke="#966a3d" stroke-width="3"/><path d="M12 44l19-23 17 18 10-11 20 17" fill="#8dc58a"/><circle cx="68" cy="17" r="6" fill="#ffd362"/></svg>'
+        : GOODS.some(g => g.k === prop) ? itemArt(prop) || itemIcon(prop)
+          : `<span class="motion-object-icon" aria-hidden="true">${{ leaf: '🍁', bird: '🌾', snow: '❄', dumpling: '🥟', calendar: '▦', couplet: '春', map: '⌁', jar: '●' }[prop] || ''}</span>`
+  return `<span class="motion-object" data-motion-prop="${prop}">${artwork}</span>`
+}
 function petHtml(o = {}) {
   if (away() && !o.st) return ''
   const st = o.st ?? stage(), p = o.st ? '' : late() && !o.awake ? 'sleep' : pose, a = SCARF_AT[st]
+  const playing = o.st ? null : activeMotion()
+  const motion = o.st ? null : resolveMotion({ stage: st, action: playing?.action, sleeping: late() && !o.awake, low: needsRest(S().needs), away: away(), reduced: !!motionPreference?.matches })
+  const capOn = o.cap ?? S().graduated
+  const dressedIdle = motion?.action === 'idle' && !playing && (capOn || wornAccessory(S(), 'neck') || wornAccessory(S(), 'head') || SKILLS.some(x => S().skill[x.k] >= 3))
+  if (motion && !dressedIdle) return `<div class="pet motion-pet"><div><span class="wear">${motionImage(motion, { slot: o.slot || 'pet', fallback: late() && !o.awake ? `/pet/s${st}-act-sleep.webp` : `/pet/s${st}.webp`, alt: '小柴犬', playing })}${motionProp(playing?.prop)}</span></div></div>`
   const src = st && p ? `/pet/s${st}-act-${p}.webp` : `/pet/s${st}.webp`
-  const capOn = o.cap ?? S().graduated, still = st && !p
+  const still = st && !p
   const neck = still && a ? `left:${a.x - a.w * 0.5}%;top:${a.y - 2}%;width:${a.w}%` : ''
   const scarf = neck && wornAccessory(S(), 'neck') === 'scarf' && !capOn ? `<span class="accessory ${o.interactive ? propClass('scarf') : ''}"${wornAttrs('scarf', o.interactive)} style="${neck}">${itemArt('scarf')}</span>` : ''
   const bow = neck && wornAccessory(S(), 'neck') === 'bow' ? `<span class="bow ${o.interactive ? propClass('bow') : ''}"${wornAttrs('bow', o.interactive)} style="left:${a.x - 13}%;top:${a.y - 8}%;width:26%">${itemArt('bow')}</span>` : ''
@@ -84,6 +154,17 @@ function petHtml(o = {}) {
   return `<div class="pet"><div class="${cls}"><span class="wear ${p ? '' : 'breathe'}"><img src="${src}" alt="${st ? '小柴犬' : '小窝'}">${scarf}${bow}${hat ? `<span class="hat ${o.interactive && !capOn ? propClass('hat') : ''}"${wornAttrs('hat', o.interactive && !capOn)}${capOn ? '' : ` style="top:${[0, -17, -9, -12, -12][st]}%"`}>${hat}</span>` : ''}${badges}</span></div>${bubbles}</div>`
 }
 const face = k => stage() ? `/pet/s${stage()}-face-${k}.webp` : '/pet/s0.webp'
+function faceHtml(kind, slot = 'face') {
+  if (away()) return ''
+  const playing = activeMotion()
+  const body = slot === 'dock' && playing && !['idle', 'think', 'proud', 'shy-encourage'].includes(playing.action)
+  const action = playing?.action || (kind === 'happy' ? undefined : kind)
+  const motion = resolveMotion({ stage: stage(), action, sleeping: late(), low: needsRest(S().needs), away: away(), reduced: !!motionPreference?.matches, portrait: !body })
+  if (!motion) return `<img src="${late() ? `/pet/s${stage()}-act-sleep.webp` : face(kind)}" alt="">`
+  // 反馈播完后保留对应表情静帧。
+  const source = !playing && kind !== 'happy' ? { ...motion, src: motion.poster } : motion
+  return motionImage(source, { slot, fallback: face(kind), playing }) + (body ? motionProp(playing.prop) : '')
+}
 const fact = t => t.replace('{kid}', S().kid || '小朋友').replace('{fixed}', V.facts?.fixed ?? 0).replace('{focus}', V.facts?.focus || '今天的题').replace('{days}', S().days).replace('{circled}', ls.get('kid-circled', 0)).replace('{best}', S().best)
 function chat(kind) {
   if (away()) { say = '宠物暂时离开了小屋。完成练习攒够金币，就能把它找回来。'; act = ''; return }
@@ -99,13 +180,31 @@ function chat(kind) {
   }
   const l = pick(pool || LINES.idle)
   say = fact(l.t); act = l.act
+  if (!late()) strike(needsRest(n) ? 'low-rest' : l.act)
 }
-/** 做动作：动作图停留约 4.5 秒并轻轻晃动；anim 是整只狗的动画（跳、转圈、散步） */
-// 只有喂食、洗澡、玩球、摸摸、把戏换动作图（动作图上不戴配饰）；其他时候只让整只狗跳一跳、转一转，配饰一直戴着
-function strike(p, anim = '') {
-  if (!POSES.includes(p)) { act = p || anim; return }
-  pose = p; act = anim; clearTimeout(poseTimer)
+/** 少年／青年 GIF 载入后播完一次；其他阶段保留原动作图和 CSS 动效。 */
+// 运动时暂收配饰，结束后回到对应状态并恢复穿戴。
+function strike(p, anim = '', prop = '') {
+  if (away()) { stopMotion(); return }
+  const action = normalizeMotionAction(p)
+  const motion = resolveMotion({ stage: stage(), action, sleeping: late(), low: needsRest(S().needs), away: away(), reduced: !!motionPreference?.matches })
+  stopMotion()
+  if (motion && action && !motion.loop) {
+    petMotion = { action: motion.action, serial: ++motionSerial, scope: motionScope(), prop, started: 0, durationMs: motion.durationMs }
+    // 下载失败或挂起时退回正常状态，避免动作一直卡住。
+    const serial = petMotion.serial
+    motionTimer = setTimeout(() => finishMotion(serial), 20000)
+    return
+  }
+  const legacy = { pat: 'shake', ball: 'catch', disc: 'catch', proud: 'wag', 'present-find': 'wag', 'carry-object': 'catch', 'paw-craft': 'shake', 'night-pat': 'sleep', blanket: 'sleep', hum: 'sleep', 'sleep-low': 'sleep', 'low-rest': 'blink', 'stretch-yawn': 'stretch', 'shy-encourage': 'think' }[p] || p
+  if (!POSES.includes(legacy)) { act = legacy || anim; return }
+  pose = legacy; act = anim
   poseTimer = setTimeout(() => { pose = ''; act = ''; render() }, POSE_MS)
+}
+function reaction(action, scope, prop = '') {
+  if (scope !== motionScope()) return
+  if (action) strike(action, '', prop)
+  else stopMotion()
 }
 
 // ---------- 画面零件 ----------
@@ -120,7 +219,7 @@ function itemReply(k) {
   if (!S().own[k] || !GOODS.some(g => g.k === k && g.kind === 'keep')) return
   const line = interactionReaction({ item: k, sleeping: late(), resting: needsRest(S().needs), previous: say })
   if (!line) return
-  say = line.t; touchedItem = k; strike(line.act); showToast(say)
+  say = line.t; touchedItem = k; if (!late()) strike(needsRest(S().needs) ? 'low-rest' : line.act); showToast(say)
   if (!late()) sfx('chirp')
 }
 function explore() {
@@ -128,7 +227,7 @@ function explore() {
   if (page !== 'place' || !p || !placeOpen(p, stage(), D())) return
   const line = interactionReaction({ place, sleeping: late(), resting: needsRest(S().needs), previous: say })
   if (!line) return
-  say = line.t; strike(line.act); if (!late()) sfx('chirp')
+  say = line.t; if (!late()) { strike(needsRest(S().needs) ? 'low-rest' : line.act); sfx('chirp') }
 }
 const sceneTouch = (action, label) => `<button class="scene-touch" data-a="${action}" aria-label="${label}"></button>`
 const awayNote = () => '<div class="away-scene"><b>宠物出走</b><span>小屋等着它回来</span></div>'
@@ -360,6 +459,7 @@ const TIPS = { draw: '拖一拖红点，也可以用旁边的按钮一毫米一�
   spot: '这是小狗做的题，有一步算错了。点出最先出错的那一行。', blanks: '点一个空再填数。每个空都要填。', circle: '你觉得哪些地方最要紧，就点哪里，可以点好几处。', goal: '这道题一步算不出来。要先求出什么？', build: '点下面的数和符号，自己拼出算式。', say: '把答句写完整。' }
 const sigOf = flow => JSON.stringify(flow)
 function startQ(g, it) {
+  stopMotion()
   storeDraft()
   Q = { gid: g.id, id: it.id, flow: it.flow, i: 0, rec: [], edits: {}, t0: Date.now(), say: '', sk: '', menu: null, fire: null, fin: it.done || null, catch: null, cover: false, mood: '', guard: it.guard, caught: it.caught }
   const d = drafts()[it.id]       // 刷新页面前、或者跳过之前做到一半的，接着做（题库换过、选项顺序不一样了就不接）
@@ -376,6 +476,7 @@ function startQ(g, it) {
     setTimeout(() => { if (Q?.id === it.id) { Q.cover = false; Q.t0 = Date.now(); render() } }, 3000)
   }
   page = 'q'
+  if (Q.cover) strike('think')
 }
 /** 进入一步：沿用这一步以前填过的内容（被守护拦下回来改时要用） */
 function enter() {
@@ -450,9 +551,9 @@ function submitQ() {
       return
     }
     V = res.view; q.t0 = Date.now()
-    if (res.caught) { q.catch = res.caught; q.guard = null; q.mood = 'think'; return }
+    if (res.caught) { q.catch = res.caught; q.guard = null; q.mood = 'think'; strike('shy-encourage'); return }
     const d = res.fin
-    setResult(q, d); q.menu = null; q.mood = d.ok ? 'hop' : 'think'; sayPet(''); sfx(d.ok ? 'happy' : d.c ? 'chirp' : 'sad')
+    setResult(q, d); q.menu = null; q.mood = d.ok ? 'hop' : 'think'; strike(d.ok ? 'proud' : 'shy-encourage'); sayPet(''); sfx(d.ok ? 'happy' : d.c ? 'chirp' : 'sad')
     if (d.points?.length) cere = d.points.join('」「')
   })
 }
@@ -509,7 +610,8 @@ function reviewAction(action) {
     V = res.view; setResult(q, res.fin)
     if (action === 'solution') q.reviewSolutionOpen = true
     if (action === 'skip') QA.next()
-    else if (res.fin.review?.status === 'done') { sayPet('这一处补好了，下一题再自己试试。'); sfx('happy') }
+    else if (res.fin.review?.status === 'done') { strike('proud'); sayPet('这一处补好了，下一题再自己试试。'); sfx('happy') }
+    else if (action === 'check') strike('think')
   })
 }
 
@@ -609,7 +711,7 @@ function vStep() {
   if (b.type === 'circle' && Q.rec[Q.i]?.cfb) {
     // 圈完马上点评：绿色是圈对的，橙色虚线是漏圈的，灰色划掉的是不用圈的。点评过就定下来了，回到这一步只能看
     const fb = Q.rec[Q.i].cfb, wait = circleWait()
-    return `${qText('review')}<div class="review ${fb.kw === 2 ? 'good' : ''}">${away() ? '' : `<img src="/pet/s${stage() || 1}-face-${fb.kw === 2 ? "proud" : "thinking"}.webp" alt="">`}<div><b>${away() ? '关键词点评：' : name() + '说：'}</b>${esc(cfbMsg(fb))}</div></div>
+    return `${qText('review')}<div class="review ${fb.kw === 2 ? 'good' : ''}">${away() ? '' : `${faceHtml(fb.kw === 2 ? "proud" : "thinking", "circle-review")}`}<div><b>${away() ? '关键词点评：' : name() + '说：'}</b>${esc(cfbMsg(fb))}</div></div>
       <p class="dim">绿色是圈对的${fb.must?.length ? '，红色虚线是漏掉的最要紧的' : ''}${fb.missed.length > (fb.must?.length || 0) ? '，橙色虚线是还可以圈的' : ''}${fb.extra.length ? '，灰色划掉的是和算数没关系的' : ''}。</p>${fb.extra.length > 2 ? '<p class="dim">无关内容超过 2 处，本题无过程奖。</p>' : ''}<p class="dim">${fb.penalty ? `漏圈核心关键词，本题奖励扣 ${fb.penalty} 金币（最低为 0）。先看看红色标记。` : ''}</p><button class="btn" data-a="stepgo" data-circle-next ${wait ? 'disabled' : ''}>${wait ? `再看 ${wait} 秒` : '知道了，继续'}</button>`
   }
   if (b.type === 'circle') return `${qText('pick')}<p class="dim">可以点好几处，再点一下取消。无关内容超过 2 处，本题无过程奖。漏掉核心词时，先看 5 秒提示，再继续做题。</p><button class="btn" data-a="stepgo" ${Q.sel.size ? '' : 'disabled'}>圈好了，${Q.flow[Q.i + 1]?.type === 'build' ? '去列式' : '下一步'}</button>`
@@ -656,7 +758,7 @@ function vDock() {
     return `<button class="badge ${any ? 'can' : 'used'} ${Q.guard === x.k ? 'guard' : ''} ${Q.fire?.k === x.k ? 'fire' : ''}" data-a="menu" data-v="${x.k}" aria-label="${x.n} ${lv} 级"><img src="/pet/badge-${x.badge}.webp" alt=""><b>${x.n}</b><span class="dots">${[1, 2, 3].map(i => `<i class="${i <= lv ? 'f' : ''}"></i>`).join('')}</span>${Q.guard === x.k ? '<span class="shield">守护中</span>' : ''}</button>`
   }).join('')
   const said = Q.say || (away() ? '认真读题，一步一步来。完成练习后，可以回小屋找回宠物。' : Q.fin?.review ? (Q.fin.review.status === 'pending' ? '只把这一处补完整，不用重做整道题。' : '下一题，再自己试试看。') : Q.fin ? (Q.fin.ok ? '做对啦！' : Q.fin.c ? '大部分都做对了，就差一点！看看哪里不一样。' : '没关系，看看正确做法。') : '我陪着你。')
-  return `<div class="dock ${away() ? 'pet-away' : ''}">${away() ? '' : `<span class="dog ${Q.mood ? 'a-' + (Q.mood === 'think' ? 'think' : 'hop') : ''}"><img src="${face(f)}" alt=""></span>`}<div class="say ${Q.sk}">${esc(said)}</div><div class="badges">${badges}</div></div>${it ? '' : ''}`
+  return `<div class="dock ${away() ? 'pet-away' : ''}">${away() ? '' : `<span class="dog ${activeMotion() && !['idle', 'think', 'proud', 'shy-encourage'].includes(activeMotion().action) ? 'motion-body-dock' : ''}">${faceHtml(f, "dock")}</span>`}<div class="say ${Q.sk}">${esc(said)}</div><div class="badges">${badges}</div></div>${it ? '' : ''}`
 }
 const LV = ['', '提醒', '帮忙', '守护']
 const GUARD = { 审题: '题目里的条件用错', 概念不清: '先算错了顺序', 计算失误: '算错了数', 格式规范: '答句单位没写对', 漏题: '有空着的就交', 策略缺失: '先求的东西选错' }
@@ -684,6 +786,8 @@ async function useSkill(k, L) {
   if (r.view) V = r.view
   Q.menu = null
   if (!r.fx) { if (r.msg) sayPet(r.msg); return }
+  const skillMotion = { 审题: 'sniff', 概念不清: 'carry-object', 计算失误: 'shake', 格式规范: 'wag', 漏题: 'walk', 策略缺失: 'present-find' }
+  strike(L === 3 ? 'shake' : skillMotion[k], '', k === '概念不清' ? 'blocks' : k === '策略缺失' ? 'map' : '')
   const fx = r.fx, L1 = {
     审题: { pickcat: '（嗅嗅）看清楚问的是最多还是最少。', tapnum: '（嗅嗅）看清楚条件：「超过」包不包括它本身？', circle: '（嗅嗅）先看最后一句，它问的是什么？我在下面留了一串脚印。', build: '（嗅嗅）看清楚题目问的是什么，要用的数都在题目里。', goal: '（嗅嗅）想想问题问的是什么，要知道它，先得知道什么？' },
     概念不清: '有括号先算括号里的；没括号先算乘除，再算加减。',
@@ -719,7 +823,7 @@ async function useSkill(k, L) {
 }
 function vCatch() {
   const c = Q.catch, x = SKILLS.find(s => s.k === c.k)
-  return `<div class="sheet"><div class="catch"><img class="big" src="/pet/badge-${x.badge}.webp" alt=""><h2>${x.n}接住了！</h2><p>${esc(c.msg)}。</p><p class="dim">回去改这一步再交。这次金币照给，但不算第一次就做对。</p><button class="btn" data-a="fix">回去改</button></div></div>`
+  return `<div class="sheet"><div class="catch"><img class="big" src="/pet/badge-${x.badge}.webp" alt=""><h2>${x.n}接住了！</h2><div class="motion-stage compact">${petHtml({ slot: "guard" })}</div><p>${esc(c.msg)}。</p><p class="dim">回去改这一步再交。这次金币照给，但不算第一次就做对。</p><button class="btn" data-a="fix">回去改</button></div></div>`
 }
 const HABIT = { 审题: '圈得刚刚好', 格式规范: '单位第一次就写对', 概念不清: '先算的顺序都对', 计算失误: '每一步都算对了', 策略缺失: '先求什么找对了' }
 function reviewSolution(r) {
@@ -743,7 +847,7 @@ function vShortReview(g) {
     ${r.canDemo ? '<button class="btn alt review-demo" data-a="reviewhelp" data-v="demo">看一个示范</button>' : ''}
     <button class="btn" data-a="reviewcheck" ${value.trim() ? '' : 'disabled'}>我填好了</button>
     <div class="review-actions"><button data-a="reviewhelp" data-v="hint">给我一点提示</button><button data-a="reviewhelp" data-v="skip">先做下一题 ›</button></div>${reviewSolution(r)}</section>`
-    : `<section class="card review-complete"><img src="${face(r.status === 'done' ? 'proud' : 'happy')}" alt=""><h2>${r.status === 'done' ? '这一处，补好啦！' : '这题先放一放'}</h2><p class="dim">${esc(r.message || (r.status === 'done' ? '下一题，再自己试试看。' : '接着做下一题，过些时候再来试试。'))}</p>${r.corrected ? `<div class="review-corrected"><small>这次订正</small><b>${esc(r.corrected)}</b></div>` : ''}${next}${reviewSolution(r)}</section>`
+    : `<section class="card review-complete">${faceHtml(r.status === 'done' ? 'proud' : 'happy', "review-complete")}<h2>${r.status === 'done' ? '这一处，补好啦！' : '这题先放一放'}</h2><p class="dim">${esc(r.message || (r.status === 'done' ? '下一题，再自己试试看。' : '接着做下一题，过些时候再来试试。'))}</p>${r.corrected ? `<div class="review-corrected"><small>这次订正</small><b>${esc(r.corrected)}</b></div>` : ''}${next}${reviewSolution(r)}</section>`
   // 短复盘只用服务器给出的安全提示，不能先把旧判分里的正确答案摊开。
   return `${r.question ? `<div class="card q review-question">${esc(r.question)}</div>` : ''}<div class="verdict review-verdict"><b>${pending ? '只改这一处' : '这一题，收个尾'}</b></div>${keep}${table}${original}${work}<details class="result-details"><summary>本题奖励与过程记录</summary><p>本题奖励 ＋${d.c || 0}</p>${d.keywordPenalty ? `<p>核心关键词漏圈扣 ${d.keywordPenalty} 金币。</p>` : ''}${d.processDenied ? '<p>无关内容圈得较多，本题没有过程奖。</p>' : ''}</details>`
 }
@@ -788,7 +892,7 @@ function vQ() {
   const live = !Q.fin && !Q.catch && !Q.walk && !Q.cover
   const bar = Q.flow.length > 1 ? `<div class="stepbar">${live && Q.i > 0 ? '<button class="pill" data-a="backto" data-v="">‹ 上一步</button>' : ''}<div class="steps" style="grid-template-columns:repeat(${Q.flow.length},1fr)">${Q.flow.map((t, i) => live && i < Q.i ? `<button class="done" data-a="backto" data-v="${i}">${STEP_NAME[t.type]}</button>` : `<span class="${Q.fin || i < Q.i ? 'done' : i === Q.i ? 'now' : ''}">${STEP_NAME[t.type]}</span>`).join('')}</div></div>` : ''
   return `<div class="top qtop"><button class="back" data-a="go" data-v="quests" aria-label="回到任务">‹</button><h1>${esc(g.name)} ${idx}/${total}</h1>${!Q.demo && !Q.fin && !Q.catch && !Q.walk ? '<button class="pill scr" data-a="skip">跳过</button>' : ''}<button class="pill scr" data-a="scratch">草稿</button>${!Q.fin ? coin('最高 ' + (g.extra ? Math.ceil(it.max / 2) : it.max)) : ''}</div>
-  <div class="body qbody">${Q.gid === 'friday' && !Q.demo ? vBoss() : ''}${Q.cover ? `<div class="cover">${away() ? '' : `<img src="${face('thinking')}" alt="">`}<b style="font:400 30px var(--kid)">慢慢来</b><span>${away() ? '先把题目再读一遍，想一想条件。' : name() + '在帮你把题目再读一遍……'}</span></div>` : ''}${bar}${Q.walk ? vWalk() : Q.fin ? (!Q.fin.review && (it.segs || it.format === 'stat') ? qText() : '') + vQResult(g) : vStep()}${Q.msg ? `<div class="note qerror" role="alert"><p>${esc(Q.msg)}</p><button class="btn alt" data-a="recover">刷新任务状态</button></div>` : ''}</div>
+  <div class="body qbody">${Q.gid === 'friday' && !Q.demo ? vBoss() : ''}${Q.cover ? `<div class="cover">${away() ? '' : `${faceHtml("thinking", "question-cover")}`}<b style="font:400 30px var(--kid)">慢慢来</b><span>${away() ? '先把题目再读一遍，想一想条件。' : name() + '在帮你把题目再读一遍……'}</span></div>` : ''}${bar}${Q.walk ? vWalk() : Q.fin ? (!Q.fin.review && (it.segs || it.format === 'stat') ? qText() : '') + vQResult(g) : vStep()}${Q.msg ? `<div class="note qerror" role="alert"><p>${esc(Q.msg)}</p><button class="btn alt" data-a="recover">刷新任务状态</button></div>` : ''}</div>
   ${vDock()}${Q.menu ? vMenu() : ''}${Q.scratch ? '<div class="scratch"><canvas id="scratch"></canvas><div class="duo"><button class="btn alt" data-a="sclear">擦干净</button><button class="btn" data-a="scratch">关上</button></div></div>' : ''}${Q.catch ? vCatch() : ''}${Q.pending ? `<div class="toast" role="status" aria-live="polite">${esc(Q.pending)}</div>` : ''}${Q.fire ? `<div class="toast fire"><img src="/pet/badge-${SKILLS.find(x => x.k === Q.fire.k).badge}.webp" alt="">${esc(Q.fire.text)}</div>` : ''}`
 }
 /** 草稿纸：随手写画，不保存、不判分 */
@@ -887,7 +991,7 @@ const QA = {
       return run(async () => {
         const r = await api('/act', { kind: 'circle', item: Q.id, sel: [...Q.sel] })
         if (!r.circle) { save({ sel: [...Q.sel] }); return next() }
-        save({ sel: r.circle.sel, cfb: r.circle }); Q.mood = r.circle.kw === 2 ? 'hop' : 'think'; sayPet(r.circle.kw === 2 ? (r.circle.missed.length ? '圈得不错！' : '圈得真准！') : r.circle.must?.length ? '有最要紧的没圈到，看看我标出来的地方。' : '看看我标出来的地方。'); sfx(r.circle.kw === 2 ? 'happy' : 'chirp')
+        save({ sel: r.circle.sel, cfb: r.circle }); Q.mood = r.circle.kw === 2 ? 'hop' : 'think'; strike(r.circle.kw === 2 ? 'proud' : 'think'); sayPet(r.circle.kw === 2 ? (r.circle.missed.length ? '圈得不错！' : '圈得真准！') : r.circle.must?.length ? '有最要紧的没圈到，看看我标出来的地方。' : '看看我标出来的地方。'); sfx(r.circle.kw === 2 ? 'happy' : 'chirp')
       })
     }
     if (b.type === 'build') { const t = Q.expr.map(e => e.x); if (!validExpr(t)) return sayPet('算式还没写完整：数和符号要一个隔一个，括号要成对。'); save({ expr: t, chips: Q.expr.map(e => e.chip) }); return next() }
@@ -959,7 +1063,7 @@ const QA = {
 function vResult() {
   const its = allItems(), first = its.filter(it => it.done?.ok && !it.done.caught).length, fix = its.filter(it => it.done?.ok && it.done.caught).length, again = its.filter(it => it.done && !it.done.ok).length
   return `<div class="top"><h1>今天完成啦</h1></div><div class="body">
-    <div class="room">${away() ? awayNote() : `<div class="pet"><div class="a-hop"><span class="wear"><img src="${stage() ? `/pet/s${stage()}-act-wag.webp` : '/pet/s0.webp'}" alt=""></span></div></div>`}</div>${findPetCard()}<div class="sum"><i class="ico coin"></i>＋${its.reduce((a, it) => a + (it.done?.c || 0), 0)}</div>
+    <div class="room">${away() ? awayNote() : petHtml({ slot: "daily-result" })}</div>${findPetCard()}<div class="sum"><i class="ico coin"></i>＋${its.reduce((a, it) => a + (it.done?.c || 0), 0)}</div>
     <div class="card rows"><span>第一次就答对</span><b>${first} 题</b>${fix ? `<span>本领接住后改对</span><b>${fix} 题</b>` : ''}<span>过两天换个样子再来</span><b>${again} 题</b><span>最长认真连击</span><b>${S().best} 题</b><span>已陪伴</span><b>${S().days} 天</b></div>
     ${chalOpen() ? `<button class="btn red" data-a="group" data-v="friday">去本周闯关<small>打败${MONS[(groups().find(g => g.friday).monster ?? 0) % MONS.length].n} · 周五到周日每天可试一次，通关后本周结束</small></button>` : ''}
     ${allItems().some(pendingReview) ? '<button class="btn alt" data-a="go" data-v="quests">还有一小处可以收尾</button>' : ''}
@@ -1000,7 +1104,7 @@ function vShop() {
   const bagRow = x => row(x, '', `${x.d} · 背包里 ${x.kind === 'toy' ? (s.toy[x.k] || 0) + ' 次' : (s.bag[x.k] || 0) + ' 份'}`)
   const places = PLACES.filter(p => GOODS.some(g => g.place === p.k)).map(p => { const on = placeOpen(p, stage(), D()); return `<div><h3>${p.n}${on ? '' : ' · 还没开放'}</h3>${GOODS.filter(g => g.place === p.k).map(g => row(g, COLORS[p.k], g.d, on ? '' : '开放后')).join('')}</div>` }).join('')
   const monthly = GOODS.filter(g => g.month).map(g => row(g, COLORS.month, `<span class="tagm">${g.month} 月限定</span>`, g.month === m ? '' : (g.month - m + 12) % 12 < 6 ? `${g.month} 月见` : '已下架')).join('')
-  return `<div class="top"><h1>小卖部</h1>${coin(s.coins)}</div><div class="body">${say ? `<div class="bubble plain">${esc(say)}</div>` : ''}
+  return `<div class="top"><h1>小卖部</h1>${coin(s.coins)}</div><div class="body">${say ? `<div class="bubble plain shop-feedback">${activeMotion() ? `<div class="motion-stage compact">${petHtml({ slot: "shop" })}</div>` : ""}${esc(say)}</div>` : ''}
     <div class="duo"><div class="card shop"><h3>吃的</h3>${GOODS.filter(g => g.kind === 'food').map(bagRow).join('')}</div>
       <div class="card shop"><h3>洗澡和玩具</h3>${GOODS.filter(g => ['soap', 'toy'].includes(g.kind)).map(bagRow).join('')}</div></div>
     <div class="card"><div class="jar"><svg viewBox="0 0 56 64" aria-hidden="true"><rect x="8" y="10" width="40" height="50" rx="10" fill="#e6f2fb" stroke="#3b8fd6" stroke-width="2.5"/><rect x="10.5" y="${(12 + 46 * (1 - Math.min(1, s.jar / JAR.goal))).toFixed(1)}" width="35" height="${(46 * Math.min(1, s.jar / JAR.goal)).toFixed(1)}" rx="7" fill="#f6b84a"/><rect x="18" y="4" width="20" height="8" rx="3" fill="#3b8fd6"/></svg>
@@ -1164,13 +1268,13 @@ function vSheet() {
   if (page === 'home' && !sheet && V.morning && !late() && !away()) {
     const M = V.morning, f = M.facts, gift = M.gift === 'cookie' ? '一块骨头饼干（放进背包了）' : M.gift === 'coins' ? '10 金币' : ''
     const said = [f.fixed ? `昨天你订正对了 ${f.fixed} 道题，我都看见了。` : f.firstOk ? `昨天你有 ${f.firstOk} 道题第一次就做对了！` : '', f.focus ? `这周我们一起练「${esc(f.focus)}」。` : '', f.lastSay ? `昨天的答句我还记得：「${esc(f.lastSay)}」` : ''].filter(Boolean).join('')
-    return `<div class="sheet"><div class="morning"><div class="hello"><img src="${stage() ? `/pet/s${stage()}-act-wag.webp` : '/pet/s0.webp'}" alt=""><div><h2>${hello()}，${kid()}！</h2><p class="dim">${cnDate(D())} · 已陪伴 ${S().days} 天</p></div></div>
+    return `<div class="sheet"><div class="morning"><div class="hello"><div class="motion-stage">${petHtml({ slot: "morning" })}</div><div><h2>${hello()}，${kid()}！</h2><p class="dim">${cnDate(D())} · 已陪伴 ${S().days} 天</p></div></div>
       ${gift ? `<div class="gift"><i class="ico coin"></i>昨天你把我照顾得好好的，我叼来了${gift}。</div>` : ''}
       ${M.note ? `<div class="note">${esc(M.note)}<br><small class="dim">爸爸妈妈的留言，${name()}来转达</small></div>` : ''}
       ${needsRest(S().needs) ? '<div class="bubble plain">见到你真好！今天先做一件小事，吃一点、洗个澡，慢慢恢复精神。</div>' : said ? `<div class="bubble plain">${said}</div>` : ''}
       <button class="btn" data-a="greet">${gift ? '收下，' : ''}进小屋</button></div></div>`
   }
-  if (['card', 'postcard'].includes(sheet) && card) return `<div class="sheet" data-a="close"><div class="postcard-view" role="dialog" aria-modal="true" aria-label="散步明信片"><h2>${sheet === 'card' ? '带回来一张明信片！' : '旅途里的小风景'}</h2>${cardHtml(card)}${sheet === 'card' ? '<p class="dim">已经放进纪念册。下一张要过一两天才会出现。</p>' : ''}<button class="btn" data-a="close">${sheet === 'card' ? '收好啦' : '回纪念册'}</button></div></div>`
+  if (['card', 'postcard'].includes(sheet) && card) return `<div class="sheet" data-a="close"><div class="postcard-view" role="dialog" aria-modal="true" aria-label="散步明信片"><h2>${sheet === 'card' ? '带回来一张明信片！' : '旅途里的小风景'}</h2>${sheet === "card" && activeMotion() ? `<div class="motion-stage compact">${petHtml({ slot: "new-card" })}</div>` : ""}${cardHtml(card)}${sheet === 'card' ? '<p class="dim">已经放进纪念册。下一张要过一两天才会出现。</p>' : ''}<button class="btn" data-a="close">${sheet === 'card' ? '收好啦' : '回纪念册'}</button></div></div>`
   // 喂什么、玩什么：背包里有的都列出来，孩子自己挑（不替他选）
   if (sheet === 'wardrobe') {
     const owned = GOODS.filter(g => ['scarf', 'bow', 'hat'].includes(g.k) && S().own[g.k])
@@ -1195,7 +1299,7 @@ function vSheet() {
     const H = V.hide, opened = i => H.open.find(o => o.i === i), canHard = S().skill['计算失误'] >= 2 && !H.open.length && !H.win
     const bone = '<g class="bone"><g transform="translate(45 112)"><rect x="-22" y="-5" width="44" height="10" rx="5" fill="#fff6e0" stroke="#c99a52" stroke-width="2"/>' + [[-22, -5], [-22, 5], [22, -5], [22, 5]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="6" fill="#fff6e0" stroke="#c99a52" stroke-width="2"/>`).join('') + '</g></g>'
     const msg = H.win ? `找到骨头啦！心情 ＋20。` : H.open.length ? `这只下面是 ${H.open.at(-1).v}，骨头不在这儿。再看看线索。` : '先在心里算一算，再翻杯子。'
-    return `<div class="sheet"><div><h2>藏骨头</h2><div class="clue">骨头藏在得数是 ${H.target} 的杯子下面</div>
+    return `<div class="sheet"><div><h2>藏骨头</h2><div class="motion-stage compact">${petHtml({ slot: "hide" })}</div><div class="clue">骨头藏在得数是 ${H.target} 的杯子下面</div>
       ${canHard ? `<button class="btn alt" data-a="hard">${H.hard ? '换回简单的杯子' : '稳稳爪：换难一点的（两步算式）'}</button>` : ''}
       <div class="cups">${H.cups.map((e, i) => { const o = opened(i); return `<button class="cup ${o ? 'up' : ''}" data-a="cup" data-v="${i}" ${o || H.win ? 'disabled' : ''}>
         <svg viewBox="0 0 90 130" aria-hidden="true"><ellipse cx="45" cy="121" rx="38" ry="5" fill="#00000018"/>${o && o.v === H.target ? bone : ''}<g class="lid"><path d="M18 40 h54 l10 72 h-74z" fill="${['#e0527a', '#3b8fd6', '#2f8f5b'][i]}"/><path d="M24 52 h8 l-4 50 h-8z" fill="#ffffff33"/><rect x="12" y="108" width="66" height="8" rx="4" fill="#00000022"/></g></svg>
@@ -1205,7 +1309,7 @@ function vSheet() {
   }
   if (sheet === 'learned' && learned) {
     const x = SKILLS.find(s => s.k === learned.k), L = learned.lv, d = L === 1 ? HELP1[x.k] : L === 2 ? HELP2[x.k] : `守着一道题：交卷时如果${GUARD[x.k]}，先拦下让你改`
-    return `<div class="sheet"><div class="catch"><img class="big" src="/pet/badge-${x.badge}.webp" alt=""><h2>${x.n}学会第 ${L} 级！</h2>
+    return `<div class="sheet"><div class="catch"><img class="big" src="/pet/badge-${x.badge}.webp" alt=""><h2>${x.n}学会第 ${L} 级！</h2><div class="motion-stage">${petHtml({ slot: "learned" })}</div>
       <p>${L} 级${LV[L]}：${esc(d)}。${L === 3 ? '每周 1 次，没用上会退回。' : `每天 ${L === 1 ? 3 : 1} 次。`}</p><p class="dim">做题时，陪伴条上的徽章亮着就能点。</p>
       <button class="btn" data-a="tryit">试一试</button><button class="btn alt" data-a="close">以后再说</button></div></div>`
   }
@@ -1230,12 +1334,14 @@ function render() {
   // 小屋的名字跟着小狗的名字走（浏览器标签和登录页也是，这台设备记住上一次的）
   if (V?.state?.name && ls.get('kid-pet', '') !== V.state.name) ls.set('kid-pet', V.state.name)
   document.title = house(page === 'login' || !V ? ls.get('kid-pet', '') : V.state?.name)
-  if (page === 'login' || !V) { app.innerHTML = vLogin(); return }
+  if (page === 'login' || !V) { stopMotion(); app.innerHTML = vLogin(); return }
+  if (petMotion && petMotion.scope !== motionScope()) stopMotion()
   const v = { home: vHome, quests: vQuests, q: vQ, result: vResult, skills: vSkills, shop: vShop, story: vStory, diary: vDiary, map: vMap, place: vPlace, book: vBook }[page]()
-  app.innerHTML = v + (page === 'q' ? '' : `<div class="nav">${NAV.map(([k, n]) => `<button class="${page === k || NAV_OF[page] === k ? 'on' : ''}" data-a="go" data-v="${k}">${n}</button>`).join('')}</div>`)
+  paint(v + (page === 'q' ? '' : `<div class="nav">${NAV.map(([k, n]) => `<button class="${page === k || NAV_OF[page] === k ? 'on' : ''}" data-a="go" data-v="${k}">${n}</button>`).join('')}</div>`)
     + vSheet() + vGrad()
-    + (cere && !away() ? `<div class="cere" aria-hidden="true"><div class="stars">${[[-80, -40], [80, -40], [-60, 60], [65, 50], [0, -90]].map(([x, y]) => `<i style="--x:${x}px;--y:${y}px"></i>`).join('')}</div><span class="ava"><img src="${face('proud')}" alt=""></span><b>叮！「${cere}」技能点 ＋1</b><span>${name()}又离新本领近了一步</span></div>` : '')
-    + (toast ? `<div class="toast" role="status">${esc(toast)}</div>` : '')
+    + (cere && !away() ? `<div class="cere" aria-hidden="true"><div class="stars">${[[-80, -40], [80, -40], [-60, 60], [65, 50], [0, -90]].map(([x, y]) => `<i style="--x:${x}px;--y:${y}px"></i>`).join('')}</div><span class="ava">${faceHtml("proud", "celebration")}</span><b>叮！「${cere}」技能点 ＋1</b><span>${name()}又离新本领近了一步</span></div>` : '')
+    + (toast ? `<div class="toast" role="status">${esc(toast)}</div>` : ''))
+  if (page === 'shop' && activeMotion()) document.querySelector('.shop-feedback')?.scrollIntoView({ block: 'nearest' })
   if (page !== lastPage) { if (page === 'map') document.getElementById('now')?.scrollIntoView({ block: 'center' }); else if (page !== 'q') window.scrollTo(0, 0) }
   lastPage = page
   if (page === 'q') storeDraft()
@@ -1256,7 +1362,7 @@ function render() {
 
 const A = {
   ...QA,
-  go(v) { storeDraft(); if (v === 'home' && page !== 'home') chat(); if (['shop', 'place'].includes(v)) say = ''; page = v; Q = null; sheet = null },
+  go(v) { storeDraft(); const changed = page !== v; if (changed) stopMotion(); page = v; Q = null; sheet = null; if (v === 'home' && changed) chat(); if (['shop', 'place'].includes(v)) say = ''; if (v === 'result' && changed && !late()) strike('proud') },
   postcard(v) { const [k, i] = v.split(':'); card = S().cards.find(c => c.k === k && c.i === +i); if (card) { sheet = 'postcard'; setTimeout(() => document.querySelector('.postcard-view [data-a="close"]')?.focus(), 0) } },
   story(i) { sp = i === '' || i == null ? null : +i; page = 'story'; Q = null },
   extra() { return run(async () => { const r = await api('/act', { kind: 'extra' }); V = r.view; if (r.extra) page = 'quests'; else say = r.msg, page = 'home' }) },
@@ -1265,32 +1371,32 @@ const A = {
   kidname() { const n = document.getElementById('nm-kid')?.value; return run(async () => { const r = await api('/act', { kind: 'kidname', name: n }); V = r.view; if (S().kid) meetHi = true; else showToast(r.msg) }) },
   meetback() { meetBack = true },
   meetdone() { meetHi = false; say = `${S().kid}，以后请多关照！`; strike('hop') },
-  findPet() { return run(async () => { const r = await api('/act', { kind: 'findPet' }); V = r.view; say = r.msg; pose = ''; act = ''; if (!away()) sfx('happy'); showToast(r.msg) }) },
-  greet() { return run(async () => { const r = await api('/act', { kind: 'greet' }); V = r.view; say = r.msg; strike(r.act || ''); if (!late()) sfx('chirp') }) },
-  care(kind) { return run(async () => { const r = await api('/act', { kind }); V = r.view; say = r.msg; if (r.act) { strike(r.act); if (!late()) sfx({ food: 'eat', soap: 'bath', pat: 'chirp', toy: 'bounce' }[kind]) } }) },
-  buy(k) { const c0 = S().coins; return run(async () => { const r = await api('/act', { kind: 'buy', k }); V = r.view; say = r.msg; sfx(S().coins < c0 ? 'coin' : 'no'); if (page !== 'shop') showToast(r.msg) }) },
-  learn() { return run(async () => { const r = await api('/act', { kind: 'learn', k: sel }); V = r.view; say = r.msg; if (r.act) { learned = { k: sel, lv: S().skill[sel] }; sheet = 'learned'; sfx('win') } }) },
+  findPet() { const wasAway = away(), scope = motionScope(); return run(async () => { const r = await api('/act', { kind: 'findPet' }); V = r.view; say = r.msg; if (wasAway && !away() && r.act) { reaction(late() ? 'sleep' : 'wave', scope); if (!late()) sfx('happy') } else reaction('', scope); showToast(r.msg) }) },
+  greet() { const scope = motionScope(); return run(async () => { const r = await api('/act', { kind: 'greet' }); V = r.view; say = r.msg; reaction(r.act === 'wag' ? 'wave' : '', scope); if (!late()) sfx('chirp') }) },
+  care(kind) { const scope = motionScope(), toy = Object.keys(S().toy).find(k => S().toy[k] > 0); return run(async () => { const r = await api('/act', { kind }); V = r.view; say = r.msg; const action = r.act === 'shake' && kind === 'pat' ? 'pat' : r.act === 'catch' && kind === 'toy' ? toy : r.act === 'sleep' ? '' : r.act; reaction(action, scope); if (action && !late()) sfx({ food: 'eat', soap: 'bath', pat: 'chirp', toy: 'bounce' }[kind]) }) },
+  buy(k) { const c0 = S().coins, have = Number(S().own[k] || S().bag[k] || S().toy[k] || 0), scope = motionScope(); return run(async () => { const r = await api('/act', { kind: 'buy', k }); V = r.view; say = r.msg; const bought = S().coins < c0 || Number(S().own[k] || S().bag[k] || S().toy[k] || 0) > have; reaction(bought && !away() && !late() ? 'proud' : '', scope); sfx(bought ? 'coin' : 'no'); if (page !== 'shop') showToast(r.msg) }) },
+  learn() { const level = S().skill[sel], scope = motionScope(); return run(async () => { const r = await api('/act', { kind: 'learn', k: sel }); V = r.view; say = r.msg; if (r.act && S().skill[sel] > level) { learned = { k: sel, lv: S().skill[sel] }; sheet = 'learned'; reaction('proud', scope); sfx('win') } else { reaction('', scope); showToast(r.msg) } }) },
   tryit() { sheet = null; startDemo(learned.k) },
   sel(k) { sel = k },
   item(k) { itemReply(k) },
   explore() { explore() },
-  tap() { if (late()) return A.quiet('pat'); const t = Date.now(); taps = [...taps.filter(x => t - x < 3000), t]; chat(taps.length >= 5 ? 'tap_too_much' : 'tap'); strike(needsRest(S().needs) ? 'blink' : act); sfx('chirp') },   // 点小狗只让它跳一跳、转一转，不换动作图，配饰一直戴着
+  tap() { if (late()) return A.quiet('pat'); const t = Date.now(); taps = [...taps.filter(x => t - x < 3000), t]; chat(taps.length >= 5 ? 'tap_too_much' : 'tap'); sfx('chirp') },
   sheet(v) { if (late() && ['food', 'toy', 'play', 'tricks'].includes(v)) { showToast('小狗睡着啦，回小屋轻轻陪它吧。'); return } sheet = v },
-  quiet(k) { return run(async () => { const r = await api('/act', { kind: 'quiet', k }); V = r.view; say = r.msg; strike(r.act || ''); if (k === 'hum' && r.act === 'sleep') sfx('lullaby') }) },
-  equip(k) { return run(async () => { const slot = k === 'hat' ? 'head' : 'neck'; const r = await api('/act', { kind: 'equip', k, off: wornAccessory(S(), slot) === k }); V = r.view; say = r.msg; showToast(r.msg) }) },
+  quiet(k) { const scope = motionScope(); return run(async () => { const r = await api('/act', { kind: 'quiet', k }); V = r.view; say = r.msg; reaction(r.act === 'sleep' && late() ? { blanket: 'blanket', pat: 'night-pat', hum: 'hum' }[k] : '', scope); if (k === 'hum' && r.act === 'sleep') sfx('lullaby') }) },
+  equip(k) { const scope = motionScope(); return run(async () => { const slot = k === 'hat' ? 'head' : 'neck'; const r = await api('/act', { kind: 'equip', k, off: wornAccessory(S(), slot) === k }); V = r.view; say = r.msg; reaction('', scope); showToast(r.msg) }) },
   sound() { ls.set('kid-sound', !ls.get('kid-sound', true)); sfx('chirp') },
   close() { const previous = sheet === 'postcard' && card; sheet = null; card = null; if (previous) setTimeout(() => document.querySelector(`[data-a="postcard"][data-v="${previous.k}:${previous.i}"]`)?.focus(), 0) },
-  event() { return run(async () => { const r = await api('/act', { kind: 'event' }); V = r.view; say = r.msg; strike(r.act || ''); if (!late()) sfx('chirp') }) },
-  ball(k) { sheet = null; return run(async () => { const r = await api('/act', { kind: 'toy', k }); V = r.view; say = r.msg; if (r.act) { strike(r.act); if (!late()) sfx('bounce') } }) },
-  feed(k) { sheet = null; return run(async () => { const r = await api('/act', { kind: 'food', k }); V = r.view; say = r.msg; if (r.act) { strike(r.act); if (!late()) sfx('eat') } }) },
-  hidestart() { return run(async () => { const r = await api('/act', { kind: 'hide' }); V = r.view; if (V.hide) sheet = 'hide'; else showToast(r.msg) }) },
-  hard() { return run(async () => { const r = await api('/act', { kind: 'hide', hard: !V.hide.hard }); V = r.view }) },
-  cup(i) { return run(async () => { const r = await api('/act', { kind: 'cup', i: +i }); V = r.view; if (V.hide?.win) { say = r.msg; strike('hop'); sfx('win') } else sfx('no') }) },
-  trick(k) { if (late()) { sheet = null; chat(); return } const t = TRICKS.find(x => x.k === k); sheet = null; say = fact(t.say); strike(t.pose || t.anim, t.pose ? t.anim || '' : ''); sfx('trick') },
-  place(k) { if (k === 'home') return A.go('home'); place = k; page = 'place'; say = '' },
+  event() { const scope = motionScope(), before = S().event, event = eventOf(D(), S().skill['概念不清'] >= 2); return run(async () => { const r = await api('/act', { kind: 'event' }); V = r.view; say = r.msg; const action = event?.k === 'blocks' ? 'carry-object' : event?.k === 'bird' ? 'look' : 'paw-craft'; reaction(r.act === 'wag' && S().event !== before ? action : '', scope, event?.k); if (r.act && !late()) sfx('chirp') }) },
+  ball(k) { sheet = null; const scope = motionScope(), count = S().toy[k] || 0; return run(async () => { const r = await api('/act', { kind: 'toy', k }); V = r.view; say = r.msg; const action = r.act === 'catch' && (S().toy[k] || 0) < count ? k : r.act === 'think' ? 'think' : ''; reaction(action, scope); if (action === k && !late()) sfx('bounce') }) },
+  feed(k) { sheet = null; const scope = motionScope(), count = S().bag[k] || 0; return run(async () => { const r = await api('/act', { kind: 'food', k }); V = r.view; say = r.msg; const fed = r.act === 'eat' && (S().bag[k] || 0) < count; reaction(fed ? 'eat' : r.act === 'think' ? 'think' : '', scope); if (fed && !late()) sfx('eat') }) },
+  hidestart() { const scope = motionScope(); return run(async () => { const r = await api('/act', { kind: 'hide' }); V = r.view; if (V.hide && !late()) { sheet = 'hide'; reaction('sniff', scope) } else { reaction('', scope); showToast(r.msg) } }) },
+  hard() { const scope = motionScope(), before = V.hide?.hard; return run(async () => { const r = await api('/act', { kind: 'hide', hard: !before }); V = r.view; reaction(V.hide && V.hide.hard !== before && !late() ? 'think' : '', scope) }) },
+  cup(i) { const scope = motionScope(), before = V.hide?.open.length || 0; return run(async () => { const r = await api('/act', { kind: 'cup', i: +i }); V = r.view; if (V.hide?.open.length > before) { say = r.msg; reaction(V.hide.win ? 'present-find' : 'think', scope, V.hide.win ? 'bone' : ''); sfx(V.hide.win ? 'win' : 'no') } else reaction('', scope) }) },
+  trick(k) { if (late()) { sheet = null; chat(); return } const t = TRICKS.find(x => x.k === k); if (!t || S().skill[k] < 1) return; sheet = null; say = fact(t.say); const action = { 计算失误: 'shake', 审题: 'sniff', 格式规范: 'spin', 漏题: 'walk', 概念不清: 'carry-object', 策略缺失: 'present-find' }[k]; strike(action, '', k === '概念不清' ? 'blocks' : k === '策略缺失' ? 'map' : ''); sfx('trick') },
+  place(k) { if (k === 'home') return A.go('home'); stopMotion(); place = k; page = 'place'; say = '' },
   nope() { showToast('还没开放，看看卡片上还差什么。') },
-  trip() { return run(async () => { const r = await api('/act', { kind: 'trip', k: place }); V = r.view; say = r.msg; strike(r.anim || 'hop'); sfx(r.card ? 'win' : 'bounce'); if (r.card) { card = r.card; sheet = 'card' } }) },
-  jar() { return run(async () => { const r = await api('/act', { kind: 'jar' }); V = r.view; say = r.msg }) },
+  trip() { const scope = motionScope(), before = S().trip?.date; return run(async () => { const r = await api('/act', { kind: 'trip', k: place }); V = r.view; say = r.msg; const walked = r.anim === 'walk' && S().trip?.date !== before; reaction(walked ? r.card ? 'present-find' : 'walk' : '', scope, r.card ? 'card' : ''); if (walked) sfx(r.card ? 'win' : 'bounce'); if (r.card && scope === motionScope()) { card = r.card; sheet = 'card' } }) },
+  jar() { const scope = motionScope(), before = S().jar; return run(async () => { const r = await api('/act', { kind: 'jar' }); V = r.view; say = r.msg; reaction(S().jar > before && !away() && !late() ? S().jar >= JAR.goal ? 'proud' : 'shake' : '', scope, 'jar') }) },
   ceremony() { return run(async () => { const r = await api('/act', { kind: 'ceremony' }); V = r.view; if (S().graduated && S().grad === D()) { grad = 1; sfx('win') } else showToast(r.msg) }) },
   gradnext() { grad = grad >= 2 ? 0 : grad + 1; if (!grad) { page = 'home'; say = `${S().kid || '小朋友'}，寒假也要一起玩哦！`; strike('hop') } },
 }
@@ -1307,6 +1413,9 @@ const onAct = e => {
   if (!(r instanceof Promise)) { render(); if (restore) document.querySelector(`${selector}[tabindex],button${selector}`)?.focus({ preventScroll: true }) }
 }
 document.addEventListener('click', onAct)
+document.addEventListener('load', e => { if (e.target?.matches?.('img[data-motion-run]')) motionLoaded(e.target) }, true)
+document.addEventListener('error', e => { const img = e.target; if (img?.dataset?.motionFallback && img.getAttribute('src') !== img.dataset.motionFallback) { img.src = img.dataset.motionFallback; delete img.dataset.motionKey } }, true)
+motionPreference?.addEventListener?.('change', () => { if (V) render() })
 // 画线段：在尺子上按住拖，红点跟着手指走（拖的时候只改图，不重绘整页，松手再重绘）
 let dragging = null
 function dragTo(e) {
@@ -1345,7 +1454,7 @@ document.addEventListener('keydown', e => {
 })
 window.addEventListener('pagehide', () => storeDraft())
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') storeDraft() })
-setInterval(() => { if (V && page === 'home' && !busy && !sheet && !pose && !meetStep() && (!V.morning || late()) && S().name) { chat(); render() } }, 12000)
+setInterval(() => { if (V && page === 'home' && !busy && !sheet && !pose && !activeMotion() && !meetStep() && (!V.morning || late()) && S().name) { chat(); render() } }, 12000)
 
 ;(async () => {
   try { V = await api('/state'); page = 'home'; if (S().name) chat() } catch (e) {
