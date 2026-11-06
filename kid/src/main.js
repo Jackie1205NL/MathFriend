@@ -51,6 +51,43 @@ async function run(fn) {
 }
 function showToast(t) { toast = t; clearTimeout(toastTimer); toastTimer = setTimeout(() => { toast = ''; render() }, 2800) }
 
+// 全部动画缓存独立运行，不占用答题和照顾的请求锁。
+let motionCacheBusy = false, motionCacheText = '', motionWorkerPromise
+function motionWorker() {
+  if (!globalThis.navigator?.serviceWorker) return Promise.reject(new Error('当前浏览器暂不支持缓存，请使用新版浏览器打开。'))
+  return (motionWorkerPromise ||= (async () => {
+    const sw = navigator.serviceWorker
+    await sw.register('/pet-motion-sw.js', { scope: '/', updateViaCache: 'none' })
+    await new Promise((resolve, reject) => {
+      const check = () => { if (sw.controller?.scriptURL.endsWith('/pet-motion-sw.js')) { clearTimeout(timer); sw.removeEventListener('controllerchange', check); resolve() } }
+      const timer = setTimeout(() => { sw.removeEventListener('controllerchange', check); reject(new Error('缓存准备超时，请再试一次。')) }, 15000)
+      sw.addEventListener('controllerchange', check); check()
+    })
+    return sw.controller
+  })().catch(error => { motionWorkerPromise = null; throw error })).then(() => navigator.serviceWorker.controller)
+}
+async function cacheMotion() {
+  if (motionCacheBusy) return
+  motionCacheBusy = true; motionCacheText = '正在准备缓存…'; render()
+  try {
+    const worker = await motionWorker()
+    await new Promise((resolve, reject) => {
+      const channel = new MessageChannel(); let timer
+      const finish = error => { clearTimeout(timer); channel.port1.close(); error ? reject(error) : resolve() }
+      const watch = () => { clearTimeout(timer); timer = setTimeout(() => finish(new Error('下载等待太久，请重试；已缓存的图片会保留。')), 45000) }
+      channel.port1.onmessage = ({ data }) => {
+        watch()
+        if (data.error) return finish(new Error(data.error))
+        motionCacheText = data.complete ? data.failed ? `还有 ${data.failed} 张未缓存，点按钮重试即可。` : '全部动画已缓存，换动作更快啦！' : `正在缓存 ${data.done} / ${data.total} 张图片…`
+        if (page === 'shop') render()
+        if (data.complete) finish()
+      }
+      watch(); worker.postMessage({ type: 'cache-motion' }, [channel.port2])
+    })
+  } catch (error) { motionCacheText = error.message }
+  finally { motionCacheBusy = false; if (page === 'shop') render() }
+}
+
 // ---------- 小狗 ----------
 const S = () => V.state
 const stage = () => S().stage
@@ -1105,6 +1142,7 @@ function vShop() {
   const places = PLACES.filter(p => GOODS.some(g => g.place === p.k)).map(p => { const on = placeOpen(p, stage(), D()); return `<div><h3>${p.n}${on ? '' : ' · 还没开放'}</h3>${GOODS.filter(g => g.place === p.k).map(g => row(g, COLORS[p.k], g.d, on ? '' : '开放后')).join('')}</div>` }).join('')
   const monthly = GOODS.filter(g => g.month).map(g => row(g, COLORS.month, `<span class="tagm">${g.month} 月限定</span>`, g.month === m ? '' : (g.month - m + 12) % 12 < 6 ? `${g.month} 月见` : '已下架')).join('')
   return `<div class="top"><h1>小卖部</h1>${coin(s.coins)}</div><div class="body">${say ? `<div class="bubble plain shop-feedback">${activeMotion() ? `<div class="motion-stage compact">${petHtml({ slot: "shop" })}</div>` : ""}${esc(say)}</div>` : ''}
+    <div class="card"><button class="btn alt" data-a="cacheMotion" ${motionCacheBusy ? 'disabled' : ''}>${motionCacheBusy ? '正在缓存动画…' : '一键缓存全部动画'}</button><p class="dim">少年、青年全部动画和静帧约 51 MB，保存到当前设备的浏览器。浏览器清理后可再次缓存。</p><p class="dim" role="status" aria-live="polite">${esc(motionCacheText)}</p></div>
     <div class="duo"><div class="card shop"><h3>吃的</h3>${GOODS.filter(g => g.kind === 'food').map(bagRow).join('')}</div>
       <div class="card shop"><h3>洗澡和玩具</h3>${GOODS.filter(g => ['soap', 'toy'].includes(g.kind)).map(bagRow).join('')}</div></div>
     <div class="card"><div class="jar"><svg viewBox="0 0 56 64" aria-hidden="true"><rect x="8" y="10" width="40" height="50" rx="10" fill="#e6f2fb" stroke="#3b8fd6" stroke-width="2.5"/><rect x="10.5" y="${(12 + 46 * (1 - Math.min(1, s.jar / JAR.goal))).toFixed(1)}" width="35" height="${(46 * Math.min(1, s.jar / JAR.goal)).toFixed(1)}" rx="7" fill="#f6b84a"/><rect x="18" y="4" width="20" height="8" rx="3" fill="#3b8fd6"/></svg>
@@ -1362,6 +1400,7 @@ function render() {
 
 const A = {
   ...QA,
+  cacheMotion,
   go(v) { storeDraft(); const changed = page !== v; if (changed) stopMotion(); page = v; Q = null; sheet = null; if (v === 'home' && changed) chat(); if (['shop', 'place'].includes(v)) say = ''; if (v === 'result' && changed && !late()) strike('proud') },
   postcard(v) { const [k, i] = v.split(':'); card = S().cards.find(c => c.k === k && c.i === +i); if (card) { sheet = 'postcard'; setTimeout(() => document.querySelector('.postcard-view [data-a="close"]')?.focus(), 0) } },
   story(i) { sp = i === '' || i == null ? null : +i; page = 'story'; Q = null },
@@ -1457,6 +1496,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 setInterval(() => { if (V && page === 'home' && !busy && !sheet && !pose && !activeMotion() && !meetStep() && (!V.morning || late()) && S().name) { chat(); render() } }, 12000)
 
 ;(async () => {
+  motionWorker().catch(() => {})
   try { V = await api('/state'); page = 'home'; if (S().name) chat() } catch (e) {
     if (page !== 'login') { app.innerHTML = `<p class="boot">${esc(e.message)}</p>`; return }
     try { await loadAdmin() } catch { page = 'login' }   // 管理员登录过，直接进账号管理
