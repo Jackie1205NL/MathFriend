@@ -37,14 +37,18 @@ async function fixture(t, items = [oral('one')]) {
   return { data, call, answer, send, snapshot, token, env, store, failOnce: key => { failKey = key } }
 }
 
-test('单位只错一处才分配；投影不含答案，复盘不改首答、金币、阶梯，完成及解析请求幂等', async t => {
+test('应用题识别漏单位，奖励单列且同题只发一次，首答与阶梯保持', async t => {
   const f = await fixture(t, [word('unit')]), a = await f.answer('unit', wordSteps('本')), r = a.fin.review
-  assert.equal(a.fin.ok, false); assert.equal(r.kind, 'unit'); assert.equal(r.input.prefix, '48'); assert.ok(r.input.units.length >= 2)
+  assert.equal(a.fin.ok, false); assert.equal(r.kind, 'diagnose'); assert.ok(r.input.choices.includes('单位'))
   for (const key of ['expected', 'answer', 'corrected', 'hint', 'demo', 'solution', 'source']) assert.equal(r[key], undefined)
-  const before = f.snapshot(), good = await f.send('unit', 'check', '盒', 'same-request')
-  assert.equal(good.fin.review.outcome, 'independent'); assert.equal(good.fin.review.corrected, '48 盒')
-  await f.send('unit', 'check', '盒', 'same-request'); await f.send('unit', 'skip')
-  assert.deepEqual(f.snapshot(), before); assert.equal(f.data.get(`reviews:${WEEK}`).length, 1)
+  const before = f.snapshot(), good = await f.send('unit', 'check', '单位', 'same-request')
+  assert.equal(good.fin.review.outcome, 'independent'); assert.equal(good.fin.review.reward, 2)
+  assert.match(good.fin.review.corrected, /单位/)
+  await f.send('unit', 'check', '单位', 'same-request'); await f.send('unit', 'skip')
+  const after = f.snapshot(); assert.equal(after.coins, before.coins + 2); assert.equal(after.grow, before.grow + 2)
+  for (const key of ['log', 'ladder', 'tiers', 'qn', 'months']) assert.deepEqual(after[key], before[key])
+  assert.equal(after.daily[DATE].q, before.daily[DATE].q); assert.equal(after.daily[DATE].ok, before.daily[DATE].ok)
+  assert.equal(after.daily[DATE].earnBy['复盘识别'], 2)
   await f.send('unit', 'solution'); await f.send('unit', 'solution')
   const row = f.data.get(`reviews:${WEEK}`)[0]
   assert.equal(row.outcome, 'independent'); assert.equal(row.solution, true); assert.equal(row.completedExposure.solution, false)
@@ -54,11 +58,12 @@ test('单位只错一处才分配；投影不含答案，复盘不改首答、�
 test('计数按每日已分配上限2，跳过/重导包不释放，正确题与不适合题不占名额', async t => {
   const bad = { ...word('method'), flow: ['build', 'say'] }, items = [bad, oral('correct'), oral('a'), oral('b'), oral('c')]
   const f = await fixture(t, items)
-  assert.equal((await f.answer('method', [{ expr: [12, '+', 4] }, { v: 16, unit: '盒' }])).fin.review, undefined)
+  assert.equal((await f.answer('method', [{ expr: [12, '+', 4] }, { v: 16, unit: '盒' }])).fin.review.kind, 'diagnose')
+  await f.send('method', 'skip')
   assert.equal((await f.answer('correct', [{ v: 322 }])).fin.review, undefined)
   assert.ok((await f.answer('a', [{ v: 332 }])).fin.review)
   await f.send('a', 'skip')
-  assert.ok((await f.answer('b', [{ v: 332 }])).fin.review)
+  assert.equal((await f.answer('b', [{ v: 332 }])).fin.review, undefined)
   assert.equal((await f.answer('c', [{ v: 332 }])).fin.review, undefined)
   assert.equal(f.data.get(`review-day:${DATE}`).ids.length, 2)
   f.data.get('pack').week = '2026-W45'; await f.call('/state')
@@ -162,4 +167,65 @@ test('所有允许的request_id均按自身字段去重，特殊对象键也不�
   const repeated = await f.send('one', 'check', '332', '__proto__')
   assert.equal(repeated.fin.review.attempts, 1)
   assert.equal(f.data.get(`reviews:${WEEK}`)[0].events.length, 1)
+})
+
+
+test('检查提醒每日最多两题、刷新与换包不重置，与短复盘额度分开', async t => {
+  const f = await fixture(t, ['a', 'b', 'c'].map(word))
+  const ask = async item => (await f.call('/check-reminder', { item })).out.reminder
+  assert.equal((await ask('a')).kind, 'question'); assert.ok(await ask('a')); assert.ok(await ask('b')); assert.equal(await ask('c'), null)
+  assert.equal(f.data.get(`check-day:${DATE}`).ids.length, 2)
+  assert.equal(f.data.get(`review-day:${DATE}`), undefined)
+  assert.equal((await f.answer('a', wordSteps('本'))).fin.review.kind, 'diagnose')
+  assert.equal((await f.answer('b', wordSteps('本'))).fin.review.kind, 'diagnose')
+  assert.equal(f.data.get(`review-day:${DATE}`).ids.length, 2)
+  const row = f.data.get(`log:${WEEK}`)[0]; assert.equal(row.check_reminder.kind, 'question')
+  f.data.get('pack').week = '2026-W45'; await f.call('/state'); assert.equal(await ask('c'), null)
+})
+
+test('同类连续三次首答且未用本领答对后提醒淡出，再错后恢复', async t => {
+  const f = await fixture(t, ['a', 'b', 'c', 'd', 'e'].map(word))
+  for (const id of ['a', 'b', 'c']) await f.answer(id, wordSteps('盒'))
+  assert.equal(f.data.get('state').checkHabits.question.streak, 3)
+  assert.equal((await f.call('/check-reminder', { item: 'd' })).out.reminder, null)
+  await f.answer('d', wordSteps('本'))
+  assert.ok((await f.call('/check-reminder', { item: 'e' })).out.reminder)
+})
+
+test('诊断问最先错误；记录提示/答案曝光，已看答案也不能记独立完成', async t => {
+  const f = await fixture(t, [word('method'), word('calc')])
+  const a = await f.answer('method', [{ expr: [12, '+', 4] }, { lines: [{ k: 1, v: 18 }] }, { v: 18, unit: '本' }])
+  assert.match(a.fin.review.note, /不止一处/)
+  const wrong = await f.send('method', 'check', '单位'); assert.equal(wrong.fin.review.status, 'pending')
+  const fixed = await f.send('method', 'check', '列式'); assert.equal(fixed.fin.review.outcome, 'hinted'); assert.equal(fixed.fin.review.reward, 2)
+  const b = await f.answer('calc', [{ expr: [12, '×', 4] }, { lines: [{ k: 1, v: 44 }] }, { v: 44, unit: '盒' }])
+  assert.match(b.fin.review.original, /12 × 4 = 44/)
+  await f.send('calc', 'solution')
+  const done = await f.send('calc', 'check', '计算与填写得数'); assert.equal(done.fin.review.outcome, 'demonstrated'); assert.equal(done.fin.review.reward, 2)
+  assert.equal(f.data.get(`log:${WEEK}`).filter(r => !r.correct).length, 2)
+})
+
+test('复盘奖励在部分写入失败后可恢复，并发重试或刷新只入账一次', async t => {
+  const f = await fixture(t, [word('reward')]); await f.answer('reward', wordSteps('本')); const coins = f.data.get('state').coins
+  f.failOnce('state')
+  await assert.rejects(f.send('reward', 'check', '单位', 'reward-id'), /injected write failure/)
+  assert.equal(f.data.get('state').coins, coins)
+  await f.call('/state')
+  await Promise.all([f.send('reward', 'check', '单位', 'reward-id'), f.send('reward', 'check', '单位', 'another-id')])
+  await f.call('/state')
+  assert.equal(f.data.get('state').coins, coins + 2)
+  assert.equal(f.data.get('state').daily[DATE].earnBy['复盘识别'], 2)
+  assert.equal(f.data.get(`reviews:${WEEK}`)[0].events.filter(e => e.action === 'check').length, 1)
+})
+
+
+test('同一题跨日再次诊断不给第二份奖励，另一题仍可获得', async t => {
+  const f = await fixture(t, [word('again')]); await f.answer('again', wordSteps('本')); await f.send('again', 'check', '单位')
+  const next = '2026-10-30'; await f.call('/dev/clock', { date: next, time: '12:00' }); await f.call('/state')
+  f.data.get(`day:${next}`).groups = [{ id: 'g', items: ['again'] }]
+  f.data.get('state').chal = null
+  const answer = await f.answer('again', wordSteps('本')), coins = f.data.get('state').coins
+  const result = (await f.call('/review', { item: 'again', review_id: answer.fin.review.id, action: 'check', value: '单位', request_id: 'day-two' })).out
+  assert.equal(result.fin.review.status, 'done'); assert.equal(result.fin.review.reward, 0)
+  assert.equal(f.data.get('state').coins, coins)
 })

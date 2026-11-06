@@ -42,11 +42,12 @@ async function fixture(t, items = [word, oral]) {
     render = () => { if (page === 'q') storeDraft(); capture(Q) }; sfx = () => {};
     globalThis.ui = {
       load(v) { V = v; Q = null; page = 'quests' },
-      open() { const g = groups()[0]; startQ(g, g.items.find(it => it.id === 'word')) },
+      // 原状态回归直接从已检查状态交卷；提醒交互在下方专门测试。
+      open() { const g = groups()[0]; startQ(g, g.items.find(it => it.id === 'word')); Q.checkReady = true },
       custom(flow, i = 0, rec = []) { const g = groups()[0], it = g.items.find(it => it.id === 'word'); it.flow = flow; startQ(g, it); Q.i = i; Q.rec = rec; Q.edits = {}; enter() },
       get: () => ({ Q, V, page, busy }), edit: x => Object.assign(Q, x), enter, storeDraft, save,
       back: QA.backto, go: A.go, stepgo: QA.stepgo, recover: QA.recover, key: QA.key, unit: QA.unit,
-      html: vQ, home: vHome, quests: vQuests, sig: sigOf, redraw: render, review: reviewAction, reviewkey: QA.reviewkey, next: QA.next,
+      checkback: QA.checkback, checksend: QA.checksend, html: vQ, home: vHome, quests: vQuests, sig: sigOf, redraw: render, review: reviewAction, reviewkey: QA.reviewkey, next: QA.next,
       pet: petHtml, act: (a, v) => A[a](v), motion: () => petMotion, motionLoaded,
       click(a, v) { const el = { dataset: { a, v }, disabled: false, classList: { contains: () => false } }; onAct({ target: { closest: () => el } }) },
     }`, context)
@@ -276,4 +277,41 @@ test('一步计算和分栏已对的合计只补一个数，全角输入可用�
     assert.equal(ui.get().Q.reviewValue, value.normalize('NFKC'))
     await ui.review('check'); assert.equal(ui.get().Q.fin.review.status, 'done'); assert.ok(!ui.home().includes('接着补好一小处'))
   }
+})
+
+
+test('交卷前提醒可回看且保留答案，确认后只交一次；提醒期间无首答或金币结算', async t => {
+  const f = await fixture(t), { ui } = f
+  ui.edit({ input: '480', unit: '元', checkReady: false }); await ui.stepgo()
+  assert.equal(ui.get().Q.fin, null); assert.equal(ui.get().Q.checkPrompt.kind, 'question')
+  assert.match(ui.html(), /交卷前，检查这一点/)
+  assert.equal(f.calls.filter(c => c.path === '/answer').length, 0)
+  ui.checkback(); assert.equal(ui.get().Q.input, '480'); assert.equal(ui.get().Q.unit, '元')
+  await ui.stepgo(); assert.equal(ui.get().Q.fin.ok, true)
+  assert.equal(f.calls.filter(c => c.path === '/answer').length, 1)
+})
+
+test('真实应用题错误环节可选择，奖励独立显示；已交首答保持错误', async t => {
+  const item = { ...word, answer: 48, flow: ['build', 'say'], choices: [{ t: '12 × 4', ok: 1 }], segs: [{ t: '每箱12本，4箱多少本？' }], unit: '本', units: ['本', '盒'] }
+  const f = await fixture(t, [item]), { ui } = f
+  const response = await f.request('/answer', { item: 'word', steps: [{ expr: [12, '+', 4] }, { v: 16, unit: '本' }], ms: 30000 })
+  const result = await response.json(); ui.load(result.view); ui.open()
+  assert.equal(ui.get().Q.fin.review.kind, 'diagnose'); assert.match(ui.html(), /哪一个环节先需要检查/)
+  ui.reviewkey('列式'); assert.match(ui.html(), /aria-pressed="true"/)
+  await ui.review('check')
+  assert.equal(ui.get().Q.fin.ok, false); assert.equal(ui.get().Q.fin.review.status, 'done')
+  assert.match(ui.html(), /复盘识别 ＋2 金币/); assert.equal(f.data.get('log:2026-W44')[0].correct, false)
+})
+
+
+test('任务卡同价口算显示每题，混价口算显示最高并解释难度奖励', async t => {
+  const same = [{ ...oral, id: 'word', tpl: 'same-a', price: 3 }, { ...oral, id: 'second', tpl: 'same-b', price: 3 }]
+  const f = await fixture(t, same)
+  assert.match(f.ui.quests(), /每题 3/)
+  f.data.get('pack').items[1].price = 8
+  f.ui.load(await (await f.request('/state')).json())
+  const html = f.ui.quests()
+  assert.match(html, /最高 8/)
+  assert.doesNotMatch(html, /每题 /)
+  assert.match(html, /题目难一些、步骤多一些，做对会有更多金币。/)
 })

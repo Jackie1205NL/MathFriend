@@ -27,7 +27,7 @@ const cnDate = d => `${+d.slice(5, 7)} 月 ${+d.slice(8, 10)} 日 星期${'日�
 
 async function api(path, body) {
   const t = Date.now()
-  const controller = ['/answer', '/review', '/state'].includes(path) ? new AbortController() : null
+  const controller = ['/answer', '/review', '/check-reminder', '/state'].includes(path) ? new AbortController() : null
   const timer = controller ? setTimeout(() => controller.abort(), 20000) : 0
   try {
     const r = await fetch('/api/kid' + path, { ...(body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {}), ...(controller ? { signal: controller.signal } : {}) })
@@ -384,8 +384,8 @@ function vQuests() {
   return `<div class="top"><h1>今天的任务</h1>${coin(S().coins)}</div><div class="body">${gs.map(g => {
     const left = g.items.filter(it => !it.done).length, reviewing = g.items.filter(pendingReview).length, top = Math.max(...g.items.map(it => it.max)), mx = g.extra ? Math.ceil(top / 2) : top, lock = g.boss && !open && left > 0
     const tag = g.bucket === '本周重点' && !g.boss ? '<span class="tagx">本周重点</span>' : g.bucket === '往周未过关' ? '<span class="tagx old">以前的</span>' : g.extra ? '<span class="tagx old">金币减半</span>' : ''
-    return `<button class="card quest ${left || reviewing ? '' : 'done'} ${lock ? 'lock' : ''}" ${lock || (!left && !reviewing) ? 'disabled' : ''} data-a="group" data-v="${g.id}"><b>${esc(g.name)}${tag}</b>${coin((g.items.every(it => it.format === 'oral') ? '每题 ' : '最高 ') + mx)}${g.friday ? monSvg(g.monster ?? 0) : ''}<span class="dim">${lock ? (g.friday ? '做完今天的任务就开放，打败这只怪兽' : '做完上面几组后解锁') : `${esc(g.sub || '')} · ${left ? `还有 ${left} 题${(n => n ? `（跳过了 ${n} 题，待会儿回来做）` : '')(g.items.filter(x => !x.done && skips().includes(x.id)).length)}` : reviewing ? `题已交好，有 ${reviewing} 处可以收尾` : '做完了'}`}</span></button>`
-  }).join('')}<p class="dim">金币多的题，是你这周最需要练的题。</p></div>`
+    return `<button class="card quest ${left || reviewing ? '' : 'done'} ${lock ? 'lock' : ''}" ${lock || (!left && !reviewing) ? 'disabled' : ''} data-a="group" data-v="${g.id}"><b>${esc(g.name)}${tag}</b>${coin((g.items.every(it => it.format === 'oral' && it.max === top) ? '每题 ' : '最高 ') + mx)}${g.friday ? monSvg(g.monster ?? 0) : ''}<span class="dim">${lock ? (g.friday ? '做完今天的任务就开放，打败这只怪兽' : '做完上面几组后解锁') : `${esc(g.sub || '')} · ${left ? `还有 ${left} 题${(n => n ? `（跳过了 ${n} 题，待会儿回来做）` : '')(g.items.filter(x => !x.done && skips().includes(x.id)).length)}` : reviewing ? `题已交好，有 ${reviewing} 处可以收尾` : '做完了'}`}</span></button>`
+  }).join('')}<p class="dim">题目难一些、步骤多一些，做对会有更多金币。</p></div>`
 }
 
 // ---------- 做题：题目由积木拼成，每一步只收作答，整道题做完再判 ----------
@@ -574,9 +574,15 @@ function autoOp() { const L = Q.lines.at(-1), ks = L.t.flatMap((x, k) => canTap(
 function save(x) { Q.rec[Q.i] = { ...(Q.rec[Q.i] || {}), ...x }; if (Q.edits) delete Q.edits[Q.i] }
 const circleWait = () => Q && !Q.demo ? Math.max(0, Math.ceil(((Q.rec[fi('circle')]?.cfb?.readyAt || 0) - now().getTime()) / 1000)) : 0
 function next() { if (circleWait()) return; if (lastStep()) return submitQ(); Q.i++; enter() }
-function submitQ() {
+function submitQ(checked = false) {
   if (Q.demo) { Q = null; page = 'skills'; showToast('试过了！真正做题时，点亮着的徽章就能用。'); return }
   return waitQuestion('正在交卷，请稍等…', async q => {
+    if (!checked && !q.checkReady) {
+      const { reminder } = await api('/check-reminder', { item: q.id })
+      if (reminder) { q.checkPrompt = reminder; return }
+      q.checkReady = true
+    }
+    q.checkPrompt = null
     const body = { item: q.id, ms: Date.now() - q.t0, steps: structuredClone(q.rec) }
     let res
     try { res = await api('/answer', body) } catch (e) {
@@ -629,7 +635,7 @@ async function refreshQuestion(q, keepMessage = false) {
 function reviewAction(action) {
   const r = Q?.fin?.review
   if (!r) return
-  if (action === 'check' && !String(Q.reviewValue || '').trim()) { sayPet('先填上这一处，再试试看。'); return }
+  if (action === 'check' && !String(Q.reviewValue || '').trim()) { sayPet(r.input.kind === 'choice' ? '先选一个需要检查的环节。' : '先填上这一处，再试试看。'); return }
   return waitQuestion(action === 'check' ? '正在核对这一处…' : '正在准备，请稍等…', async q => {
     let body = { item: q.id, review_id: r.id, action }
     if (action === 'check') {
@@ -647,7 +653,7 @@ function reviewAction(action) {
     V = res.view; setResult(q, res.fin)
     if (action === 'solution') q.reviewSolutionOpen = true
     if (action === 'skip') QA.next()
-    else if (res.fin.review?.status === 'done') { strike('proud'); sayPet('这一处补好了，下一题再自己试试。'); sfx('happy') }
+    else if (res.fin.review?.status === 'done') { strike('proud'); sayPet(res.fin.review.kind === 'diagnose' ? '找到需要检查的地方了，下一题再自己试试。' : '这一处补好了，下一题再自己试试。'); sfx('happy') }
     else if (action === 'check') strike('think')
   })
 }
@@ -873,20 +879,20 @@ function vShortReview(g) {
   const table = r.table ? `<div class="review-table">${r.table.cats.map((cat, i) => `<div><span>${esc(cat)}</span><b>${esc(r.table.vals[i])}</b></div>`).join('')}</div>` : ''
   const keep = `<div class="review-keep"><i>✓</i><div><b>${esc(r.keep)}</b>${r.expression ? `<p>${esc(r.expression)}</p>` : ''}</div></div>`
   const original = `<p class="review-original">你原来写的：<b>${esc(r.original)}</b></p>`
-  const unit = r.input.kind === 'unit'
-  const keyboard = unit ? `<div class="review-units">${(r.input.units || []).map(u => `<button data-a="reviewkey" data-v="${esc(u)}" class="${value === u ? 'on' : ''}" aria-pressed="${value === u}">${esc(u)}</button>`).join('')}</div>`
+  const unit = r.input.kind === 'unit', choice = r.input.kind === 'choice'
+  const keyboard = choice ? `<div class="review-choices">${r.input.choices.map(v => `<button class="btn alt ${value === v ? 'on' : ''}" data-a="reviewkey" data-v="${esc(v)}" aria-pressed="${value === v}">${esc(v)}</button>`).join('')}</div>` : unit ? `<div class="review-units">${(r.input.units || []).map(u => `<button data-a="reviewkey" data-v="${esc(u)}" class="${value === u ? 'on' : ''}" aria-pressed="${value === u}">${esc(u)}</button>`).join('')}</div>`
     : `<div class="pad review-pad">${[1, 2, 3, '⌫', 4, 5, 6, '清空', 7, 8, 9, 0].map(k => `<button data-a="reviewkey" data-v="${k}">${k}</button>`).join('')}</div>`
   const work = pending ? `<section class="card review-task"><h2>${esc(r.title)}</h2>${r.note ? `<p class="dim">${esc(r.note)}</p>` : ''}${r.prompt && r.prompt !== r.title ? `<p class="review-prompt">${esc(r.prompt)}</p>` : ''}
     ${r.hint ? `<div class="review-guidance"><b>给你一个提醒</b><p>${esc(r.hint)}</p></div>` : ''}
     ${r.demo ? `<div class="review-guidance demo"><b>${esc(r.demo.title)}</b><p>${esc(r.demo.text)}</p></div>` : ''}
-    <label class="review-answer">${esc(r.input.prefix || '')}<input id="review-value" class="box" aria-label="${unit ? '订正后的单位' : '重新填写的得数'}" value="${esc(value)}" placeholder="${unit ? '单位' : '得数'}" ${unit ? '' : 'inputmode="numeric" pattern="[0-9]*"'} maxlength="5" autocomplete="off">${esc(r.input.suffix || '')}</label>${keyboard}
+    ${choice ? '' : `<label class="review-answer">${esc(r.input.prefix || '')}<input id="review-value" class="box" aria-label="${unit ? '订正后的单位' : '重新填写的得数'}" value="${esc(value)}" placeholder="${unit ? '单位' : '得数'}" ${unit ? '' : 'inputmode="numeric" pattern="[0-9]*"'} maxlength="5" autocomplete="off">${esc(r.input.suffix || '')}</label>`}${keyboard}
     ${r.message ? `<div class="review-feedback" role="status">${esc(r.message)}</div>` : ''}
     ${r.canDemo ? '<button class="btn alt review-demo" data-a="reviewhelp" data-v="demo">看一个示范</button>' : ''}
-    <button class="btn" data-a="reviewcheck" ${value.trim() ? '' : 'disabled'}>我填好了</button>
+    <button class="btn" data-a="reviewcheck" ${value.trim() ? '' : 'disabled'}>${choice ? '我选好了' : '我填好了'}</button>
     <div class="review-actions"><button data-a="reviewhelp" data-v="hint">给我一点提示</button><button data-a="reviewhelp" data-v="skip">先做下一题 ›</button></div>${reviewSolution(r)}</section>`
-    : `<section class="card review-complete">${faceHtml(r.status === 'done' ? 'proud' : 'happy', "review-complete")}<h2>${r.status === 'done' ? '这一处，补好啦！' : '这题先放一放'}</h2><p class="dim">${esc(r.message || (r.status === 'done' ? '下一题，再自己试试看。' : '接着做下一题，过些时候再来试试。'))}</p>${r.corrected ? `<div class="review-corrected"><small>这次订正</small><b>${esc(r.corrected)}</b></div>` : ''}${next}${reviewSolution(r)}</section>`
+    : `<section class="card review-complete">${faceHtml(r.status === 'done' ? 'proud' : 'happy', "review-complete")}<h2>${r.status === 'done' ? (choice ? '找到要检查的环节了！' : '这一处，补好啦！') : '这题先放一放'}</h2><p class="dim">${esc(r.message || (r.status === 'done' ? '下一题，再自己试试看。' : '接着做下一题，过些时候再来试试。'))}</p>${r.reward ? `<p class="review-reward">复盘识别 ＋${r.reward} 金币${r.outcome === 'independent' ? '' : ' · 在帮助后完成'}</p>` : ''}${r.corrected ? `<div class="review-corrected"><small>这次订正</small><b>${esc(r.corrected)}</b></div>` : ''}${next}${reviewSolution(r)}</section>`
   // 短复盘只用服务器给出的安全提示，不能先把旧判分里的正确答案摊开。
-  return `${r.question ? `<div class="card q review-question">${esc(r.question)}</div>` : ''}<div class="verdict review-verdict"><b>${pending ? '只改这一处' : '这一题，收个尾'}</b></div>${keep}${table}${original}${work}<details class="result-details"><summary>本题奖励与过程记录</summary><p>本题奖励 ＋${d.c || 0}</p>${d.keywordPenalty ? `<p>核心关键词漏圈扣 ${d.keywordPenalty} 金币。</p>` : ''}${d.processDenied ? '<p>无关内容圈得较多，本题没有过程奖。</p>' : ''}</details>`
+  return `${r.question ? `<div class="card q review-question">${esc(r.question)}</div>` : ''}<div class="verdict review-verdict"><b>${pending ? (choice ? '先找到这一处' : '只改这一处') : '这一题，收个尾'}</b></div>${keep}${table}${original}${work}<details class="result-details"><summary>本题奖励与过程记录</summary><p>本题奖励 ＋${d.c || 0}</p>${d.keywordPenalty ? `<p>核心关键词漏圈扣 ${d.keywordPenalty} 金币。</p>` : ''}${d.processDenied ? '<p>无关内容圈得较多，本题没有过程奖。</p>' : ''}</details>`
 }
 function vQResult(g) {
   if (Q.fin.review) return vShortReview(g)
@@ -929,7 +935,7 @@ function vQ() {
   const live = !Q.fin && !Q.catch && !Q.walk && !Q.cover
   const bar = Q.flow.length > 1 ? `<div class="stepbar">${live && Q.i > 0 ? '<button class="pill" data-a="backto" data-v="">‹ 上一步</button>' : ''}<div class="steps" style="grid-template-columns:repeat(${Q.flow.length},1fr)">${Q.flow.map((t, i) => live && i < Q.i ? `<button class="done" data-a="backto" data-v="${i}">${STEP_NAME[t.type]}</button>` : `<span class="${Q.fin || i < Q.i ? 'done' : i === Q.i ? 'now' : ''}">${STEP_NAME[t.type]}</span>`).join('')}</div></div>` : ''
   return `<div class="top qtop"><button class="back" data-a="go" data-v="quests" aria-label="回到任务">‹</button><h1>${esc(g.name)} ${idx}/${total}</h1>${!Q.demo && !Q.fin && !Q.catch && !Q.walk ? '<button class="pill scr" data-a="skip">跳过</button>' : ''}<button class="pill scr" data-a="scratch">草稿</button>${!Q.fin ? coin('最高 ' + (g.extra ? Math.ceil(it.max / 2) : it.max)) : ''}</div>
-  <div class="body qbody">${Q.gid === 'friday' && !Q.demo ? vBoss() : ''}${Q.cover ? `<div class="cover">${away() ? '' : `${faceHtml("thinking", "question-cover")}`}<b style="font:400 30px var(--kid)">慢慢来</b><span>${away() ? '先把题目再读一遍，想一想条件。' : name() + '在帮你把题目再读一遍……'}</span></div>` : ''}${bar}${Q.walk ? vWalk() : Q.fin ? (!Q.fin.review && (it.segs || it.format === 'stat') ? qText() : '') + vQResult(g) : vStep()}${Q.msg ? `<div class="note qerror" role="alert"><p>${esc(Q.msg)}</p><button class="btn alt" data-a="recover">刷新任务状态</button></div>` : ''}</div>
+  <div class="body qbody">${Q.gid === 'friday' && !Q.demo ? vBoss() : ''}${Q.cover ? `<div class="cover">${away() ? '' : `${faceHtml("thinking", "question-cover")}`}<b style="font:400 30px var(--kid)">慢慢来</b><span>${away() ? '先把题目再读一遍，想一想条件。' : name() + '在帮你把题目再读一遍……'}</span></div>` : ''}${bar}${Q.walk ? vWalk() : Q.fin ? (!Q.fin.review && (it.segs || it.format === 'stat') ? qText() : '') + vQResult(g) : Q.checkPrompt ? `<section class="card review-task check-reminder"><h2>交卷前，检查这一点</h2><p>${esc(Q.checkPrompt.text)}</p><button class="btn alt" data-a="checkback">回去检查</button><button class="btn" data-a="checksend">检查好了，交卷</button></section>` : vStep()}${Q.msg ? `<div class="note qerror" role="alert"><p>${esc(Q.msg)}</p><button class="btn alt" data-a="recover">刷新任务状态</button></div>` : ''}</div>
   ${vDock()}${Q.menu ? vMenu() : ''}${Q.scratch ? '<div class="scratch"><canvas id="scratch"></canvas><div class="duo"><button class="btn alt" data-a="sclear">擦干净</button><button class="btn" data-a="scratch">关上</button></div></div>' : ''}${Q.catch ? vCatch() : ''}${Q.pending ? `<div class="toast" role="status" aria-live="polite">${esc(Q.pending)}</div>` : ''}${Q.fire ? `<div class="toast fire"><img src="/pet/badge-${SKILLS.find(x => x.k === Q.fire.k).badge}.webp" alt="">${esc(Q.fire.text)}</div>` : ''}`
 }
 /** 草稿纸：随手写画，不保存、不判分 */
@@ -1065,12 +1071,14 @@ const QA = {
   tapop(k) { k = +k; const L = Q.lines.at(-1); if (Q.op === k) { Q.op = null; return } if (canTap(L.t, k)) Q.op = k },
   unit(u) { if (busy || Q?.pending) return; if (Q?.walk) { Q.walk.unit = u && Q.walk.unit !== u ? u : null; return } if (Q && !Q.fin && step().cells) { Q.units[Q.cur] = Q.units[Q.cur] === u ? null : u; return } if (Q && !Q.fin) Q.unit = u && Q.unit !== u ? u : null },
   recover() { return waitQuestion('正在刷新任务，请稍等…', refreshQuestion) },
+  checkback() { if (busy || Q?.pending) return; Q.checkReady = true; Q.checkPrompt = null },
+  checksend() { return submitQ(true) },
   reviewcheck() { return reviewAction('check') },
   reviewhelp(action) { return reviewAction(action) },
   reviewkey(k) {
     if (busy || Q?.pending || Q?.fin?.review?.status !== 'pending') return
-    const unit = Q.fin.review.input.kind === 'unit', old = Q.reviewValue || ''
-    Q.reviewValue = k === '清空' ? '' : k === '⌫' ? old.slice(0, -1) : unit ? k : (old + k).slice(0, 5)
+    const select = ['unit', 'choice'].includes(Q.fin.review.input.kind), old = Q.reviewValue || ''
+    Q.reviewValue = k === '清空' ? '' : k === '⌫' ? old.slice(0, -1) : select ? k : (old + k).slice(0, 5)
     if (old !== Q.reviewValue) Q.reviewRequest = null
   },
   walk() { Q.walk = { i: 0, input: '', unit: null, bad: false }; sayPet('一步一步来，我陪着你。') },

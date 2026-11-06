@@ -181,9 +181,43 @@ export function coinsFor(price, q, pb = 0) {
   const core = q ? Math.max(1, Math.round(price * q)) : 0
   return { core, c: core + (q ? pb : 0) }
 }
-export const priceOf = (format, level, bucket, boost, boss) => boss
-  ? Math.min(BASE[format] * (DIFF[level] || 1), BOSS_DAILY_MAX - (HAS_PROCESS_BONUS.includes(format) ? 2 : 0))   // 关底题不乘「本周重点」1.5：综合难度的挑战题 25 × 1.6 = 40，加过程奖最高 42
-  : BASE[format] * (DIFF[level] || 1) * (bucket === '本周重点' && boost ? boost : SRC[bucket] || 1)
+/** 只在生成时按真实算式估计口算负担；故事题干及旧题库 price 不参与重新定价。 */
+function oralBase(expression) {
+  if (typeof expression !== 'string' || !/^[\d\s+−×÷*/()（）-]+$/.test(expression)) return BASE.oral
+  const tokens = toTokens(expression)
+  if (!validExpr(tokens)) return BASE.oral
+  const steps = exprSteps(tokens)
+  if (!steps?.length) return BASE.oral
+  if (steps.length > 1) return 5
+  let [a, op, b] = steps[0].t.slice(steps[0].k - 1, steps[0].k + 2)
+  const core = n => { while (n && n % 10 === 0) n /= 10; return n }
+  if (op === '×') {
+    if (!a || !b || a === 1 || b === 1) return 1
+    a = core(a); b = core(b)
+    return a <= 9 && b <= 9 ? 1 : Math.max(a, b) < 100 ? 3 : 4
+  }
+  if (op === '÷') {
+    if (!a || b === 1 || core(a / b) <= 9 && core(b) <= 9) return 1
+    while (a % 10 === 0 && b % 10 === 0) { a /= 10; b /= 10 }
+    return a < 100 ? 3 : 4
+  }
+  if (!a || !b || op === '−' && a === b) return 1
+  while (a % 10 === 0 && b % 10 === 0) { a /= 10; b /= 10 }
+  let active = 0, carry = 0, exchanged = false
+  while (a || b) {
+    const x = a % 10, y = b % 10
+    if (op === '+' ? x && y || carry : y || carry) active++
+    carry = op === '+' ? +(x + y + carry >= 10) : +(x - carry < y)
+    exchanged ||= !!carry; a = Math.floor(a / 10); b = Math.floor(b / 10)
+  }
+  return active <= 1 ? 1 : Math.min(4, active + Number(exchanged))
+}
+export const priceOf = (format, level, bucket, boost, boss, expression) => {
+  const base = format === 'oral' ? oralBase(expression) : BASE[format]
+  return boss
+    ? Math.min(base * (DIFF[level] || 1), BOSS_DAILY_MAX - (HAS_PROCESS_BONUS.includes(format) ? 2 : 0))
+    : base * (DIFF[level] || 1) * (bucket === '本周重点' && boost ? boost : SRC[bucket] || 1)
+}
 export const maxCoins = it => Math.round(it.price) + (HAS_PROCESS_BONUS.includes(it.format) ? 2 : 0)
 
 // ---------- 模板实例化 ----------
@@ -632,7 +666,7 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
     if (item.format === 'choice' && item.mode !== 'compare') { if (!item.keepOrder) item.opts = mix(item.opts, id + 'o'); delete item.keepOrder; if (item.mode === 'one') item.answer = item.opts.findIndex(o => o.ok) }
     for (const [j, x] of [...(item.format === 'multistep' ? item.parts : []), ...(item.asks || [])].entries()) if (Array.isArray(x.units)) x.units = mix(x.units, `${id}u${j}`)
     items.push({ id, tpl: t.id, group: group.id, bucket: group.bucket,
-      kp: t.knowledge_point, err: t.error_type, price: Math.round(priceOf(t.format, t.level, group.bucket, boost, group.boss) * 100) / 100, ...item })
+      kp: t.knowledge_point, err: t.error_type, price: Math.round(priceOf(t.format, t.level, group.bucket, boost, group.boss, t.format === 'oral' ? fill(t.expression, v) : undefined) * 100) / 100, ...item })
   }
   return { items, problems, keys }
 }

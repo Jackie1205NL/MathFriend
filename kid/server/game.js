@@ -331,6 +331,8 @@ export function createApi(base, env) {
         if (shown.length && (!c.done || c.finishedDate === date)) day.groups.push({ id: 'friday', items: shown, pass: c.pass })
       }
     }
+    // 复盘奖励账本与金币同存 state；reviews 先写成功而 state 失败时，刷新补记且只记一次。
+    for (const row of reviews) creditReview(state, row)
     // reviews先落盘，day随后失败时也能恢复曝光/请求去重状态，不从旧day重算一次。
     for (const row of reviews) if (row.day === date && row._snapshot && day?.items[row.item]?.fin) {
       const rec = day.items[row.item]
@@ -360,7 +362,7 @@ export function createApi(base, env) {
       date, now: ctx.now, rest: ctx.rest,
       state: { ...s, hide: undefined, stage: st, good: good(s), finale: date >= SEASON.finale, graduated: !!s.grad, pcPending: POSTCARD_DAYS.some(d => d > (s.pcLast || '') && d <= date) },
       week: pack?.week || null, tuning: pack?.tuning || {},
-      today: day ? day.groups.map(dg => ({ ...(dg.id === 'friday' ? { ...FRIDAY, ...progress, pass: dg.pass ?? BOSS_PASS, monster: hash(isoWeek(date)) % MONSTERS, sub: `周五到周日每天可试一次，通关后本周休息。答对 ${dg.pass ?? BOSS_PASS} 题打败怪兽，解锁一页故事` } : dg.id === 'extra' ? EXTRA : dg.id === 'sample' ? SAMPLE : dg.sec ? { id: dg.id, name: dg.name, sub: dg.sub, bucket: '' } : pack.groups.find(g => g.id === dg.id)), items: dg.items.map(id => { const it = byId[id], r = day.items[id] || {}; return { ...publicItem(it, { tier: s.tiers?.[`${it.kp}|${it.err}`]?.lv ?? 0 }), ...(dg.id === 'friday' ? { max: Math.round(maxCoins(it) * BOSS_RATE) } : {}), circle: r.circle ? circleFeedback(it, r) : null, done: r.fin || (dg.id === 'friday' && s.chal?.recs?.[id]) || null, guard: r.guard || null, caught: r.caught || null, l2: !!r.l2, help: r.help || [] } }) })) : [],
+      today: day ? day.groups.map(dg => ({ ...(dg.id === 'friday' ? { ...FRIDAY, ...progress, pass: dg.pass ?? BOSS_PASS, monster: hash(isoWeek(date)) % MONSTERS, sub: `周五到周日每天可试一次，通关后本周休息。答对 ${dg.pass ?? BOSS_PASS} 题打败怪兽，解锁一页故事` } : dg.id === 'extra' ? EXTRA : dg.id === 'sample' ? SAMPLE : dg.sec ? { id: dg.id, name: dg.name, sub: dg.sub, bucket: '' } : pack.groups.find(g => g.id === dg.id)), items: dg.items.map(id => { const it = byId[id], r = day.items[id] || {}; return { ...publicItem(it, { tier: s.tiers?.[`${it.kp}|${it.err}`]?.lv ?? 0 }), ...(dg.id === 'friday' ? { max: Math.round(maxCoins(it) * BOSS_RATE) } : {}), checkReminder: r.checkReminder || null, circle: r.circle ? circleFeedback(it, r) : null, done: r.fin || (dg.id === 'friday' && s.chal?.recs?.[id]) || null, guard: r.guard || null, caught: r.caught || null, l2: !!r.l2, help: r.help || [] } }) })) : [],
       uses: usesLeft(s, date),
       allDone: !!day?.done,
       wish: pack?.tuning?.wish ? { text: String(pack.tuning.wish), need: Number(pack.tuning.wish_days) || 4, got: s.att.week === isoWeek(date) ? s.att.days.length : 0 } : null,
@@ -815,6 +817,54 @@ export function createApi(base, env) {
     else if (['steps', 'oral', 'estimate', 'fix'].includes(it.format)) { const t = toTokens(it.text); if (exprSteps(t)?.length > 1) chainOf(t); else out.push({ q: `${it.text} = □`, a: it.answer }) }
     return out.length ? out : null
   }
+  // 检查提醒只问一个习惯，不判答案；每天独立限两题，连续三题首答且未用本领答对后淡出。
+  function checkHabit(it) {
+    if (['04.1', '04.2'].includes(it.kp)) return { kind: 'length', text: '先看看单位是否一致，再核对量的是起点到终点的距离。' }
+    if (['data', 'bins', 'stat'].includes(it.format)) return { kind: 'count', text: '边界上的数算进去了吗？从第一个数按顺序检查，有没有漏掉或重复。' }
+    if (['word', 'plan', 'multistep'].includes(it.format)) return { kind: 'question', text: '题目最后问的是什么？再看最后一步，求的是不是这个量，单位合适吗？' }
+    return null
+  }
+  function habitStreak(ctx, kind) {
+    const saved = ctx.state.checkHabits?.[kind]
+    if (saved) return saved.streak
+    const byId = new Map((ctx.pack?.items || []).map(it => [it.id, it])); let streak = 0
+    for (const row of [...ctx.log].reverse()) {
+      const it = byId.get(row.item)
+      if (!it || row.try !== 1 || checkHabit(it)?.kind !== kind) continue
+      if (!row.correct || row.help?.length) break
+      if (++streak >= 3) break
+    }
+    return streak
+  }
+  function creditReview(s, row) {
+    if (row.status !== 'done' || row.kind !== 'diagnose' || row.reward !== 2 || Object.hasOwn(s.reviewRewards || {}, row.item)) return 0
+    s.reviewRewards = { ...s.reviewRewards, [row.item]: true }; s.coins += 2; s.grow += 2
+    const d = dayStat(s, row.day); d.earn += 2; d.earnBy ||= {}; d.earnBy['复盘识别'] = (d.earnBy['复盘识别'] || 0) + 2
+    return 2
+  }
+  function diagnosticTarget(it, steps) {
+    if (!['word', 'plan', 'multistep'].includes(it.format)) return null
+    const flow = flowOf(it), j = judge(it, steps), wrong = j.items.filter(x => x.good === 'n' && flow[x.i] !== 'circle'), first = wrong[0]
+    if (!first || j.ok || !flow.some(type => ['goal', 'build'].includes(type))) return null
+    const labels = { goal: '理解题意与先求什么', build: '列式', chain: '计算与填写得数', say: '计算与填写得数' }
+    const expected = first.cat === '格式规范' && flow[first.i] === 'say' ? '单位' : labels[flow[first.i]]
+    if (!expected) return null
+    const choices = [...new Set(flow.flatMap(type => labels[type] ? [labels[type], ...(type === 'say' ? ['单位'] : [])] : []))]
+    if (choices.length < 2) return null
+    choices.sort((a, b) => hash(it.id + a) - hash(it.id + b))
+    const calculations = []
+    const bi = flow.indexOf('build'), built = steps[bi], ci = flow.indexOf('chain')
+    let tokens = built?.expr || (built?.i != null ? toTokens(it.choices?.[built.i]?.t || '') : [])
+    tokens = stripParens([...tokens])
+    for (const line of steps[ci]?.lines || []) {
+      const k = Number(line.k)
+      if (!canTap(tokens, k)) return null
+      calculations.push(`${showExpr(tokens.slice(k - 1, k + 2))} = ${line.v}`); tokens = reduceAt(tokens, k, Number(line.v))
+    }
+    const original = j.given + (calculations.length ? `；计算过程：${calculations.join('；')}` : '')
+    return { kind: 'diagnose', expected, original, corrected: `最先需要检查的是「${expected}」。${first.msg}`,
+      input: { kind: 'choice', choices }, multiple: wrong.length > 1 }
+  }
   // 短复盘只从原提交与实际判分定位，不用题目的 err 标签猜错因。
   const reviewNum = x => x === '' || x == null ? null : Number.isInteger(Number(x)) ? Number(x) : null
   const fullyRight = (it, steps) => { const j = judge(it, steps), flow = flowOf(it); return j.ok && j.items.every(x => flow[x.i] === 'circle' || x.good === 'y') }
@@ -915,7 +965,7 @@ export function createApi(base, env) {
     return null
   }
   function reviewPublic(r) {
-    const out = Object.fromEntries(['id', 'kind', 'title', 'note', 'keep', 'prompt', 'question', 'original', 'expression', 'table', 'input', 'status', 'attempts', 'hintUsed', 'demoUsed', 'solutionSeen', 'outcome', 'message'].filter(k => r[k] !== undefined).map(k => [k, r[k]]))
+    const out = Object.fromEntries(['id', 'kind', 'title', 'note', 'keep', 'prompt', 'question', 'original', 'expression', 'table', 'input', 'status', 'attempts', 'hintUsed', 'demoUsed', 'solutionSeen', 'outcome', 'message', 'reward'].filter(k => r[k] !== undefined).map(k => [k, r[k]]))
     out.canDemo = r.attempts >= 2 && !!r.demoContent
     if (r.hintUsed) out.hint = r.hintText
     if (r.demoUsed && r.demoContent) out.demo = r.demoContent
@@ -926,23 +976,24 @@ export function createApi(base, env) {
   function recordReview(ctx, it, rec) {
     const r = rec.review
     rec.fin.review = reviewPublic(r)
-    const row = { id: r.id, week: r.week, day: r.day, item: it.id, kind: r.kind, original: r.original, status: r.status, outcome: r.outcome, attempts: r.attempts, hint: r.hintUsed, demo: r.demoUsed, solution: r.solutionSeen, completedAt: r.completedAt, completedExposure: r.completedExposure, created: r.created, updated: new Date(ctx.now).toISOString(), events: r.events, _snapshot: structuredClone(r) }
+    const row = { id: r.id, week: r.week, day: r.day, item: it.id, kind: r.kind, original: r.original, status: r.status, outcome: r.outcome, attempts: r.attempts, hint: r.hintUsed, demo: r.demoUsed, solution: r.solutionSeen, completedAt: r.completedAt, completedExposure: r.completedExposure, ...(r.kind === 'diagnose' ? { reward: r.reward || 0 } : {}), created: r.created, updated: new Date(ctx.now).toISOString(), events: r.events, _snapshot: structuredClone(r) }
     const i = ctx.reviews.findIndex(x => x.id === r.id)
     if (i < 0) ctx.reviews.push(row); else ctx.reviews[i] = row
     ctx.reviewsDirty = true
   }
   function assignReview(ctx, it, rec, steps) {
     if (rec.fin.ok || rec.review || ctx.reviewDay.ids.length >= 2 || ctx.day.groups.some(g => ['friday', 'sample', 'extra'].includes(g.id) && g.items.includes(it.id))) return
-    const target = reviewTarget(it, steps)
+    const target = diagnosticTarget(it, steps) || reviewTarget(it, steps)
     if (!target) return
     const words = {
+      diagnose: ['哪一个环节先需要检查？', target.multiple ? '有不止一处需要检查，这次只找最先的一处。' : '回看原来的作答，选一个需要检查的环节。', '原来的作答已保存，先找出问题出现在哪里', '从先求什么、列式、计算到单位，按做题顺序比较原来的作答。'],
       unit: ['给得数补一个合适的单位', '只改单位，算对的数不用重填。', '得数和计算方法已经对了', '回到这一步的问题里找一找：“多少”后面跟着什么？'],
       calc: ['重新算这一行', '只重算这一处，不用把整题重新做一遍。', '这一行要用的数和运算顺序已经找对了', '从这一行的第一个数开始，按运算顺序检查计算，别漏进位或退位。'],
       total: ['把各栏数量再合一遍', '每一栏都算一次，只改合计。', '各栏数量都填对了', '按顺序点过各栏，每一栏加一次，检查有没有漏掉或重复。'],
     }[target.kind]
-    rec.review = { ...target, id: `${ctx.pack.week}:${ctx.date}:${it.id}`, week: ctx.pack.week, day: ctx.date, title: words[0], note: words[1], keep: words[2], prompt: words[0], hintText: words[3],
+    rec.review = { ...target, id: `${ctx.pack.week}:${ctx.date}:${it.id}`, week: ctx.pack.week, day: ctx.date, item: it.id, title: words[0], note: words[1], keep: words[2], prompt: words[0], hintText: words[3],
       question: target.question || it.text || it.segs?.map(s => s.t).join('') || it.title || '', source: { signature: JSON.stringify(it), submitted: structuredClone(steps) },
-      status: 'pending', attempts: 0, hintUsed: false, demoUsed: false, solutionSeen: false, outcome: null, message: '', seen: {}, events: [], created: new Date(ctx.now).toISOString(), demoContent: reviewDemo(target), solutionLines: [...(rec.fin.lines || []), ...(rec.fin.explain ? [rec.fin.explain] : [])] }
+      status: 'pending', attempts: 0, hintUsed: false, demoUsed: false, solutionSeen: false, outcome: null, message: '', seen: {}, events: [], created: new Date(ctx.now).toISOString(), demoContent: target.kind === 'diagnose' ? null : reviewDemo(target), solutionLines: [...(rec.fin.lines || []), ...(rec.fin.explain ? [rec.fin.explain] : [])] }
     ctx.reviewDay.ids.push(rec.review.id); recordReview(ctx, it, rec)
   }
   function review(ctx, body) {
@@ -964,9 +1015,9 @@ export function createApi(base, env) {
     if (action === 'solution') r.solutionSeen = true
     if (action === 'skip') { r.status = 'skipped'; r.outcome = 'skipped' }
     if (action === 'check') {
-      const value = String(body.value).trim(), ok = r.kind === 'unit' ? value === r.expected : /^\d+$/.test(value) && Number(value) === r.expected
+      const value = String(body.value).trim(), ok = ['unit', 'diagnose'].includes(r.kind) ? value === r.expected : /^\d+$/.test(value) && Number(value) === r.expected
       r.seen = { ...r.seen, [requestId]: true }; r.attempts++; Object.assign(event, { request_id: requestId, value: value.slice(0, 40), correct: ok })
-      if (ok) { r.status = 'done'; r.outcome = r.demoUsed || r.solutionSeen ? 'demonstrated' : r.hintUsed ? 'hinted' : 'independent'; r.message = '这一处补好了！' }
+      if (ok) { r.status = 'done'; r.outcome = r.demoUsed || r.solutionSeen ? 'demonstrated' : r.hintUsed ? 'hinted' : 'independent'; r.message = r.kind === 'diagnose' ? '找到了！接着看看这一处为什么需要改。' : '这一处补好了！'; if (r.kind === 'diagnose') { r.reward = Object.hasOwn(ctx.state.reviewRewards || {}, it.id) ? 0 : 2; ctx.c0 += creditReview(ctx.state, r) } }
       else { r.hintUsed = true; r.message = r.attempts >= 2 ? `还没对上，可以看${r.demoContent ? '一个示范' : '完整做法'}，也可以先做下一题。` : '再检查这一处，已经做对的部分不用重填。' }
     }
     if (r.status !== 'pending' && !r.completedAt) { r.completedAt = event.at; r.completedExposure = { hint: r.hintUsed, demo: r.demoUsed, solution: r.solutionSeen } }
@@ -1014,6 +1065,8 @@ export function createApi(base, env) {
       if (L.lv < max && h.length >= 10 && rate(h) >= 0.85 && new Set(h.map(x => x[1])).size >= 2) Object.assign(L, { lv: L.lv + 1, hist: [], moved: { dir: 'up', at: ctx.date } })
       else if (L.lv > 0 && ((h.length >= 8 && rate(h.slice(-8)) < 0.6) || (h.length >= 3 && h.slice(-3).every(x => !x[0])))) Object.assign(L, { lv: L.lv - 1, hist: [], moved: { dir: 'down', at: ctx.date } })
     }
+    const habit = checkHabit(it)
+    if (habit) { const h = (s.checkHabits ||= {})[habit.kind] ||= { streak: habitStreak(ctx, habit.kind) }; h.streak = firstOk && !rec.help?.length ? Math.min(3, h.streak + 1) : 0 }
     const key = `${it.kp}|${it.err}`
     step(s.ladder[key] ||= { lv: 1, hist: [] }, 2)
     if (flowOf(it).includes('build')) step((s.tiers ||= {})[key] ||= { lv: 0, hist: [] }, 2)   // 新的「知识点 × 错因」从第 0 档（选算式）开始
@@ -1023,7 +1076,7 @@ export function createApi(base, env) {
     rec.fin = { c, core, keywordPenalty, penaltyApplied, extraKeywords, processDenied, ok, part: ok ? 1 : Math.round(frac * 100) / 100, partsOk: J.partsOk || null, pb, bonus, points, point: points[0] || '', extra: !!extra, grew: 0, items: J.items, habits: J.habits, caught: rec.caught || null, help: rec.help || [], refund, l2: !!rec.l2, ...solution(it), walk: ok ? null : walk(it) }
     ctx.log.push(row(ctx, it, { try: rec.caught ? 2 : 1, correct: ok, given: J.given, ...(J.idxFix ? { idx_fix: J.idxFix } : {}), coins: c, keyword_penalty: keywordPenalty, penalty_applied: penaltyApplied, extra_keywords: extraKeywords, process_denied: processDenied, trap_error_type: ok ? null : J.items.find(x => x.good === 'n')?.cat || it.err,
       step_failed: ok ? null : J.unitMiss && J.items.filter(x => x.good === 'n').length === 1 ? '忘写单位' : STEP_NAME[flowOf(it)[J.items.find(x => x.good === 'n')?.i]] || null,
-      ms: rec.ms, help: rec.help?.length ? rec.help : null, steps: flowOf(it).map((_, i) => J.items.filter(x => x.i === i).every(x => x.good === 'y') ? 1 : 0).join('') }))
+      ms: rec.ms, ...(rec.checkReminder ? { check_reminder: { kind: rec.checkReminder.kind, shownAt: rec.checkReminder.shownAt } } : {}), help: rec.help?.length ? rec.help : null, steps: flowOf(it).map((_, i) => J.items.filter(x => x.i === i).every(x => x.good === 'y') ? 1 : 0).join('') }))
     const all = ctx.day.groups.filter(g => !['friday', 'sample'].includes(g.id)).flatMap(g => g.items)      // 本周闯关和测试用的题型样板不算今天的任务
     if (all.every(id => ctx.day.items[id]?.fin) && !ctx.day.done) {
       ctx.day.done = true; if (!ctx.day.flash) { s.pts['漏题']++; rec.fin.patrol = true }
@@ -1456,6 +1509,19 @@ export function createApi(base, env) {
     }
     if (req.method !== 'POST') return json({ error: '不支持' }, 405)
     const body = await req.json().catch(() => ({}))
+    if (p === '/check-reminder') {
+      const it = ctx.pack?.items.find(x => x.id === body.item)
+      if (!it || !ctx.day?.groups.some(g => g.items.includes(it.id))) return json({ error: '这道题不在今天的任务里' }, 400)
+      const rec = ctx.day.items[it.id] ||= {}, habit = checkHabit(it)
+      const quota = (await S.get(`check-day:${ctx.date}`)) || { ids: [] }, id = `${ctx.pack.week}:${it.id}`
+      if (!rec.fin && !rec.checkReminder && habit && habitStreak(ctx, habit.kind) < 3 &&
+          !ctx.day.groups.some(g => ['friday', 'sample', 'extra'].includes(g.id) && g.items.includes(it.id)) && (quota.ids.includes(id) || quota.ids.length < 2)) {
+        rec.checkReminder = { ...habit, shownAt: new Date(ctx.now).toISOString() }
+        if (!quota.ids.includes(id)) quota.ids.push(id)
+        await S.set(`check-day:${ctx.date}`, quota)
+      }
+      await save(ctx); return json({ reminder: rec.fin ? null : rec.checkReminder || null })
+    }
     if (p === '/answer' || p === '/review') {
       ctx.reviewDay = (await S.get(`review-day:${ctx.date}`)) || { ids: [] }
       ctx.reviewDay.ids = [...new Set([...ctx.reviewDay.ids, ...ctx.reviews.filter(r => r.day === ctx.date).map(r => r.id)])]

@@ -59,6 +59,7 @@ function printUncovered(week, bank) {
  */
 function withMix(week, bank) {
   if (!bank?.templates?.length) return bank
+  if (bank.review_policy === 'curated') return bank  // 两周精选包：只使用已逐题审核的复习模板
   const root = id => String(id).split('@')[0], have = new Set(bank.templates.map(t => root(t.id))), add = []
   for (const d of listWeeks().filter(w => w < week).reverse().map(readWeek)) {
     const boss = new Set((d.bank?.groups || []).filter(g => g.boss).map(g => g.id))
@@ -96,6 +97,7 @@ function printReport(report, dropped) {
  * 本周新模板已经覆盖的「知识点 × 错因」不带。
  */
 export function carry(week, bank) {
+  if (bank.review_policy === 'curated') return { bank, redo: [], keep: [] }
   if (bank.templates.some(t => t.from)) return { bank, redo: [], keep: [] }      // 已经带过了
   const prev = listWeeks().filter(w => w < week).map(readWeek).filter(d => d.bank?.templates?.length).reverse()
   const keyOf = t => `${t.knowledge_point}|${t.error_type}`, have = new Set(bank.templates.map(keyOf)), ids = new Set(bank.templates.map(t => t.id))

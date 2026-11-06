@@ -612,3 +612,6 @@ table.dash tr.idle td{color:#a5ad9f}
 @keyframes carry-prop{0%,25%,75%,100%{transform:translateY(10px)}40%,60%{transform:translateY(-20px)}}
 @media(max-width:600px){.motion-stage{height:190px}.motion-stage.compact{height:120px}.shop-feedback .motion-stage{width:105px}.morning .motion-stage{width:90px;height:90px}.motion-object-icon{font-size:21px}}
 @media(prefers-reduced-motion:reduce){.motion-object{animation:none!important}}
+
+/* 复用短复盘卡片的环节选择与轻量检查提醒。 */
+.review-choices{display:grid;gap:10px}.review-choices .on{outline:3px solid var(--green,#35895a);outline-offset:1px}.review-reward{font-weight:700}.check-reminder .btn{margin-top:12px}
