@@ -1,7 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
 import { createApi } from '../server/game.js'
-import { buildPack, checkPack, instantiate } from '../../shared/contract.js'
+import { buildPack, checkPack, instantiate, packKeys } from '../../shared/contract.js'
 
 const DATE = '2026-10-24', WEEK = '2026-W43'
 const base = { group: 'g1', level: '同构', knowledge_point: '04.2 长度单位', error_type: '概念不清' }
@@ -117,4 +118,47 @@ test('分段分类：放对 / 放错 / 漏放；数一数模式按栏填个数',
   const f3 = await fixture(t), c = f3.server('count'); assert.equal((await f3.answer(c, [{ vals: c.blanks.map(b => b.a) }])).ok, true)
   const f4 = await fixture(t), c4 = f4.server('count'), vals = c4.blanks.map(b => b.a); vals[1] += 1
   assert.equal((await f4.answer(c4, [{ vals }])).ok, false)
+})
+
+test('公开通用模板可跨周参数化生成，除法余数验算及生活应用关系独立核对', () => {
+  const library = JSON.parse(fs.readFileSync(new URL('../../.claude/skills/weekly/examples/arithmetic-templates.json', import.meta.url)))
+  assert.ok(library.templates.length > 0)
+  assert.equal(new Set(library.templates.map(t => t.id)).size, library.templates.length)
+  assert.ok(library.templates.every(t => t.id.startsWith('practice-') && !t.id.includes('W47')))
+  const groups = [...new Set(library.templates.map(t => t.group))].map(id => ({ id, name: '示例练习', daily: 1, bucket: '本周重点' }))
+  const seen = new Map()
+  for (const week of ['2026-W47', '2026-W48', '2027-W02']) {
+    const { pack, report } = buildPack({ groups, templates: library.templates.map(t => ({ ...structuredClone(t), count: 4 })), tuning: {} }, week)
+    assert.deepEqual(checkPack(pack), []); assert.ok(report.every(r => r.made === 4))
+    const keys = packKeys(pack); assert.equal(keys.fixed, 0); assert.equal(keys.warned, 0)
+    assert.ok(!/\{\w+\}/.test(JSON.stringify(pack)))
+    for (const it of pack.items) {
+      const values = seen.get(it.tpl) || new Set(); values.add(it.text); seen.set(it.tpl, values)
+      if (it.tpl.startsWith('practice-division-')) {
+        assert.equal(it.check, 'mul'); assert.equal(it.answer * it.b + it.rem, it.a)
+        assert.ok(it.rem >= 0 && it.rem < it.b)
+        if (it.tpl.endsWith('remainder')) assert.ok(it.rem > 0)
+      }
+      if (it.tpl.endsWith('box-weight-difference')) {
+        const [n, small, big, heavy] = it.text.match(/\d+/g).map(Number), part = (heavy - small) / (big - n), box = small - n * part
+        assert.equal(it.answer, box); assert.equal(it.parts[1].v, part)
+        assert.ok(box > 0 && part > 0); assert.equal(box + big * part, heavy)
+      }
+      if (it.tpl.endsWith('water-remaining-time')) {
+        const [cap, initial, added, one, seconds] = it.text.match(/\d+/g).map(Number)
+        assert.equal(one, 1); assert.equal(it.answer, (cap - initial - added) * seconds)
+        assert.ok(initial + added < cap)
+      }
+      if (it.tpl.endsWith('route-round-trips')) {
+        const [a, b] = it.text.match(/\d+/g).map(Number)
+        assert.equal(it.parts[0].v, a + b); assert.equal(it.answer, a + a + a + b + b + a)
+      }
+      if (it.tpl.endsWith('arrival-time')) {
+        const [h, m, hours, minutes] = it.text.match(/\d+/g).map(Number), [outH, outM] = it.blanks[0].a
+        assert.equal(outH * 60 + outM, h * 60 + m + hours * 60 + minutes)
+        assert.ok(outH < 24 && outM < 60)
+      }
+    }
+  }
+  assert.ok([...seen.values()].every(v => v.size > 4), '不同周应生成不同实例，不是固定例题副本')
 })

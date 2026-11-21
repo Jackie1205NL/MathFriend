@@ -13,6 +13,11 @@ const FONT = '/System/Library/Fonts/Hiragino Sans GB.ttc'
 
 /** 程序验算（PRD F8-4）：表达式只允许数字与四则运算符，算不出或对不上的题丢弃。 */
 export function verifyItem(item) {
+  if (item.moveGrid) {
+    const { from, to } = item.moveGrid
+    const inGrid = p => Array.isArray(p) && p.length === 2 && p.every(Number.isInteger) && p[0] >= 0 && p[0] < 6 && p[1] >= 0 && p[1] < 3
+    if (!inGrid(from) || !inGrid(to) || Math.abs(from[0] - to[0]) + Math.abs(from[1] - to[1]) !== Number(item.answer)) return false
+  }
   const expr = String(item.expression || '').replace(/×/g, '*').replace(/÷/g, '/').replace(/[（]/g, '(').replace(/[）]/g, ')').replace(/\s/g, '')
   if (!/^[\d+\-*/().]+$/.test(expr)) return false
   try { const v = Function(`"use strict";return (${expr})`)(); return Number.isFinite(v) && Math.abs(v - Number(item.answer)) < 1e-9 && v >= 0 && Number.isInteger(v) && v < 100000 } catch { return false }
@@ -36,9 +41,24 @@ export function savePractice(week, input) {
   const sets = Array.isArray(input) ? input : input?.sets
   if (!Array.isArray(input)) data.review = (input?.review || []).map(r => ({ ...r, text: plain(r.text) }))
   let dropped = 0
-  data.practice = (sets || []).map(s => ({ topic: plain(s.topic), scope: s.scope === '预习' ? '预习' : '错题', ...(s.day ? { day: Number(s.day) } : {}), items: (s.items || []).filter(it => { const ok = verifyItem(it); if (!ok) dropped++; return ok }).map(it => ({ ...it, text: plain(it.text), hint: plain(it.hint) })) }))
+  data.practice = (sets || []).map(s => ({ topic: plain(s.topic), scope: s.scope === '预习' ? '预习' : '错题', ...(s.day ? { day: Number(s.day) } : {}), ...(s.newPage ? { newPage: true } : {}), items: (s.items || []).filter(it => { const ok = verifyItem(it); if (!ok) dropped++; return ok }).map(it => ({ ...it, text: plain(it.text), hint: plain(it.hint) })) }))
   writeWeek(data)
   return dropped
+}
+
+// 纸面平移练习使用真实方格，起点与终点用从0开始的 [列, 行] 指定。
+function drawMoveGrid(doc, { from, to }) {
+  const left = doc.page.margins.left + 20, top = doc.y + 3, cell = 18
+  doc.save().lineWidth(0.5).strokeColor('#777')
+  for (let col = 0; col <= 6; col++) doc.moveTo(left + col * cell, top).lineTo(left + col * cell, top + 3 * cell)
+  for (let row = 0; row <= 3; row++) doc.moveTo(left, top + row * cell).lineTo(left + 6 * cell, top + row * cell)
+  doc.stroke().fillColor('black').font('cnb').fontSize(10)
+  for (const [label, [col, row]] of [['A', from], ['B', to]]) {
+    doc.text(label, left + col * cell, top + row * cell + 3, { width: cell, align: 'center', lineBreak: false })
+  }
+  doc.restore().font('cn').fontSize(12)
+  doc.x = doc.page.margins.left
+  doc.y = top + 3 * cell + 3
 }
 
 export async function buildSheet(week) {
@@ -126,7 +146,7 @@ export async function buildSheet(week) {
   }
 
   // 6 课外拓展与超前
-  const ahead = data.entries.filter(e => e.ahead || String(e.knowledge_point).startsWith('EX'))
+  const ahead = data.entries.filter(e => (e.ahead || String(e.knowledge_point).startsWith('EX')) && !focus.some(f => f.knowledge_point === e.knowledge_point))
   if (ahead.length) { h('课外与超前'); p([...new Set(ahead.map(e => `${e.knowledge_point} ${knowledge.nodes.find(n => n.id === e.knowledge_point)?.title || ''}`))].join('；') + '。这些内容不计入本周主要问题。') }
 
   // 7 练习卷（每天独立分页）+ 8 答案页
@@ -138,11 +158,13 @@ export async function buildSheet(week) {
   if (sets.length) days.forEach(d => {
     doc.addPage(); const start = pageNo; doc.font('cnb').fontSize(18).text(`${week} 练习卷 ${dayTitle(d)}`).moveDown(0.2)
     doc.font('cn').fontSize(9.5).fillColor('#666').text('姓名：__________　　用时：______ 分钟').fillColor('black')
-    sets.filter(s => (s.day || 0) === d).forEach(s => {
-      if (doc.y > doc.page.height - 130) doc.addPage() // 标题不落在页底
+    sets.filter(s => (s.day || 0) === d).forEach((s, groupIndex) => {
+      if ((groupIndex > 0 && s.newPage) || doc.y > doc.page.height - 130) doc.addPage() // 标题不落在页底
       h(`${s.topic}${s.scope === '预习' ? '（预习）' : ''}`, 13)
       s.items.forEach((it, i) => {
+        if (it.moveGrid && doc.y > doc.page.height - doc.page.margins.bottom - 116) doc.addPage()
         doc.font('cn').fontSize(12).text(`${i + 1}. ${it.text}${it.kind === 'calc' ? ' ＝' : ''}`, { lineGap: 6 })
+        if (it.moveGrid) drawMoveGrid(doc, it.moveGrid)
         doc.moveDown(it.kind === 'word' ? 2.8 : 1.2)
       })
     })

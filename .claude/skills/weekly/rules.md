@@ -166,6 +166,8 @@
 - **`hint` 只印在答案页给家长看，练习卷上不出现**，所以可以直接写方法要点（如"个位 4×3=12，写 2 进 1"），不用担心透题。
 - 每题给 `expression`：只含数字和 `+ - × ÷ ( )`，能直接算出 `answer`；程序会验算，算不通过的题会被丢弃。应用题的 `expression` 就是列式。
 
+纸面平移题可在练习项加 `"moveGrid": {"from": [1, 0], "to": [4, 2]}`。图有6列3行，坐标从左上格 `[0, 0]` 起算。题干应问先横移、再纵移的方向和格数，总步数作为 `answer` 由程序核对。若一组小问共用题干，可给组设置 `"newPage": true`，让该组从当天下一页开始，生成后仍需检查每日页数。
+
 practice.json 格式：
 
 ```json
@@ -329,6 +331,13 @@ npm run kid export <周>      # 写出 孩子端题库/pack-<周>.json
 - `why` 在孩子圈完关键词、点「圈好了」时由小狗马上点评（漏圈哪几段、多圈了哪句，再加上 `why`），说清哪几段关键、哪句用不上。点评后这一步就定下来了，判分按这次圈的算。
 
 ### 各题型的写法示例
+
+[通用运算与生活应用模板](examples/arithmetic-templates.json)可用于乘除同级、括号计算、除法竖式和验算、到达时刻、两次称重、补足数量及往返路程。乘除同级使用知识点 `01.5`，两三位数除以一位数的笔算（含余数）使用 `06.2`。从项目根目录加载需要的模板，调整分组和 `count` 后，随本周私有 bank 一起运行 `kid bank` 和 `kid export`。
+
+```js
+const { templates } = JSON.parse(fs.readFileSync('.claude/skills/weekly/examples/arithmetic-templates.json', 'utf8'))
+bank.templates.push(...templates.filter(t => selectedIds.includes(t.id)).map(t => structuredClone(t)))
+```
 
 ```json
 {
