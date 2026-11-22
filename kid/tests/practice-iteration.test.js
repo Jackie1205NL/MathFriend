@@ -4,15 +4,15 @@ import { createApi } from '../server/game.js'
 
 const DATE = '2026-10-15'
 const SEGMENTS = [
-  { t: '这些数', k: 2 }, { t: '超过', k: 2 }, { t: '10', k: 2 }, { t: '有几个', k: 2 },
+  { t: '这些数', k: 2 }, { t: '超过', k: 2 }, { t: '10', k: 2 }, { t: '不到20', k: 2 },
   { t: '请仔细观察', k: 1 }, { t: '今天晴天', n: true },
 ]
-async function fixture(t, price = 12) {
+async function fixture(t, price = 12, overrides = {}) {
   let time = Date.parse(`${DATE}T12:00:00+08:00`)
   t.mock.method(Date, 'now', () => time)
   const data = new Map(), store = { get: async k => structuredClone(data.get(k) ?? null), set: async (k, v) => data.set(k, structuredClone(v)) }
   const item = { id: 'count-1', tpl: 'count', group: 'count', format: 'data', kp: '读题', err: '审题', level: '同构', bucket: '本周重点', price, segs: SEGMENTS,
-    kind: 'over', over: 10, nums: [9, 10, 11], answer: 1, ask: '符合条件的有', unit: '个', units: ['个'], explain: '11 超过 10。' }
+    kind: 'over', over: 10, nums: [9, 10, 11], answer: 1, ask: '符合条件的有', unit: '个', units: ['个'], explain: '11 超过 10。', ...overrides }
   data.set('pack', { week: '2026-W42', groups: [{ id: 'count', name: '圈出条件', daily: 1 }], items: [item], tuning: { slow: 0 } })
   const api = createApi(store, { DEV: true, KID_USER: '甲', KID_PIN: '1234', ADMIN_PIN: '5678', SYNC_TOKEN: 'fixture-only' })
   const request = async (path, body, cookie = '', status = 200) => {
@@ -76,4 +76,49 @@ test('奖励不足时最低为 0，不扣已有金币；只漏辅助词或多圈
     assert.equal(review.penalty, 0); assert.equal(review.readyAt, 0)
     assert.equal((await g.answer()).fin.c, 12)
   }
+})
+
+
+const circleWord = { format: 'word', kp: '01.4', answer: 24, flow: ['circle', 'build', 'say'],
+  segs: [{ t: '周末，小雨去书店。' }, { t: '每本8元，', k: 2 }, { t: '买3本。', k: 2 }, { t: '多少钱？', k: 2 }, { t: '请仔细读题。', k: 1 }, { t: '。' }],
+  choices: [{ t: '8 × 3', ok: 1 }], ask: '答：', unit: '元', units: ['元'] }
+const correctWord = f => f.call('/answer', { item: f.item.id, ms: 30000, steps: [{ sel: [] }, { expr: [8, '×', 3] }, { v: 24, unit: '元' }] })
+
+test('没有n的语义全选不再夸刚好；标点不算覆盖，背景不扣主答金币', async t => {
+  const f = await fixture(t, 12, circleWord), c = (await f.circle([0, 1, 2, 3, 4])).circle
+  assert.equal(c.allSelected, true); assert.equal(c.kw, 1); assert.equal(c.penalty, 0); assert.equal(c.readyAt, 0)
+  assert.deepEqual(c.noise, []); assert.deepEqual(c.mustIdx, [1, 2]); assert.deepEqual(c.extra, [])
+  const { fin } = await correctWord(f)
+  assert.equal(fin.ok, true); assert.equal(fin.keywordPenalty, 0); assert.equal(fin.core, 12); assert.equal(fin.pb, 1); assert.equal(fin.c, 13)
+  assert.match(fin.items[0].msg, /整段都圈/); assert.doesNotMatch(fin.items[0].msg, /刚刚好/)
+  const saved = structuredClone(f.data.get(`day:${DATE}`).items[f.item.id].fin)
+  await f.call('/state'); assert.deepEqual(f.data.get(`day:${DATE}`).items[f.item.id].fin, saved)
+})
+
+test('只选核心线索可得满过程奖，普通问句和多个辅助词不强求；核心遗漏照原规则提醒', async t => {
+  const f = await fixture(t, 12, circleWord), c = (await f.circle([1, 2])).circle
+  assert.equal(c.kw, 2); assert.equal(c.penalty, 0); assert.deepEqual(c.must, []); assert.equal(c.allSelected, false)
+  assert.equal((await correctWord(f)).fin.c, 14)
+  const g = await fixture(t, 12, circleWord), missing = (await g.circle([2])).circle
+  assert.equal(missing.penalty, 3); assert.deepEqual(missing.must, ['每本8元，']); assert.equal(missing.readyAt, Date.now() + 5000)
+  g.advance(5000); const result = await correctWord(g); assert.equal(result.fin.ok, true); assert.equal(result.fin.keywordPenalty, 3)
+})
+
+test('全题只有必要线索时全部圈选不误伤，纯标点不算核心；旧k1包仍可作答', async t => {
+  const f = await fixture(t, 12, { ...circleWord, segs: [{ t: '每本8元，', k: 2 }, { t: '买3本。', k: 2 }, { t: '？', k: 2 }] })
+  const c = (await f.circle([0, 1])).circle
+  assert.equal(c.kw, 2); assert.equal(c.penalty, 0); assert.equal(c.allSelected, false); assert.deepEqual(c.mustIdx, [0, 1])
+  assert.equal((await correctWord(f)).fin.c, 14)
+  const g = await fixture(t, 12, { ...circleWord, segs: [{ t: '每本8元，', k: 1 }, { t: '买3本。', k: 1 }, { t: '？' }] })
+  assert.equal((await g.circle([0, 1])).circle.kw, 2); assert.equal((await correctWord(g)).fin.ok, true)
+})
+
+
+test('多圈三个中性片段不当作噪音扣奖，保留真实n的既有规则', async t => {
+  const segs = [...circleWord.segs, { t: '小雨' }, { t: '选购图书' }]
+  const f = await fixture(t, 12, { ...circleWord, segs })
+  const c = (await f.circle([0, 1, 2, 6, 7])).circle
+  assert.equal(c.allSelected, false); assert.equal(c.kw, 2); assert.equal(c.penalty, 0); assert.deepEqual(c.extra, [])
+  const { fin } = await correctWord(f)
+  assert.equal(fin.extraKeywords, 0); assert.equal(fin.processDenied, false); assert.equal(fin.c, 14)
 })

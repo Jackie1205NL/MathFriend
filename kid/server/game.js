@@ -2,7 +2,7 @@
 // 存储只要有 get(key) / set(key, value) 两个方法：线上是 Netlify Blobs（kid/functions/kid.mjs），本地开发是文件（kid/vite.config.js）。
 import { FORMATS, needsRest, petRest, bedtimeMinutes, MIN_SECONDS, SKILLS, SKILL_COST, GOODS, DECAY, NEED_FLOOR, PATS_PER_DAY, LEVELS, LEVEL_MIX, STORY_PAGES, BOSS_SIZE, BOSS_PASS, BOSS_COINS, BOSS_RATE, EXTRA_STEP, STAGES,
   SEASON, PLACES, POSTCARDS, POSTCARD_DAYS, JAR, TRIP_MOOD, EVENT_COINS, coinsFor, maxCoins, publicItem, stageOf, placeOpen, eventOf, cleanName, addDays, dayDiff,
-  SKILL_EVERY, SKILL_USES, SKILL_AT, SKILL_L2, FLOWS, STEP_NAME, flowOf, dailyOf, DAILY_TOTAL, packDays, checkPack, packKeys, LOG_FORMAT, toTokens, showExpr, validExpr, exprValue, exprSteps, sameNums, stripParens, nextOp, canTap, calcOp, reduceAt } from '../../shared/contract.js'
+  SKILL_EVERY, SKILL_USES, SKILL_AT, SKILL_L2, FLOWS, STEP_NAME, flowOf, dailyOf, DAILY_TOTAL, packDays, checkPack, packKeys, circleRole, LOG_FORMAT, toTokens, showExpr, validExpr, exprValue, exprSteps, sameNums, stripParens, nextOp, canTap, calcOp, reduceAt } from '../../shared/contract.js'
 
 const DAY = 86400000
 const today = (now = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(now)
@@ -413,21 +413,24 @@ export function createApi(base, env) {
    * 按积木逐步判分。每一步都照孩子自己的结果往下走：列错了式子，递等式就照他的式子算；
    * 所以能分清是列式错还是计算错。返回 { items: [{ i, good: 'y'|'n'|'h', msg, cat }], ok, habits, given, final }
    */
-  /** 圈关键词：关键词全中、多圈了几处用不上的。只提醒，不算错 */
+  /** 圈词只评价线索选择；背景多圈不扣主答金币，可选词漏圈不扣分。 */
   function judgeCircle(it, a) {
-    const sel = new Set((Array.isArray(a?.sel) ? a.sel : []).map(Number)), keys = it.segs.flatMap((s, j) => s.k ? [j] : []), noise = it.segs.flatMap((s, j) => s.n ? [j] : [])
-    // 圈关键词要圈、要点评，但扣分要轻：要紧的圈到大部分（每 4 处可以漏 1 处）、没圈用不上的那句，就算圈得好
-    // 必圈的（k: 2，列式要用的数、决定怎么算的词、问的是什么）一个都不能漏；帮助理解的（k: 1）可以宽一点
-    const missed = keys.filter(j => !sel.has(j)).length, must = keys.filter(j => it.segs[j].k === 2 && !sel.has(j)).length
-    const extra = noise.filter(j => sel.has(j)).length, allow = Math.max(1, Math.floor(keys.length / 4))
-    const kw = !must && missed <= allow && !extra && keys.length - missed >= 1 ? 2 : missed * 2 <= keys.length ? 1 : 0
-    return { must, penalty: must ? Math.min(5, must + 2) : 0, extraKeywords: extra, kw, good: kw === 2 ? 'y' : 'h', cat: kw === 2 ? '' : '审题', msg: kw === 2 ? (missed ? `关键词圈得很好，还漏了 ${missed} 处` : '关键词圈得刚刚好') : missed ? `漏圈了 ${missed} 处要紧的地方${must ? `（${must} 处是最要紧的）` : ''}${extra ? `，多圈了 ${extra} 处用不上的` : ''}。${it.why || '带数的话和问题都要圈。'}` : `要紧的都圈到了，还多圈了 ${extra} 处用不上的。${it.why || ''}` }
+    const sel = new Set((Array.isArray(a?.sel) ? a.sel : []).map(Number)), roles = it.segs.map(circleRole)
+    const keys = roles.flatMap((r, j) => ['must', 'support'].includes(r) ? [j] : []), mustIdx = roles.flatMap((r, j) => r === 'must' ? [j] : [])
+    const noise = roles.flatMap((r, j) => r !== 'ignore' && it.segs[j].n ? [j] : []), context = roles.flatMap((r, j) => r === 'context' ? [j] : []), semantic = roles.flatMap((r, j) => r !== 'ignore' ? [j] : [])
+    const must = mustIdx.filter(j => !sel.has(j)).length, extra = noise.filter(j => sel.has(j)).length
+    // 全选仅在题目确有可省背景时成立；标点不参与覆盖，全是必要线索的短题不会被误伤。
+    const allSelected = context.length > 0 && semantic.length > 0 && semantic.every(j => sel.has(j))
+    const hit = keys.filter(j => sel.has(j)).length, half = mustIdx.length ? (mustIdx.length - must) * 2 >= mustIdx.length : hit * 2 >= keys.length
+    const kw = !must && !extra && !allSelected && hit ? 2 : hit && half ? 1 : 0
+    const msg = kw === 2 ? '决定怎么算的线索圈到了。'
+      : [must ? `漏圈了 ${must} 处决定怎么算的线索。` : '', allSelected ? '整段都圈起来，就分不出重点了。只保留决定怎么算的短语。' : '', extra ? '背景说明读懂就好，只圈决定怎么算的短语。' : '', it.why || '再看看数量和它们之间的关系。'].join('')
+    return { keys, mustIdx, noise, allSelected, must, penalty: must ? Math.min(5, must + 2) : 0, extraKeywords: extra, kw, good: kw === 2 ? 'y' : 'h', cat: kw === 2 ? '' : '审题', msg }
   }
   function circleFeedback(it, r) {
     const c = judgeCircle(it, { sel: r.circle }), sel = new Set(r.circle)
-    const keys = it.segs.flatMap((x, j) => x.k ? [j] : []), noise = it.segs.flatMap((x, j) => x.n ? [j] : [])
-    return { sel: r.circle, keys, noise, kw: c.kw, penalty: c.penalty, readyAt: r.circleReadyAt || 0,
-      missed: keys.filter(j => !sel.has(j)).map(j => it.segs[j].t), must: keys.filter(j => it.segs[j].k === 2 && !sel.has(j)).map(j => it.segs[j].t), mustIdx: keys.filter(j => it.segs[j].k === 2), extra: noise.filter(j => sel.has(j)).map(j => it.segs[j].t), why: it.why || '' }
+    return { sel: r.circle, keys: c.keys, noise: c.noise, allSelected: c.allSelected, kw: c.kw, penalty: c.penalty, readyAt: r.circleReadyAt || 0,
+      missed: c.keys.filter(j => !sel.has(j)).map(j => it.segs[j].t), must: c.mustIdx.filter(j => !sel.has(j)).map(j => it.segs[j].t), mustIdx: c.mustIdx, extra: c.noise.filter(j => sel.has(j)).map(j => it.segs[j].t), why: it.why || '' }
   }
   /** 统计表：先填表，再答几个小问。后面的小问照孩子自己填的数往下走，按小问判分 */
   function judgeStat(it, steps) {

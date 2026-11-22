@@ -1,7 +1,7 @@
 // 孩子端页面：小屋、学期地图、今日任务、题型、本领、小卖部、纪念册。答案和金币都在后端（kid/server/game.js），这里只负责显示和把操作发过去。
 import './style.css'
 import { SKILLS, needsRest, petRest, wornAccessory, SKILL_COST, GOODS, STORY_PAGES, STAGES, SCARF_AT, SEASON, PLACES, POSTCARDS, JAR, TRICKS, POSE_MS, placeOpen, addDays, dayDiff,
-  SKILL_AT, SKILL_L2, STEP_NAME, toTokens, showExpr, validExpr, stripParens, nextOp, canTap, calcOp, reduceAt, isOp, eventOf } from '../../shared/contract.js'
+  SKILL_AT, SKILL_L2, STEP_NAME, circleRole, toTokens, showExpr, validExpr, stripParens, nextOp, canTap, calcOp, reduceAt, isOp, eventOf } from '../../shared/contract.js'
 import { LINES } from './lines.js'
 import { STORY } from './story.js'
 import { itemArt, itemIcon, itemScene } from './pet-items.js'
@@ -418,9 +418,10 @@ document.addEventListener('pointerdown', () => { try { actx ||= new (window.Audi
 /** 圈关键词的点评：圈对了夸一句；漏圈的、多圈的分别点出来 */
 function cfbMsg(fb) {
   const q0 = a => a.map(t => `「${t.replace(/[，。,.]$/, '').trim()}」`).join('')
-  if (fb.kw === 2) return fb.missed.length ? `圈得很好！${q0(fb.missed)}也可以圈上。${fb.why || ''}` : `要紧的地方都圈到了，没有多圈。${fb.why || ''}`
-  const must = fb.must || [], rest = fb.missed.filter(t => !must.includes(t))
-  return [must.length ? `${q0(must)}是解这道题最要紧的，一定要圈上！` : '', rest.length ? `${q0(rest)}也可以圈上。` : '', fb.extra.length ? `${q0(fb.extra)}和算数没关系，不用圈。` : '', fb.why].filter(Boolean).join('')
+  const missed = fb.missed || [], must = fb.must || [], extra = fb.extra || []
+  if (fb.kw === 2 && !fb.allSelected) return `决定怎么算的线索圈到了。${fb.why || ''}`
+  return [fb.allSelected ? '整段都圈起来，就分不出重点了。只保留决定怎么算的短语。' : '', must.length ? `${q0(must)}是决定怎么算的线索，要圈上。` : '',
+    !fb.must && missed.length ? `${q0(missed)}也可以再看看。` : '', extra.length ? `${q0(extra)}是可以不圈的背景。只保留决定怎么算的短语。` : '', fb.why].filter(Boolean).join('')
 }
 // 跳过的题（当天有效，按跳过的先后排）和做到一半的草稿（每题一份）
 const skips = () => { const k = ls.get('kid-skip', null); return k?.date === V.date ? k.ids : [] }
@@ -668,13 +669,14 @@ function qText(mode) {
   if (it.segs) {
     const ci = fi('circle'), circ = new Set(Q.rec[ci]?.sel || []), last = it.segs.length - 1
     return `<div class="card q">${speaker()}${it.segs.map((s, i) => {
-      let c = mode === 'pick' ? 'seg' : 'seg flat'
+      const selectable = circleRole(s) !== 'ignore'
+      let c = mode === 'pick' && selectable ? 'seg' : 'seg flat'
       const fb = Q.rec[ci]?.cfb
-      if (mode === 'pick') { if (Q.sel.has(i)) c += ' on'; if (greyed(i)) c += ' grey' }
-      else if (mode === 'review' && fb) c = 'seg fixed ' + (fb.keys.includes(i) ? (circ.has(i) ? 'key' : fb.mustIdx?.includes(i) ? 'miss must' : 'miss') : fb.noise.includes(i) && circ.has(i) ? 'noise' : circ.has(i) ? 'on' : '')
-      else if (circ.has(i)) c += ' on'
+      if (mode === 'pick') { if (selectable && Q.sel.has(i)) c += ' on'; if (greyed(i)) c += ' grey' }
+      else if (mode === 'review' && fb) c = 'seg fixed ' + ((fb.keys || []).includes(i) ? (circ.has(i) ? 'key' : fb.mustIdx?.includes(i) ? 'miss must' : fb.mustIdx ? '' : 'miss') : (fb.noise || []).includes(i) && circ.has(i) ? 'noise' : '')
+      else if (circ.has(i) && (!fb || (fb.keys || []).includes(i))) c += ' on'
       if (Q.fx.trail && i === last) c += ' trail'
-      return `<span class="${c}" ${mode === 'pick' && !greyed(i) ? `role="button" tabindex="0" data-a="seg" data-v="${i}"` : ''}>${esc(s.t)}</span>`
+      return `<span class="${c}" ${mode === 'pick' && selectable && !greyed(i) ? `role="button" tabindex="0" data-a="seg" data-v="${i}"` : ''}>${esc(s.t)}</span>`
     }).join('')}</div>`
   }
   return it.text ? `<div class="card q">${speaker()}${esc(it.text)}</div>` : ''
@@ -752,12 +754,12 @@ function vStep() {
     return `${qText()}${b.fig ? figure(b.fig) : ''}<div class="card multi">${rows}</div><p class="dim">点一个空再填数。每个空都要填。</p>${pad(null, go, 'stepgo')}`
   }
   if (b.type === 'circle' && Q.rec[Q.i]?.cfb) {
-    // 圈完马上点评：绿色是圈对的，橙色虚线是漏圈的，灰色划掉的是不用圈的。点评过就定下来了，回到这一步只能看
+    // 圈完马上点评：绿色是圈对的，橙色虚线是漏圈的，灰色划掉的是可以不圈的背景。点评过就定下来了，回到这一步只能看
     const fb = Q.rec[Q.i].cfb, wait = circleWait()
     return `${qText('review')}<div class="review ${fb.kw === 2 ? 'good' : ''}">${away() ? '' : `${faceHtml(fb.kw === 2 ? "proud" : "thinking", "circle-review")}`}<div><b>${away() ? '关键词点评：' : name() + '说：'}</b>${esc(cfbMsg(fb))}</div></div>
-      <p class="dim">绿色是圈对的${fb.must?.length ? '，红色虚线是漏掉的最要紧的' : ''}${fb.missed.length > (fb.must?.length || 0) ? '，橙色虚线是还可以圈的' : ''}${fb.extra.length ? '，灰色划掉的是和算数没关系的' : ''}。</p>${fb.extra.length > 2 ? '<p class="dim">无关内容超过 2 处，本题无过程奖。</p>' : ''}<p class="dim">${fb.penalty ? `漏圈核心关键词，本题奖励扣 ${fb.penalty} 金币（最低为 0）。先看看红色标记。` : ''}</p><button class="btn" data-a="stepgo" data-circle-next ${wait ? 'disabled' : ''}>${wait ? `再看 ${wait} 秒` : '知道了，继续'}</button>`
+      <p class="dim">绿色是圈对的${fb.must?.length ? '，红色虚线是漏掉的最要紧的' : ''}${!fb.mustIdx && fb.missed?.length ? '，橙色虚线是还可以圈的' : ''}${fb.extra.length ? '，灰色划掉的是和算数没关系的' : ''}。</p>${fb.extra.length > 2 ? '<p class="dim">无关内容超过 2 处，本题无过程奖。</p>' : ''}<p class="dim">${fb.penalty ? `漏圈核心关键词，本题奖励扣 ${fb.penalty} 金币（最低为 0）。先看看红色标记。` : ''}</p><button class="btn" data-a="stepgo" data-circle-next ${wait ? 'disabled' : ''}>${wait ? `再看 ${wait} 秒` : '知道了，继续'}</button>`
   }
-  if (b.type === 'circle') return `${qText('pick')}<p class="dim">可以点好几处，再点一下取消。无关内容超过 2 处，本题无过程奖。漏掉核心词时，先看 5 秒提示，再继续做题。</p><button class="btn" data-a="stepgo" ${Q.sel.size ? '' : 'disabled'}>圈好了，${Q.flow[Q.i + 1]?.type === 'build' ? '去列式' : '下一步'}</button>`
+  if (b.type === 'circle') return `${qText('pick')}<p class="dim">只圈决定怎么算的数量和关系；背景和普通问句读懂就好。再点一次可以取消。明确的干扰条件不用圈。漏掉核心词时，先看 5 秒提示，再继续做题。</p><button class="btn" data-a="stepgo" ${Q.sel.size ? '' : 'disabled'}>圈好了，${Q.flow[Q.i + 1]?.type === 'build' ? '去列式' : '下一步'}</button>`
   if (b.type === 'goal') return `${qText()}<div class="opts">${b.opts.map((o, i) => `<button class="${i === Q.fx.strike ? 'struck' : ''}" data-a="pickgo" data-v="${i}" ${i === Q.fx.strike ? 'disabled' : ''}>${esc(o)}</button>`).join('')}</div>`
   if (b.type === 'build') {
     const gi = fi('goal'), head = b.head ? `<div class="bubble plain good">${esc(b.head + (gi >= 0 && !b.ms && Q.rec[gi]?.i != null ? `：求${it.flow[gi].opts[Q.rec[gi].i]}` : ''))}</div>` : gi >= 0 ? `<div class="bubble plain good">先求：${esc(it.flow[gi].opts[Q.rec[gi]?.i] ?? '')}</div>` : ''

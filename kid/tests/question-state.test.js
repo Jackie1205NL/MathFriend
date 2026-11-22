@@ -315,3 +315,18 @@ test('任务卡同价口算显示每题，混价口算显示最高并解释难�
   assert.doesNotMatch(html, /每题 /)
   assert.match(html, /题目难一些、步骤多一些，做对会有更多金币。/)
 })
+
+
+test('圈词实际点评区分全选、适量与漏核心，背景不会继续高亮，旧反馈仍能渲染', async t => {
+  const item = { ...word, answer: 24, flow: ['circle', 'build', 'say'], choices: [{ t: '8 × 3', ok: 1 }], unit: '元', units: ['元'],
+    segs: [{ t: '周末，小雨去书店。' }, { t: '每本8元，', k: 2 }, { t: '买3本。', k: 2 }, { t: '多少钱？', k: 2 }, { t: '请仔细读题。', k: 1 }, { t: '。' }] }
+  for (const [sel, label] of [[[0, 1, 2, 3, 4], 'all'], [[1, 2], 'core'], [[2], 'missing']]) {
+    const { ui } = await fixture(t, [item]); assert.doesNotMatch(ui.html(), /data-a="seg" data-v="5"/); ui.edit({ sel: new Set(sel) }); await ui.stepgo()
+    const html = ui.html()
+    if (label === 'all') { assert.match(html, /整段都圈起来/); assert.match(html, /seg fixed [^>]*>周末，小雨去书店/); assert.doesNotMatch(html, /seg fixed on[^>]*>周末/); assert.doesNotMatch(html, /圈得刚刚好|没有多圈/) }
+    if (label === 'core') { assert.match(html, /决定怎么算的线索圈到了/); assert.doesNotMatch(html, /miss must/); assert.doesNotMatch(html, /seg fixed miss[^>]*>多少钱/) }
+    if (label === 'missing') { assert.match(html, /seg fixed miss must[^>]*>每本8元/); assert.match(html, /再看 5 秒/) }
+  }
+  const { ui } = await fixture(t, [item]); ui.edit({ rec: [{ sel: [1, 2], cfb: { sel: [1, 2], keys: [1, 2], noise: [], kw: 2, missed: [], extra: [], readyAt: 0 } }] })
+  assert.match(ui.html(), /决定怎么算的线索圈到了/)
+})
