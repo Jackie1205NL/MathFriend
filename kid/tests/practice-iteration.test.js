@@ -122,3 +122,19 @@ test('多圈三个中性片段不当作噪音扣奖，保留真实n的既有规�
   const { fin } = await correctWord(f)
   assert.equal(fin.extraKeywords, 0); assert.equal(fin.processDenied, false); assert.equal(fin.c, 14)
 })
+
+
+test('精审计数题的阈值与答案单位目标独立必圈，四种选法真实API判定', async t => {
+  const item = { keyword_policy: 'curated', unit: '人', units: ['人'],
+    segs: [{ t: '下面是' }, { t: '3名同学' }, { t: '的成绩。' }, { t: '超过10分', k: 2 }, { t: '的有' }, { t: '几人', k: 2, target: 'unit' }, { t: '？' }] }
+  for (const [sel, missing, kw, penalty] of [[[3], ['几人'], 1, 3], [[5], ['超过10分'], 1, 3], [[3, 5], [], 2, 0], [[0, 1, 2, 3, 4, 5], [], 1, 0]]) {
+    const f = await fixture(t, 12, item), view = await f.call('/state')
+    assert.ok(view.today[0].items[0].segs.every(seg => Object.keys(seg).join() === 't'))
+    const fb = (await f.circle(sel)).circle
+    assert.deepEqual(fb.mustIdx, [3, 5]); assert.deepEqual(fb.unitTarget, ['几人']); assert.deepEqual(fb.must, missing); assert.equal(fb.kw, kw); assert.equal(fb.penalty, penalty)
+    assert.equal(fb.allSelected, sel.length === 6)
+    f.advance(5000)
+    const { fin } = await f.call('/answer', { item: f.item.id, ms: 30000, steps: [{ sel }, { sel: [2], v: 1, unit: '人' }] })
+    assert.equal(fin.ok, true); assert.equal(fin.keywordPenalty, penalty)
+  }
+})

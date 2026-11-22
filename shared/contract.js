@@ -323,7 +323,7 @@ export { sameNums }
  * 没写就按逗号、句号、问号切开：带数的句子和问句算关键词，其他的不算错也不算对。
  */
 function segsOf(t, text, v) {
-  const big = Array.isArray(t.segs) ? t.segs.map(s => ({ t: fill(s.t, v), ...(s.k ? { k: s.k === 2 ? 2 : 1 } : {}), ...(s.n ? { n: 1 } : {}) }))     // k: 2 必圈，k: 1 帮助理解
+  const big = Array.isArray(t.segs) ? t.segs.map(s => ({ t: fill(s.t, v), ...(s.k ? { k: s.k === 2 ? 2 : 1 } : {}), ...(s.n ? { n: 1 } : {}), ...(s.target === 'unit' ? { target: 'unit' } : {}) }))     // k: 2 必圈，k: 1 帮助理解
     : (String(text).match(/[^，。？！；,.?!;]+[，。？！；,.?!;]?/g) || [text]).map(x => ({ t: x, ...(/[\d一二两三四五六七八九十百千半倍]|？|\?/.test(x) ? { k: 1 } : {}) }))
   return Array.isArray(t.segs) ? big : big.flatMap(midSegs)      // 模板按短语写好的 segs 原样用；没写的才由程序切
 }
@@ -380,12 +380,15 @@ const plain = t => String(t ?? '').replace(/[\s，。,.；;？?！!]/g, '')
 const SIMPLE_ASK = new RegExp(`^(?:的)?(?:有|是|为)?(?:多少|几)(?:${UNITS}|钱|时间|长度|质量|重量)(?:呢|呀)?$`)
 const UNIT_ONLY = new RegExp(`^(?:${UNITS})$`)
 const optionalCircleText = t => SIMPLE_ASK.test(plain(t)) || UNIT_ONLY.test(plain(t))
-/** 圈词只看有意义的文字：量词和裸问句可选，标点不参与判分或质检。 */
-export const circleRole = seg => !/[\p{L}\p{N}]/u.test(String(seg?.t || '')) ? 'ignore' : seg.n ? 'context'
-  : optionalCircleText(seg.t) ? 'support' : seg.k === 2 ? 'must' : seg.k ? 'support' : 'context'
+const unitAsk = (text, it) => typeof it?.unit === 'string' && ['几' + it.unit, '多少' + it.unit].includes(plain(text).replace(/^(?:的)?(?:有|是|为)?/, ''))
+const unitTarget = (seg, it) => it?.format === 'data' && it.keyword_policy === 'curated' && seg.k === 2 && seg.target === 'unit' &&
+  typeof it.unit === 'string' && ['几' + it.unit, '多少' + it.unit].includes(plain(seg.t))
+/** 精审data可显式指定短单位目标；未标记的普通问句可选，标点不参与判分。 */
+export const circleRole = (seg, it) => !/[\p{L}\p{N}]/u.test(String(seg?.t || '')) ? 'ignore' : seg.n ? 'context'
+  : unitTarget(seg, it) ? 'must' : seg.target === 'unit' || optionalCircleText(seg.t) || unitAsk(seg.t, it) || (it?.unit && it.unit === plain(seg.t)) ? 'support' : seg.k === 2 ? 'must' : seg.k ? 'support' : 'context'
 
 // 按原文从句检查覆盖，纯标点另切成seg或添加长背景句都不会掩盖整句标记。
-function wholeCoreClauses(segs) {
+function wholeCoreClauses(segs, it) {
   let text = '', marked = 0, count = 0
   const finish = () => {
     const clause = /(?:有|运入|运走|借出|卖出|买来|买了|加入|增加|减少|重|长|高)\d/.test(text) || /(?:还剩|一共|总共).*(?:多少|几)/.test(text)
@@ -394,13 +397,13 @@ function wholeCoreClauses(segs) {
   }
   for (const seg of segs) for (const ch of String(seg.t || '')) {
     if (/[，。！？；,.!?;]/.test(ch)) finish()
-    else if (/[\p{L}\p{N}]/u.test(ch)) { text += ch; if (circleRole(seg) === 'must') marked++ }
+    else if (/[\p{L}\p{N}]/u.test(ch)) { text += ch; if (circleRole(seg, it) === 'must') marked++ }
   }
   finish(); return count
 }
 /**
  * 核对一道题的关键词标记。fix 是可以直接改的（客观依据明确），warn 只提醒（要回去看模板）。
- * - 默认模板补数字卡来源与有意义的问句；精审模板保留人工重点，裸问句始终可选。
+ * - 默认模板补数字卡来源与有意义的问句；精审模板保留人工重点，data可显式标明独立数量单位目标。
  * - 必圈的段里既没有数、也没有决定怎么算的词 → 降成帮助理解（误标：孩子漏圈会被无故扣金币）
  */
 export function auditSegs(it) {
@@ -416,16 +419,16 @@ export function auditSegs(it) {
     segs.forEach(sg => { if (sg.n && [...nums].some(n => new RegExp(`(^|\\D)${n}(\\D|$)`).test(sg.t))) warn.push('噪音句里的数和列式要用的数一样，孩子分不清') })
   }
   const after = segs.map((sg, i) => { const f = fix.find(x => x.i === i); return f ? { ...sg, k: f.k } : sg })
-  const meaningful = after.filter(sg => circleRole(sg) !== 'ignore'), must = meaningful.filter(sg => circleRole(sg) === 'must')
+  const meaningful = after.filter(sg => circleRole(sg, it) !== 'ignore'), must = meaningful.filter(sg => circleRole(sg, it) === 'must')
   if (it.format !== 'stat' && it.format !== 'clock') {
     if (must.length > 6) warn.push(`必圈有 ${must.length} 处，太多了（一般 3～5 处）`)
     else if (A && !curated && must.length < 2) warn.push('必圈不到 2 处')
     if (must.some(sg => plain(sg.t).length > 16)) warn.push('有必圈的段太长（整句都当关键词），再切短一点')
-    if (wholeCoreClauses(after) >= 3) warn.push('多个完整叙述或问句几乎整句标为核心，请按数量关系与所求对象复核，不要靠增加噪音或拆标点降低覆盖率')
+    if (wholeCoreClauses(after, it) >= 3) warn.push('多个完整叙述或问句几乎整句标为核心，请按数量关系与所求对象复核，不要靠增加噪音或拆标点降低覆盖率')
     const all = meaningful.reduce((n, sg) => n + plain(sg.t).length, 0), key = meaningful.reduce((n, sg) => n + (sg.k ? plain(sg.t).length : 0), 0)
     // 所有文字确有数学作用时允许全选；有多余标注才提醒，不要求编造噪音来压低比例。
     if (all && key / all > 0.7 && meaningful.some(sg => sg.k && !JUSTIFIED.test(sg.t) && !optionalCircleText(sg.t))) warn.push('句句都是关键词，圈了等于没圈')
-    if (meaningful.some(sg => sg.k === 2 && optionalCircleText(sg.t))) warn.push('普通问句或单独量词无需设为必圈，宜作为可选提示')
+    if (meaningful.some(sg => sg.k === 2 && optionalCircleText(sg.t) && !unitTarget(sg, it))) warn.push('普通问句或单独量词无需设为必圈，宜作为可选提示')
     if (curated && !must.length) warn.push('精审题缺少决定算法或所求目标的核心短语')
     if (A && !curated && A.ask < 0) warn.push('没找到「问的是什么」那一段（要含「多少」或「几」）')
     after.forEach(sg => { if (!sg.k && !sg.n && DECISIVE.test(sg.t) && !/\d/.test(sg.t)) warn.push(`「${sg.t.trim()}」像是决定怎么算的词，没标必圈`) })
@@ -434,7 +437,9 @@ export function auditSegs(it) {
       const before = { over: '(?:超过|大于|高于)', under: '(?:少于|不到|低于|小于)', atleast: '(?:不少于|至少|不低于)' }[it.kind] || '(?:超过|大于|高于|少于|不到|低于|小于|不少于|至少|不低于)'
       const predicate = new RegExp(`^(?:${before}${number}(?:${UNITS})?${it.kind === 'atleast' ? `|${number}(?:${UNITS})?及以上` : ''})$`)
       if (!must.some(sg => predicate.test(plain(sg.t)))) warn.push('筛选条件应是一个完整核心短语：比较词与界限数；不要把成绩叙述或普通问句整句设为必圈')
-      if (must.some(sg => !predicate.test(plain(sg.t)))) warn.push('筛选题核心应集中在比较条件，记录说明与问几人不宜一并强制圈选')
+      if (must.some(sg => !predicate.test(plain(sg.t)) && !unitTarget(sg, it))) warn.push('筛选题核心应是比较条件和独立的数量单位目标，记录说明不宜整句强制圈选')
+      if (curated && !must.some(sg => unitTarget(sg, it))) warn.push('精审筛选题缺少独立数量单位目标：将几人、多少场等设为k:2与target:unit')
+      if (meaningful.some(sg => sg.target === 'unit' && !unitTarget(sg, it))) warn.push('单位目标必须是与答案单位一致的独立短语，不能是单独量词或整段问句')
     }
 
   }

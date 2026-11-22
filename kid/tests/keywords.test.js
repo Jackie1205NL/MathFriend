@@ -91,13 +91,13 @@ test('截图式data三大点击块不能靠短句、颜色噪音或拆标点通�
   }
 })
 
-test('比较词和阈值为一个核心短语；量词、纯问句可选，标点无判分角色', () => {
+test('比较词和阈值为一个核心短语；未显式标注的纯问句可选，标点无判分角色', () => {
   assert.equal(circleRole(T('不少于85分', 2)), 'must')
   for (const text of ['几人', '的有几人？', '多少克', '多少秒？', '多少钱？', '米']) assert.equal(circleRole(T(text, 2)), 'support', text)
   assert.equal(circleRole(T('几人？')), 'support'); assert.equal(circleRole(T('米')), 'support');
   assert.equal(circleRole(T('。', 2)), 'ignore'); assert.equal(circleRole(T('下面是成绩。')), 'context')
   for (const [kind, phrase] of [['atleast', '不少于85分'], ['over', '超过85分'], ['under', '少于85分']]) {
-    const item = { format: 'data', kind, over: 85, keyword_policy: 'curated', segs: [T('下面是8名同学的成绩。'), T('成绩'), T(phrase, 2), T('的有'), T('几人', 1), T('？')] }
+    const item = { format: 'data', kind, over: 85, unit: '人', keyword_policy: 'curated', segs: [T('下面是8名同学的成绩。'), T('成绩'), T(phrase, 2), T('的有'), { ...T('几人', 2), target: 'unit' }, T('？')] }
     assert.deepEqual(auditSegs(item), { fix: [], warn: [] })
     const split = { ...item, segs: [T('下面是8名同学的成绩。'), T(phrase.replace('85分', ''), 2), T('85', 2), T('分'), T('几人', 1)] }
     assert.ok(auditSegs(split).warn.some(w => w.includes('筛选条件')), '机械切成字词不能替代完整的比较关系')
@@ -125,15 +125,15 @@ test('data的why填入真实阈值且精审标记仅留后端，常规应用题�
   const template = { id: 'selection', group: 'g', format: 'data', knowledge_point: '03.2', error_type: '审题', level: '同构', keyword_policy: 'curated', count: 3,
     nums: '8×(60..99)', ask: 'atleast', over: [75, 85, 90], unit: '人', units: ['人', '分'],
     text: '下面是8名同学的成绩。成绩不少于{over}分的有几人？',
-    segs: [T('下面是8名同学的成绩。'), T('成绩'), T('不少于{over}分', 2), T('的有'), T('几人', 1), T('？')],
+    segs: [T('下面是8名同学的成绩。'), T('成绩'), T('不少于{over}分', 2), T('的有'), { ...T('几人', 2), target: 'unit' }, T('？')],
     why: '不少于{over}分包括正好{over}分；几人提醒填写人数。' }
   const { items, problems } = instantiate(template, { id: 'g', bucket: '本周重点' }, '2026-W48', 0, 3)
   assert.equal(items.length, 3, JSON.stringify(problems))
   for (const it of items) {
     assert.equal(it.keyword_policy, 'curated'); assert.match(it.why, new RegExp(`正好${it.over}分`))
-    assert.equal(it.segs[4].k, 1); assert.deepEqual(auditSegs(it), { fix: [], warn: [] })
+    assert.equal(it.segs[4].k, 2); assert.equal(it.segs[4].target, 'unit'); assert.deepEqual(auditSegs(it), { fix: [], warn: [] })
     const shown = publicItem(it); assert.equal(shown.keyword_policy, undefined); assert.equal(shown.why, undefined)
-    assert.equal(shown.answer, undefined)
+    assert.equal(shown.answer, undefined); assert.ok(shown.segs.every(s => Object.keys(s).join() === 't')); assert.ok(!JSON.stringify(shown).includes('target'))
   }
   const clear = word([T('每袋3本', 2), T('买4袋', 2), T('一共多少本？', 2)])
   clear.chips = [{ v: 3, seg: 0 }, { v: 4, seg: 1 }]
@@ -170,4 +170,22 @@ test('多步应用题同样保留参数化why，精审核心不被实例化改�
     assert.ok(it.why.includes('决定最后用加法')); assert.ok(!/\{\w+\}/.test(it.why))
     assert.equal(publicItem(it).why, undefined)
   }
+})
+
+
+test('精审data数量单位目标须显式且精确，不能把单独量词或整从句变核心', () => {
+  for (const [unit, text] of [['人', '几人'], ['场', '多少场'], ['盆', '几盆']]) {
+    const item = { format: 'data', keyword_policy: 'curated', kind: 'atleast', over: 85, unit }, goal = { t: text, k: 2, target: 'unit' }
+    assert.equal(circleRole(goal, item), 'must')
+    assert.equal(circleRole({ ...goal, target: undefined }, item), 'support')
+    assert.equal(circleRole(goal, { ...item, keyword_policy: undefined }), 'support')
+    assert.equal(circleRole({ ...goal, t: unit }, item), 'support')
+    assert.equal(circleRole({ ...goal, t: '的有' + text + '？' }, item), 'support')
+    const segs = [T('下面是记录。'), T('不少于85分', 2), T('的有'), goal, T('？')]
+    assert.deepEqual(auditSegs({ ...item, segs }), { fix: [], warn: [] })
+    const wrong = { ...item, segs: [...segs.slice(0, 3), { ...goal, t: unit }, T('？')] }
+    assert.ok(auditSegs(wrong).warn.some(w => w.includes('单位目标')))
+  }
+  const item = { format: 'data', keyword_policy: 'curated', kind: 'atleast', over: 85, unit: '人', segs: [T('记录如下。'), T('不少于85分', 2), { t: '多少分', k: 2, target: 'unit' }] }
+  assert.equal(circleRole(item.segs[2], item), 'support'); assert.ok(auditSegs(item).warn.some(w => w.includes('答案单位')))
 })

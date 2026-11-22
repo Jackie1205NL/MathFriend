@@ -324,9 +324,21 @@ test('圈词实际点评区分全选、适量与漏核心，背景不会继续�
     const { ui } = await fixture(t, [item]); assert.doesNotMatch(ui.html(), /data-a="seg" data-v="5"/); ui.edit({ sel: new Set(sel) }); await ui.stepgo()
     const html = ui.html()
     if (label === 'all') { assert.match(html, /整段都圈起来/); assert.match(html, /seg fixed [^>]*>周末，小雨去书店/); assert.doesNotMatch(html, /seg fixed on[^>]*>周末/); assert.doesNotMatch(html, /圈得刚刚好|没有多圈/) }
-    if (label === 'core') { assert.match(html, /决定怎么算的线索圈到了/); assert.doesNotMatch(html, /miss must/); assert.doesNotMatch(html, /seg fixed miss[^>]*>多少钱/) }
+    if (label === 'core') { assert.match(html, /关键线索圈到了/); assert.doesNotMatch(html, /miss must/); assert.doesNotMatch(html, /seg fixed miss[^>]*>多少钱/) }
     if (label === 'missing') { assert.match(html, /seg fixed miss must[^>]*>每本8元/); assert.match(html, /再看 5 秒/) }
   }
   const { ui } = await fixture(t, [item]); ui.edit({ rec: [{ sel: [1, 2], cfb: { sel: [1, 2], keys: [1, 2], noise: [], kw: 2, missed: [], extra: [], readyAt: 0 } }] })
-  assert.match(ui.html(), /决定怎么算的线索圈到了/)
+  assert.match(ui.html(), /关键线索圈到了/)
+})
+
+
+test('计数题漏单位目标提示求什么，漏阈值提示怎么算，二者都圈不标红', async t => {
+  const item = { ...word, format: 'data', keyword_policy: 'curated', flow: ['circle', 'tapnum'], kind: 'over', over: 10, nums: [9, 10, 11], answer: 1, unit: '人', units: ['人'],
+    segs: [{ t: '下面是3名同学的成绩。' }, { t: '超过10分', k: 2 }, { t: '的有' }, { t: '几人', k: 2, target: 'unit' }, { t: '？' }] }
+  for (const [sel, missing] of [[[1], '几人'], [[3], '超过10分'], [[1, 3], '']]) {
+    const { ui } = await fixture(t, [item]); ui.edit({ sel: new Set(sel) }); await ui.stepgo(); const html = ui.html()
+    if (missing === '几人') { assert.match(html, /「几人」说明求什么、答案用什么单位/); assert.match(html, /seg fixed miss must[^>]*>几人/) }
+    else if (missing) { assert.match(html, /「超过10分」是决定怎么算的线索/); assert.match(html, /seg fixed miss must[^>]*>超过10分/) }
+    else { assert.match(html, /关键线索圈到了/); assert.doesNotMatch(html, /miss must/) }
+  }
 })

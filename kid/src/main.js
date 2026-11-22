@@ -418,10 +418,10 @@ document.addEventListener('pointerdown', () => { try { actx ||= new (window.Audi
 /** 圈关键词的点评：圈对了夸一句；漏圈的、多圈的分别点出来 */
 function cfbMsg(fb) {
   const q0 = a => a.map(t => `「${t.replace(/[，。,.]$/, '').trim()}」`).join('')
-  const missed = fb.missed || [], must = fb.must || [], extra = fb.extra || []
-  if (fb.kw === 2 && !fb.allSelected) return `决定怎么算的线索圈到了。${fb.why || ''}`
-  return [fb.allSelected ? '整段都圈起来，就分不出重点了。只保留决定怎么算的短语。' : '', must.length ? `${q0(must)}是决定怎么算的线索，要圈上。` : '',
-    !fb.must && missed.length ? `${q0(missed)}也可以再看看。` : '', extra.length ? `${q0(extra)}是可以不圈的背景。只保留决定怎么算的短语。` : '', fb.why].filter(Boolean).join('')
+  const missed = fb.missed || [], must = fb.must || [], extra = fb.extra || [], target = must.filter(t => fb.unitTarget?.includes(t)), conditions = must.filter(t => !target.includes(t))
+  if (fb.kw === 2 && !fb.allSelected) return `关键线索圈到了。${fb.why || ''}`
+  return [fb.allSelected ? '整段都圈起来，就分不出重点了。只保留决定怎么算、求什么的短语。' : '', conditions.length ? `${q0(conditions)}是决定怎么算的线索，要圈上。` : '', target.length ? `${q0(target)}说明求什么、答案用什么单位，也要圈上。` : '',
+    !fb.must && missed.length ? `${q0(missed)}也可以再看看。` : '', extra.length ? `${q0(extra)}是可以不圈的背景。只保留决定怎么算、求什么的短语。` : '', fb.why].filter(Boolean).join('')
 }
 // 跳过的题（当天有效，按跳过的先后排）和做到一半的草稿（每题一份）
 const skips = () => { const k = ls.get('kid-skip', null); return k?.date === V.date ? k.ids : [] }
@@ -759,7 +759,7 @@ function vStep() {
     return `${qText('review')}<div class="review ${fb.kw === 2 ? 'good' : ''}">${away() ? '' : `${faceHtml(fb.kw === 2 ? "proud" : "thinking", "circle-review")}`}<div><b>${away() ? '关键词点评：' : name() + '说：'}</b>${esc(cfbMsg(fb))}</div></div>
       <p class="dim">绿色是圈对的${fb.must?.length ? '，红色虚线是漏掉的最要紧的' : ''}${!fb.mustIdx && fb.missed?.length ? '，橙色虚线是还可以圈的' : ''}${fb.extra.length ? '，灰色划掉的是和算数没关系的' : ''}。</p>${fb.extra.length > 2 ? '<p class="dim">无关内容超过 2 处，本题无过程奖。</p>' : ''}<p class="dim">${fb.penalty ? `漏圈核心关键词，本题奖励扣 ${fb.penalty} 金币（最低为 0）。先看看红色标记。` : ''}</p><button class="btn" data-a="stepgo" data-circle-next ${wait ? 'disabled' : ''}>${wait ? `再看 ${wait} 秒` : '知道了，继续'}</button>`
   }
-  if (b.type === 'circle') return `${qText('pick')}<p class="dim">只圈决定怎么算的数量和关系；背景和普通问句读懂就好。再点一次可以取消。明确的干扰条件不用圈。漏掉核心词时，先看 5 秒提示，再继续做题。</p><button class="btn" data-a="stepgo" ${Q.sel.size ? '' : 'disabled'}>圈好了，${Q.flow[Q.i + 1]?.type === 'build' ? '去列式' : '下一步'}</button>`
+  if (b.type === 'circle') return `${qText('pick')}<p class="dim">圈出决定怎么算、求什么的短语。背景读懂就好，再点一次可以取消。漏掉核心词时，先看 5 秒提示，再继续做题。</p><button class="btn" data-a="stepgo" ${Q.sel.size ? '' : 'disabled'}>圈好了，${Q.flow[Q.i + 1]?.type === 'build' ? '去列式' : '下一步'}</button>`
   if (b.type === 'goal') return `${qText()}<div class="opts">${b.opts.map((o, i) => `<button class="${i === Q.fx.strike ? 'struck' : ''}" data-a="pickgo" data-v="${i}" ${i === Q.fx.strike ? 'disabled' : ''}>${esc(o)}</button>`).join('')}</div>`
   if (b.type === 'build') {
     const gi = fi('goal'), head = b.head ? `<div class="bubble plain good">${esc(b.head + (gi >= 0 && !b.ms && Q.rec[gi]?.i != null ? `：求${it.flow[gi].opts[Q.rec[gi].i]}` : ''))}</div>` : gi >= 0 ? `<div class="bubble plain good">先求：${esc(it.flow[gi].opts[Q.rec[gi]?.i] ?? '')}</div>` : ''

@@ -415,7 +415,7 @@ export function createApi(base, env) {
    */
   /** 圈词只评价线索选择；背景多圈不扣主答金币，可选词漏圈不扣分。 */
   function judgeCircle(it, a) {
-    const sel = new Set((Array.isArray(a?.sel) ? a.sel : []).map(Number)), roles = it.segs.map(circleRole)
+    const sel = new Set((Array.isArray(a?.sel) ? a.sel : []).map(Number)), roles = it.segs.map(s => circleRole(s, it))
     const keys = roles.flatMap((r, j) => ['must', 'support'].includes(r) ? [j] : []), mustIdx = roles.flatMap((r, j) => r === 'must' ? [j] : [])
     const noise = roles.flatMap((r, j) => r !== 'ignore' && it.segs[j].n ? [j] : []), context = roles.flatMap((r, j) => r === 'context' ? [j] : []), semantic = roles.flatMap((r, j) => r !== 'ignore' ? [j] : [])
     const must = mustIdx.filter(j => !sel.has(j)).length, extra = noise.filter(j => sel.has(j)).length
@@ -423,14 +423,14 @@ export function createApi(base, env) {
     const allSelected = context.length > 0 && semantic.length > 0 && semantic.every(j => sel.has(j))
     const hit = keys.filter(j => sel.has(j)).length, half = mustIdx.length ? (mustIdx.length - must) * 2 >= mustIdx.length : hit * 2 >= keys.length
     const kw = !must && !extra && !allSelected && hit ? 2 : hit && half ? 1 : 0
-    const msg = kw === 2 ? '决定怎么算的线索圈到了。'
-      : [must ? `漏圈了 ${must} 处决定怎么算的线索。` : '', allSelected ? '整段都圈起来，就分不出重点了。只保留决定怎么算的短语。' : '', extra ? '背景说明读懂就好，只圈决定怎么算的短语。' : '', it.why || '再看看数量和它们之间的关系。'].join('')
+    const msg = kw === 2 ? '关键线索圈到了。'
+      : [must ? `漏圈了 ${must} 处关键线索。` : '', allSelected ? '整段都圈起来，就分不出重点了。只保留决定怎么算、求什么的短语。' : '', extra ? '背景说明读懂就好，只圈决定怎么算、求什么的短语。' : '', it.why || '再看看数量和它们之间的关系。'].join('')
     return { keys, mustIdx, noise, allSelected, must, penalty: must ? Math.min(5, must + 2) : 0, extraKeywords: extra, kw, good: kw === 2 ? 'y' : 'h', cat: kw === 2 ? '' : '审题', msg }
   }
   function circleFeedback(it, r) {
     const c = judgeCircle(it, { sel: r.circle }), sel = new Set(r.circle)
     return { sel: r.circle, keys: c.keys, noise: c.noise, allSelected: c.allSelected, kw: c.kw, penalty: c.penalty, readyAt: r.circleReadyAt || 0,
-      missed: c.keys.filter(j => !sel.has(j)).map(j => it.segs[j].t), must: c.mustIdx.filter(j => !sel.has(j)).map(j => it.segs[j].t), mustIdx: c.mustIdx, extra: c.noise.filter(j => sel.has(j)).map(j => it.segs[j].t), why: it.why || '' }
+      missed: c.keys.filter(j => !sel.has(j)).map(j => it.segs[j].t), must: c.mustIdx.filter(j => !sel.has(j)).map(j => it.segs[j].t), mustIdx: c.mustIdx, unitTarget: c.mustIdx.filter(j => it.segs[j].target === 'unit').map(j => it.segs[j].t), extra: c.noise.filter(j => sel.has(j)).map(j => it.segs[j].t), why: it.why || '' }
   }
   /** 统计表：先填表，再答几个小问。后面的小问照孩子自己填的数往下走，按小问判分 */
   function judgeStat(it, steps) {
