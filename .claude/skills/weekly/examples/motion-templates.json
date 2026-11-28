@@ -1,0 +1,105 @@
+{
+  "description": "第五单元「平移、旋转和轴对称」通用参数化模板。按学习目标挑选并调整 group 与 count 后，随本周题库一起运行 kid bank 与 kid export。",
+  "templates": [
+    {
+      "id": "practice-motion-water-mirror",
+      "group": "g2",
+      "knowledge_point": "05.2",
+      "error_type": "概念不清",
+      "format": "choice",
+      "level": "同构",
+      "count": 14,
+      "motion": { "kind": "water" }
+    },
+    {
+      "id": "practice-motion-mirror-grid",
+      "group": "g2",
+      "knowledge_point": "05.2",
+      "error_type": "概念不清",
+      "format": "choice",
+      "level": "同构",
+      "count": 14,
+      "motion": { "kind": "mirror_grid" }
+    },
+    {
+      "id": "practice-motion-mirror-digits",
+      "group": "g2",
+      "knowledge_point": "05.2",
+      "error_type": "概念不清",
+      "format": "choice",
+      "level": "略变",
+      "count": 14,
+      "motion": { "kind": "mirror_digits" }
+    },
+    {
+      "id": "practice-motion-mirror-clock",
+      "group": "g2",
+      "knowledge_point": "05.2",
+      "error_type": "概念不清",
+      "format": "choice",
+      "level": "综合",
+      "count": 14,
+      "motion": { "kind": "mirror_clock" }
+    },
+    {
+      "id": "practice-motion-pin-rotate",
+      "group": "g3",
+      "knowledge_point": "05.1",
+      "error_type": "概念不清",
+      "format": "choice",
+      "level": "同构",
+      "count": 14,
+      "motion": { "kind": "pin_rotate" }
+    },
+    {
+      "id": "practice-motion-rot-arrow",
+      "group": "g3",
+      "knowledge_point": "05.1",
+      "error_type": "概念不清",
+      "format": "choice",
+      "level": "同构",
+      "count": 14,
+      "motion": { "kind": "rot_pattern", "sub": "arrow" }
+    },
+    {
+      "id": "practice-motion-rot-wheel",
+      "group": "g3",
+      "knowledge_point": "05.1",
+      "error_type": "概念不清",
+      "format": "choice",
+      "level": "略变",
+      "count": 14,
+      "motion": { "kind": "rot_pattern", "sub": "wheel" }
+    },
+    {
+      "id": "practice-motion-rot-ring",
+      "group": "g3",
+      "knowledge_point": "05.1",
+      "error_type": "概念不清",
+      "format": "choice",
+      "level": "综合",
+      "count": 14,
+      "motion": { "kind": "rot_pattern", "sub": "ring" }
+    },
+    {
+      "id": "practice-motion-grid-forward",
+      "group": "g3",
+      "knowledge_point": "05.1",
+      "error_type": "概念不清",
+      "format": "choice",
+      "level": "同构",
+      "count": 14,
+      "motion": { "kind": "grid_move", "dir": "forward" }
+    },
+    {
+      "id": "practice-motion-grid-reverse",
+      "group": "g3",
+      "knowledge_point": "05.1",
+      "error_type": "审题",
+      "format": "choice",
+      "level": "综合",
+      "count": 14,
+      "motion": { "kind": "grid_move", "dir": "reverse" }
+    }
+  ]
+}

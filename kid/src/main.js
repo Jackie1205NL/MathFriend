@@ -712,9 +712,9 @@ function vStep() {
   const it = curItem(), b = step(), go = lastStep() ? '交卷' : '下一步'
   if (b.type === 'draw') return `${qText()}<div class="card fig">${rulerSvg(b.cm, { draw: { from: b.from, mm: Q.mm } })}<div class="mmbtns"><button data-a="mm" data-v="-10">« 1 厘米</button><button data-a="mm" data-v="-1">‹ 1 毫米</button><button data-a="mm" data-v="1">1 毫米 ›</button><button data-a="mm" data-v="10">1 厘米 »</button></div></div><p class="dim">拖一拖红点，或者用按钮一点一点调，调到你要画到的刻度。</p><button class="btn" data-a="stepgo" ${Q.mm > b.from ? '' : 'disabled'}>${go}</button>`
   if (b.type === 'choose') {
-    const pic = b.svg ? `<div class="card fig">${b.svg}</div>` : ''
-    if (b.mode === 'multi') return `${qText()}${pic}<div class="opts copts">${b.opts.map((o, i) => `<button class="${Q.sel.has(i) ? 'on' : ''}" data-a="tog" data-v="${i}" aria-pressed="${Q.sel.has(i)}">${optLabel(o)}</button>`).join('')}</div><p class="dim">可以选好几个，再点一下就取消。</p><button class="btn" data-a="stepgo" ${Q.sel.size ? '' : 'disabled'}>${go}</button>`
-    return `${qText()}${b.stem ? `<div class="card q big cmp"><span>${esc(b.stem.l)}</span><i>○</i><span>${esc(b.stem.r)}</span></div>` : ''}${pic}<div class="opts copts ${b.stem ? 'sym' : ''}">${b.opts.map((o, i) => `<button data-a="pickgo" data-v="${i}">${optLabel(o)}</button>`).join('')}</div>`
+    const pic = b.svg ? `<div class="card fig">${b.svg}</div>` : '', hasSvgOpt = b.opts.some(o => o.svg)
+    if (b.mode === 'multi') return `${qText()}${pic}<div class="opts copts ${hasSvgOpt ? 'gopts' : ''}">${b.opts.map((o, i) => `<button class="${Q.sel.has(i) ? 'on' : ''}" data-a="tog" data-v="${i}" aria-pressed="${Q.sel.has(i)}">${optLabel(o)}</button>`).join('')}</div><p class="dim">可以选好几个，再点一下就取消。</p><button class="btn" data-a="stepgo" ${Q.sel.size ? '' : 'disabled'}>${go}</button>`
+    return `${qText()}${b.stem ? `<div class="card q big cmp"><span>${esc(b.stem.l)}</span><i>○</i><span>${esc(b.stem.r)}</span></div>` : ''}${pic}<div class="opts copts ${b.stem ? 'sym' : hasSvgOpt ? 'gopts' : ''}">${b.opts.map((o, i) => `<button data-a="pickgo" data-v="${i}">${optLabel(o)}</button>`).join('')}</div>`
   }
   if (b.type === 'bins') {
     const chip = (j, cls, a) => `<button class="nchip ${cls}" data-a="${a}" data-v="${j}">${esc(b.nums[j])}</button>`, pool = b.nums.flatMap((_, j) => Q.put[j] < 0 ? [chip(j, Q.hold === j ? 'sel' : '', 'bn')] : [])
@@ -908,7 +908,7 @@ function vQResult(g) {
   return `<div class="verdict"><b>${d.ok ? '做对了！' : '这一题，看看哪里不一样'}</b></div>
     ${habits ? `<div class="conds">${habits}</div>` : ''}
     <div class="card items">${(d.items || []).map(x => `<div class="${x.good}"><i>${mark[x.good]}</i><span>${esc(x.msg)}${x.good !== 'y' ? sk(x.cat) : ''}</span></div>`).join('')}${extra}</div>
-    ${d.ok ? '' : `<details class="result-details"><summary>完整做法</summary><div class="right">${d.lines.map(esc).join('<br>')}${d.explain ? `<br><span class="dim">${esc(d.explain)}</span>` : ''}</div></details>`}
+    ${d.ok ? '' : `<details class="result-details" ${d.rightSvg || d.stemSvg ? 'open' : ''}><summary>完整做法</summary><div class="right">${d.stemSvg || d.rightSvg ? `<div class="sol-figs">${d.stemSvg ? `<div class="sol-fig"><small>原图</small>${d.stemSvg}</div>` : ''}${d.rightSvg ? `<div class="sol-fig"><small>正确图形</small>${d.rightSvg}</div>` : ''}</div>` : ''}${d.lines.map(esc).join('<br>')}${d.explain ? `<br><span class="dim">${esc(d.explain)}</span>` : ''}</div></details>`}
     <details class="result-details"><summary>本题奖励与过程记录 · ＋${d.c || 0}</summary>
     ${d.processDenied ? `<p class="dim">圈了 ${d.extraKeywords} 处无关内容，超过 2 处，本题无过程奖。</p>` : ''}
     ${d.keywordPenalty ? `<p class="dim">核心关键词漏圈扣 ${d.keywordPenalty} 金币，本题实际少得 ${d.penaltyApplied} 金币，已计入上方奖励。</p>` : ''}

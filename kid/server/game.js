@@ -788,7 +788,10 @@ export function createApi(base, env) {
     if (it.format === 'data') { const t = { over: x => x > it.over, under: x => x < it.over, atleast: x => x >= it.over }[it.kind]; return { explain: it.explain, lines: [`符合的是 ${it.nums.filter(t).join('、')}`, `${it.ask} ${it.answer} ${it.unit}`] } }
     const cm = mm => `${Math.floor(mm / 10)} 厘米 ${mm % 10} 毫米`
     if (it.format === 'draw') return { explain: it.explain, lines: [`从 ${cm(it.from)} 的刻度画到 ${cm(it.answer)}，线段长 ${cm(it.len)}`] }
-    if (it.format === 'choice') return { explain: it.explain, lines: [it.stem ? `${it.stem.l} ${it.opts.find(o => o.ok).t} ${it.stem.r}` : `正确答案：${it.opts.filter(o => o.ok).map(o => o.t || '图').join('、')}`] }
+    if (it.format === 'choice') {
+      const okOpts = it.opts.filter(o => o.ok)
+      return { explain: it.explain, lines: [it.stem ? `${it.stem.l} ${okOpts[0].t} ${it.stem.r}` : `正确答案：${okOpts.map(o => o.t || '图').join('、')}`], ...(it.svg ? { stemSvg: it.svg } : {}), ...(okOpts.length === 1 && okOpts[0].svg ? { rightSvg: okOpts[0].svg } : {}) }
+    }
     if (it.format === 'bins' && !it.blanks) return { explain: it.explain, lines: it.bins.map((b, j) => `${b.t}：${it.nums.filter((_, k) => it.binOf[k] === j).join('、') || '没有'}`) }
     const t = it.choices ? toTokens(it.choices.find(c => c.ok).t) : ['steps', 'oral', 'estimate', 'fix'].includes(it.format) ? toTokens(it.text) : null
     const lines = t && exprSteps(t)?.length > 1 ? [showExpr(t), ...exprSteps(t).map(st => '= ' + showExpr(reduceAt(st.t, st.k, st.v)))] : t ? [`${showExpr(t)} = ${it.answer}`] : []

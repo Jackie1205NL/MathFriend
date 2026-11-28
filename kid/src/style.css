@@ -542,7 +542,7 @@ table.dash tr.idle td{color:#a5ad9f}
 .body{grid-template-columns:minmax(0,1fr);min-width:0}.body>*{min-width:0}.field{min-width:0}.field input,.field select{max-width:100%}.field input[type=file]{flex-basis:100%;width:100%}
 
 /* 尺子、画线段、选择题、分段分类 */
-.fig{padding:10px 8px}.fig svg{display:block;width:100%;height:auto}
+.fig{padding:10px 8px}.fig svg{display:block;width:100%;height:auto}.fig svg:not(.rsvg){max-height:270px;width:auto;max-width:100%;margin:0 auto}
 .rsvg[data-ruler]{touch-action:none;cursor:ew-resize}
 .rbody{fill:#fff4c9;stroke:#d9b44a;stroke-width:2}.rtick{stroke:#6b5420;stroke-width:1.6}.rnum{font:700 17px var(--sans);fill:#5a4713;text-anchor:middle}
 .robj{fill:#a7d6fb;stroke:#3b8fd6;stroke-width:2.5}.rtip{fill:#f6c36b;stroke:#3b8fd6;stroke-width:2.5}.rguide{stroke:var(--berry);stroke-width:2;stroke-dasharray:5 4}
@@ -556,6 +556,14 @@ table.dash tr.idle td{color:#a5ad9f}
 .copts button{display:flex;align-items:center;gap:10px}.copts.sym button{justify-content:center}
 .copts button.on{background:var(--sun);border-color:var(--coin)}
 .osvg{display:inline-block;width:96px;flex:none}.osvg svg{display:block;width:100%;height:auto}
+.copts.gopts{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.copts.gopts button{flex-direction:column;justify-content:center;text-align:center;padding:12px 10px;gap:6px}
+.copts.gopts .osvg{width:132px;max-width:100%}
+.sol-figs{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:12px;margin-bottom:10px}
+.sol-fig{background:var(--card);border:2px solid var(--line);border-radius:14px;padding:8px 10px;text-align:center;max-width:100%}
+.sol-fig small{display:block;color:var(--dim);font-size:14px;margin-bottom:4px}
+.sol-fig svg{display:block;max-height:140px;width:auto;max-width:100%;margin:0 auto}
+@media(max-width:600px){.copts.gopts .osvg{width:104px}.fig svg:not(.rsvg){max-height:220px}}
 .cmp{display:flex;align-items:center;justify-content:center;gap:18px;text-align:center}.cmp i{font-style:normal;color:var(--dim)}
 .pool .chips{min-height:56px}
 .chips{display:flex;flex-wrap:wrap;gap:8px}

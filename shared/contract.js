@@ -2,13 +2,15 @@
 // 家长端（server/kid.js）用它出题，孩子端后端（kid/server/game.js）用它判分，孩子端页面用它显示价格。
 // 这个文件不能引用 server/ 或 kid/ 下的任何东西。
 
+import { buildMotion, MOTION_KINDS } from './motion.js'
+
 export const PACK_VERSION = 1
 // 家长端和孩子端交换的两种文件（见 rules.md 第 10 节）：题库包由家长端导出、管理员在孩子端导入；答题记录由管理员导出、家长端读入
 export const PACK_FORMAT = 'shuban-kid-pack', LOG_FORMAT = 'shuban-kid-log'
 export const FORMATS = ['oral', 'first', 'clock', 'estimate', 'steps', 'fix', 'multi', 'word', 'plan', 'stat', 'data', 'column', 'multistep', 'draw', 'choice', 'bins']   // 孩子端遇到不认识的题型会跳过
-export const FORMAT_NAME = { oral: '口算闪答', first: '先算哪一步', clock: '拨钟面', estimate: '先估后算', steps: '递等式分步', fix: '小老师改错', multi: '多空题交卷', word: '应用题三步', plan: '挑战题', stat: '统计表', data: '整理数据', column: '竖式', multistep: '分步应用题' }
+export const FORMAT_NAME = { oral: '口算闪答', first: '先算哪一步', clock: '拨钟面', estimate: '先估后算', steps: '递等式分步', fix: '小老师改错', multi: '多空题交卷', word: '应用题三步', plan: '挑战题', stat: '统计表', data: '整理数据', column: '竖式', multistep: '分步应用题', draw: '画线段', choice: '看图选一选', bins: '分段分类' }
 export const BASE = { oral: 1, first: 2, clock: 4, estimate: 4, steps: 6, fix: 6, multi: 6, word: 12, plan: 25, stat: 14, data: 6, column: 5, multistep: 25, draw: 6, choice: 4, bins: 8 }   // 题越长，每分钟赚得略多
-export const MIN_SECONDS = { oral: 2, first: 3, clock: 4, estimate: 3, steps: 4, fix: 5, multi: 8, word: 8, plan: 10, stat: 20, data: 8, column: 8, multistep: 15 }   // 比这还快又答错，算「急着答错」
+export const MIN_SECONDS = { oral: 2, first: 3, clock: 4, estimate: 3, steps: 4, fix: 5, multi: 8, word: 8, plan: 10, stat: 20, data: 8, column: 8, multistep: 15, draw: 4, choice: 3, bins: 6 }   // 比这还快又答错，算「急着答错」
 export const HAS_PROCESS_BONUS = ['word', 'steps', 'estimate', 'multi', 'plan', 'column', 'multistep']   // 这些题型过程做全有 +2
 export const LEVELS = ['同构', '略变', '综合']
 // 难度阶梯：档位 0 / 1 / 2 时，抽题在三种难度上的比例
@@ -616,6 +618,20 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
       if (!Number.isInteger(from) || !Number.isInteger(len) || from < 0 || len < 1 || from + len > 190) { bad('from 是 0 以上的整数毫米，len 是 1 以上的整数毫米，from + len 不超过 190'); continue }
       Object.assign(item, { text: fill(t.text, v), from, len, answer: from + len, cm: Math.max(Number(t.cm) || 0, Math.ceil((from + len) / 10) + 1, 6) })
       if (!item.text) { bad('draw 要写 text'); continue }
+    } else if (t.format === 'choice' && t.motion) {
+      // 图形的运动（平移、旋转、镜像 / 倒影）参数化生成：输出标准 choice 单选，兼容线上版孩子端
+      if (!MOTION_KINDS.includes(t.motion.kind)) { bad(`不认识的 motion.kind：${t.motion.kind}`); continue }
+      const g = buildMotion(t.motion, r)
+      if (!g || !Array.isArray(g.opts) || g.opts.length < 2) { bad('图形运动题生成失败'); continue }
+      const opts = g.opts.map((o, idx) => ({ t: g.autoLabel ? `_${idx}` : String(o.t || ''), ...(o.ok ? { ok: 1 } : {}), ...(o.say ? { say: o.say } : {}), ...(o.error_type ? { err: o.error_type } : {}), ...(o.svg ? { svg: o.svg } : {}) }))
+      if (opts.some(o => o.svg && !svgOk(o.svg)) || (g.svg && !svgOk(g.svg))) { bad('生成的 svg 不符合 svgOk 限制'); continue }
+      if (opts.filter(o => o.ok).length !== 1) { bad('motion 必须正好一个 ok'); continue }
+      item.mode = 'one'; item.text = t.text ? fill(t.text, v) : g.text
+      item.svg = g.svg; item.opts = opts; item.answer = opts.findIndex(o => o.ok)
+      item.hint = t.hint ? fill(t.hint, v) : g.hint
+      item.explain = t.explain ? fill(t.explain, v) : g.explain
+      if (g.keepOrder || t.shuffle === false) item.keepOrder = 1
+      if (g.autoLabel) item.autoLabel = 1
     } else if (t.format === 'choice') {
       // 选择题：one 单选，multi 多选（选对全部且不多选才对），compare 比大小（按钮固定是 ＞ ＜ ＝，程序自己比）
       const mode = ['one', 'multi', 'compare'].includes(t.mode) ? t.mode : 'one', say0 = x => fill(x, v)
@@ -700,13 +716,18 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
     // 精审模板保留人工核心/可选标注；只用于题库核查，不进入 publicItem。
     if (t.keyword_policy === 'curated') item.keyword_policy = 'curated'
     if (item.segs) { const r = calibrateSegs(item), eg = item.segs.map(x => x.t).join(''); r.fixed.forEach(m => note(keys.fixed, m, eg)); r.warn.forEach(m => note(keys.warn, m, eg)) }
-    const key = JSON.stringify([item.vals, item.nums, item.text, item.tokens, item.segs?.map(s => s.t), item.lines?.map(l => l.pre + l.a), item.shown, item.blanks?.map(b => b.t), item.fig, item.opts?.map(o => o.t), item.stem, item.len])
+    const key = JSON.stringify([item.vals, item.nums, item.text, item.tokens, item.segs?.map(s => s.t), item.lines?.map(l => l.pre + l.a), item.shown, item.blanks?.map(b => b.t), item.fig, item.opts?.map(o => o.t), item.stem, item.len, item.svg])
     if (seen.has(key)) { bad('重复'); continue }
     seen.add(key)
     // 三选一的算式、「先求什么」、单位键都打乱后再存进题库包：页面和判分用的是同一份顺序，下标天然对得上
     const id = `${week.slice(5)}-${t.id}-${String(items.length + 1).padStart(3, '0')}`
     for (const k of ['choices', 'goals', 'units']) if (Array.isArray(item[k])) item[k] = mix(item[k], id + k)
-    if (item.format === 'choice' && item.mode !== 'compare') { if (!item.keepOrder) item.opts = mix(item.opts, id + 'o'); delete item.keepOrder; if (item.mode === 'one') item.answer = item.opts.findIndex(o => o.ok) }
+    if (item.format === 'choice' && item.mode !== 'compare') {
+      if (!item.keepOrder) item.opts = mix(item.opts, id + 'o')
+      if (item.autoLabel) { item.opts.forEach((o, k) => { o.t = 'ABCDEFGH'[k] }); delete item.autoLabel }
+      delete item.keepOrder
+      if (item.mode === 'one') item.answer = item.opts.findIndex(o => o.ok)
+    }
     for (const [j, x] of [...(item.format === 'multistep' ? item.parts : []), ...(item.asks || [])].entries()) if (Array.isArray(x.units)) x.units = mix(x.units, `${id}u${j}`)
     items.push({ id, tpl: t.id, group: group.id, bucket: group.bucket,
       kp: t.knowledge_point, err: t.error_type, price: Math.round(priceOf(t.format, t.level, group.bucket, boost, group.boss, t.format === 'oral' ? fill(t.expression, v) : undefined) * 100) / 100, ...item })
