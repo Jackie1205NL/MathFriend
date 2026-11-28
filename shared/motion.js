@@ -467,7 +467,78 @@ function gridMove(r, modeOpt) {
   return null
 }
 
-export const MOTION_KINDS = ['water', 'mirror_grid', 'mirror_digits', 'mirror_clock', 'pin_rotate', 'rot_pattern', 'grid_move']
+/** 8. 轴对称图形图片库（16 张严格轴对称 + 14 张严格非对称，每次随机抽 1+3 出图选）。 */
+const SYM_YES = [
+  { name: '红领巾', axis: '沿中间竖线左右对折两边完全重合', body: `<polygon points="14,34 106,34 60,94" fill="#e0527a" stroke="#1d3327" stroke-width="3" stroke-linejoin="round"/><polygon points="50,34 70,34 60,48" fill="#ffd766" stroke="#1d3327" stroke-width="2.2" stroke-linejoin="round"/>` },
+  { name: '蝴蝶', axis: '沿身体中线左右对折两对翅膀完全重合', body: `<ellipse cx="38" cy="46" rx="22" ry="18" fill="#f08a1c" stroke="#1d3327" stroke-width="2.5"/><ellipse cx="82" cy="46" rx="22" ry="18" fill="#f08a1c" stroke="#1d3327" stroke-width="2.5"/><ellipse cx="42" cy="76" rx="16" ry="14" fill="#ffd766" stroke="#1d3327" stroke-width="2.5"/><ellipse cx="78" cy="76" rx="16" ry="14" fill="#ffd766" stroke="#1d3327" stroke-width="2.5"/><rect x="56" y="34" width="8" height="54" rx="4" fill="#1d3327"/><path d="M58 34Q46 18 40 22M62 34Q74 18 80 22" fill="none" stroke="#1d3327" stroke-width="2.5" stroke-linecap="round"/>` },
+  { name: '小飞机', axis: '沿机身中线左右对折两翼完全重合', body: `<polygon points="60,16 70,42 106,64 106,74 68,62 66,86 82,98 82,106 60,98 38,106 38,98 54,86 52,62 14,74 14,64 50,42" fill="#8ac5f2" stroke="#1d3327" stroke-width="2.8" stroke-linejoin="round"/><circle cx="60" cy="46" r="5" fill="#fffaf0" stroke="#1d3327" stroke-width="2"/>` },
+  { name: 'T 恤衫', axis: '沿正中竖线左右对折两只袖子完全重合', body: `<path d="M44 24Q60 36 76 24L104 38L94 60L82 54V98H38V54L26 60L16 38Z" fill="#6bc08e" stroke="#1d3327" stroke-width="2.8" stroke-linejoin="round"/><circle cx="60" cy="64" r="9" fill="#ffd766" stroke="#1d3327" stroke-width="2"/>` },
+  { name: '爱心', axis: '沿中间竖线左右对折两边完全重合', body: `<path d="M60 98C24 74 16 50 28 34C38 22 54 26 60 38C66 26 82 22 92 34C104 50 96 74 60 98Z" fill="#e0527a" stroke="#1d3327" stroke-width="2.8" stroke-linejoin="round"/>` },
+  { name: '五角星', axis: '沿过顶角的直线对折两边完全重合', body: `<polygon points="60,14 73,44 106,46 80,68 88,100 60,82 32,100 40,68 14,46 47,44" fill="#ffd766" stroke="#1d3327" stroke-width="2.8" stroke-linejoin="round"/>` },
+  { name: '长方形信封', axis: '沿中间竖线左右对折完全重合', body: `<rect x="16" y="30" width="88" height="60" rx="4" fill="#fffaf0" stroke="#1d3327" stroke-width="2.8"/><polyline points="16,32 60,64 104,32" fill="none" stroke="#1d3327" stroke-width="2.8" stroke-linejoin="round"/><circle cx="60" cy="64" r="6" fill="#e0527a"/>` },
+  { name: '小松树', axis: '沿树干中线左右对折完全重合', body: `<rect x="52" y="84" width="16" height="22" fill="#c98542" stroke="#1d3327" stroke-width="2.5"/><polygon points="60,14 92,50 76,50 98,84 22,84 44,50 28,50" fill="#2f8f5b" stroke="#1d3327" stroke-width="2.8" stroke-linejoin="round"/>` },
+  { name: '小皇冠', axis: '沿中间竖线左右对折完全重合', body: `<polygon points="18,88 18,38 40,60 60,26 80,60 102,38 102,88" fill="#ffd766" stroke="#1d3327" stroke-width="2.8" stroke-linejoin="round"/><circle cx="60" cy="24" r="5" fill="#e0527a"/><circle cx="18" cy="36" r="5" fill="#3b8fd6"/><circle cx="102" cy="36" r="5" fill="#3b8fd6"/>` },
+  { name: '对称小房子', axis: '门窗都在正中间，沿竖直中线对折完全重合', body: `<polygon points="18,56 60,18 102,56" fill="#e0527a" stroke="#1d3327" stroke-width="2.8" stroke-linejoin="round"/><rect x="26" y="56" width="68" height="46" fill="#fffaf0" stroke="#1d3327" stroke-width="2.8"/><rect x="50" y="70" width="20" height="32" rx="3" fill="#3b8fd6" stroke="#1d3327" stroke-width="2.4"/><circle cx="60" cy="42" r="7" fill="#ffd766" stroke="#1d3327" stroke-width="2"/>` },
+  { name: '等腰梯形', axis: '左右两条斜边一样长，沿中线对折完全重合', body: `<polygon points="36,28 84,28 104,92 16,92" fill="#8ac5f2" stroke="#1d3327" stroke-width="3" stroke-linejoin="round"/>` },
+  { name: '菱形', axis: '沿横竖两条对角线对折都能完全重合', body: `<polygon points="60,16 102,60 60,104 18,60" fill="#a7d6fb" stroke="#1d3327" stroke-width="3" stroke-linejoin="round"/><circle cx="60" cy="60" r="12" fill="#ffd766" stroke="#1d3327" stroke-width="2.4"/>` },
+  { name: '蜻蜓', axis: '沿身体中线左右对折两对翅膀完全重合', body: `<ellipse cx="34" cy="44" rx="22" ry="8" fill="#8ac5f2" stroke="#1d3327" stroke-width="2.4"/><ellipse cx="86" cy="44" rx="22" ry="8" fill="#8ac5f2" stroke="#1d3327" stroke-width="2.4"/><ellipse cx="38" cy="60" rx="18" ry="7" fill="#a7d6fb" stroke="#1d3327" stroke-width="2.4"/><ellipse cx="82" cy="60" rx="18" ry="7" fill="#a7d6fb" stroke="#1d3327" stroke-width="2.4"/><rect x="56" y="34" width="8" height="68" rx="4" fill="#2f8f5b" stroke="#1d3327" stroke-width="2.2"/><circle cx="60" cy="28" r="9" fill="#f08a1c" stroke="#1d3327" stroke-width="2.4"/>` },
+  { name: '字母 A', axis: '沿中间竖线左右对折完全重合', body: `<path d="M60 18L94 100H78L71 80H49L42 100H26ZM53 66H67L60 44Z" fill="#3b8fd6" fill-rule="evenodd" stroke="#1d3327" stroke-width="2.8" stroke-linejoin="round"/>` },
+  { name: '汉字“中”', axis: '沿中间竖线左右对折完全重合', body: `<rect x="22" y="38" width="76" height="36" fill="none" stroke="#1d3327" stroke-width="9" stroke-linejoin="round"/><line x1="60" y1="16" x2="60" y2="104" stroke="#e0527a" stroke-width="9" stroke-linecap="round"/>` },
+  { name: '字母 H', axis: '沿横线或竖线对折都能完全重合', body: `<path d="M26 20H42V52H78V20H94V100H78V68H42V100H26Z" fill="#6bc08e" stroke="#1d3327" stroke-width="2.8" stroke-linejoin="round"/>` },
+]
+const SYM_NO = [
+  { name: '平行四边形', say: '平行四边形看起来整齐，但沿直线对折后两边会错开，不是轴对称图形！', body: `<polygon points="34,30 104,30 86,90 16,90" fill="#f6c36b" stroke="#1d3327" stroke-width="3" stroke-linejoin="round"/>` },
+  { name: '旋转风车', say: '风车转起来对称，但叶片都朝同一边斜，沿直线对折会反着错开，不是轴对称图形！', body: `<g stroke="#1d3327" stroke-width="2.4" stroke-linejoin="round"><path d="M60 60L60 16L84 36Z" fill="#e0527a"/><path d="M60 60L104 60L84 84Z" fill="#f08a1c"/><path d="M60 60L60 104L36 84Z" fill="#3b8fd6"/><path d="M60 60L16 60L36 36Z" fill="#2f8f5b"/></g><circle cx="60" cy="60" r="6" fill="#ffd766" stroke="#1d3327" stroke-width="2"/>` },
+  { name: '不等边三角形', say: '这个三角形三条边都不一样长，怎么对折两边都没法完全重合。', body: `<polygon points="22,94 104,84 42,20" fill="#8ac5f2" stroke="#1d3327" stroke-width="3" stroke-linejoin="round"/>` },
+  { name: '不等腰直角三角形', say: '两条直角边一长一短，无论怎么对折都不能完全重合。', body: `<polygon points="22,36 22,94 104,94" fill="#6bc08e" stroke="#1d3327" stroke-width="3" stroke-linejoin="round"/><polyline points="22,80 36,80 36,94" fill="none" stroke="#1d3327" stroke-width="2.2"/>` },
+  { name: '直角梯形', say: '直角梯形左边是直的、右边是斜的，对折后两边重合不了。', body: `<polygon points="24,28 70,28 100,92 24,92" fill="#f6c36b" stroke="#1d3327" stroke-width="3" stroke-linejoin="round"/><polyline points="24,78 38,78 38,92" fill="none" stroke="#1d3327" stroke-width="2.2"/>` },
+  { name: '不对称小房子', say: '烟囱和圆窗在左边、门在右边，沿中间对折对不到一起！', body: `<rect x="28" y="20" width="12" height="24" fill="#f08a1c" stroke="#1d3327" stroke-width="2.5"/><polygon points="18,54 60,18 102,54" fill="#e0527a" stroke="#1d3327" stroke-width="2.8" stroke-linejoin="round"/><rect x="26" y="54" width="68" height="46" fill="#fffaf0" stroke="#1d3327" stroke-width="2.8"/><rect x="66" y="68" width="18" height="32" fill="#3b8fd6" stroke="#1d3327" stroke-width="2.4"/><circle cx="44" cy="74" r="9" fill="#ffd766" stroke="#1d3327" stroke-width="2.2"/>` },
+  { name: '弯柄雨伞', say: '伞顶虽然左右一样，但下面的伞柄只往右边弯，对折后伞柄重合不了，不是轴对称图形！', body: `<path d="M18 58A42 38 0 0 1 102 58Z" fill="#3b8fd6" stroke="#1d3327" stroke-width="2.8" stroke-linejoin="round"/><line x1="60" y1="14" x2="60" y2="20" stroke="#1d3327" stroke-width="4" stroke-linecap="round"/><path d="M60 58V92A10 10 0 0 0 80 92" fill="none" stroke="#1d3327" stroke-width="5" stroke-linecap="round"/>` },
+  { name: '单侧小旗子', say: '旗面只挂在旗杆一边，对折后另一边是空的，不是轴对称图形。', body: `<line x1="32" y1="18" x2="32" y2="102" stroke="#1d3327" stroke-width="6" stroke-linecap="round"/><polygon points="35,20 98,38 35,58" fill="#e0527a" stroke="#1d3327" stroke-width="2.8" stroke-linejoin="round"/>` },
+  { name: '小帆船', say: '船帆偏向一边，左右不对称，对折后不能完全重合。', body: `<line x1="48" y1="20" x2="48" y2="74" stroke="#1d3327" stroke-width="4.5" stroke-linecap="round"/><polygon points="50,22 96,66 50,66" fill="#f08a1c" stroke="#1d3327" stroke-width="2.6" stroke-linejoin="round"/><polygon points="18,74 102,74 88,98 30,98" fill="#3b8fd6" stroke="#1d3327" stroke-width="2.8" stroke-linejoin="round"/>` },
+  { name: '字母 F', say: '字母 F 的两横只朝一边伸出，怎么对折都不能完全重合。', body: `<path d="M30 20H92V36H48V52H80V68H48V100H30Z" fill="#e0527a" stroke="#1d3327" stroke-width="2.8" stroke-linejoin="round"/>` },
+  { name: '字母 N', say: '字母 N 转半圈一样，但沿直线对折中间斜线会错开，不是轴对称图形！', body: `<path d="M26 100V20H44L76 72V20H94V100H76L44 48V100Z" fill="#8e5cc8" stroke="#1d3327" stroke-width="2.8" stroke-linejoin="round"/>` },
+  { name: '字母 Z', say: '字母 Z 转半圈一样，但沿直线对折会变成反 Z，不能重合！', body: `<path d="M24 22H96V38L48 84H96V100H24V84L72 38H24Z" fill="#f08a1c" stroke="#1d3327" stroke-width="2.8" stroke-linejoin="round"/>` },
+  { name: '数字 2', say: '数字 2 左右对折会变成 5，上下对折也会变反，不是轴对称图形。', body: `<path d="M28 22H92V66H46V84H92V100H28V52H74V38H28Z" fill="#3b8fd6" stroke="#1d3327" stroke-width="2.8" stroke-linejoin="round"/>` },
+  { name: 'L 形拐角', say: '这个 L 形一竖长、一横短，斜着对折也重合不了，不是轴对称图形。', body: `<path d="M30 16H50V82H86V100H30Z" fill="#2f8f5b" stroke="#1d3327" stroke-width="2.8" stroke-linejoin="round"/>` },
+]
+function pickMany(r, arr, k) {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]] }
+  return a.slice(0, k)
+}
+function symPick(r, subOpt) {
+  const askNot = subOpt === 'not' || (subOpt !== 'is' && r() < 0.5)
+  if (askNot) {
+    const right = pick(r, SYM_NO)
+    const wrongs = pickMany(r, SYM_YES, 3)
+    return {
+      text: '观察下面四幅图，哪一个图形「不是」轴对称图形？',
+      autoLabel: true,
+      opts: [
+        { svg: svgWrap(120, 120, right.body), ok: 1 },
+        ...wrongs.map(x => ({ svg: svgWrap(120, 120, x.body), say: `${x.name}${x.axis}，它是轴对称图形，本题要找「不是」的那一个！` })),
+      ],
+      hint: '试着在脑海里找一条直线把图形对折：如果怎么折两边都重合不了，它就不是轴对称图形。',
+      explain: `${right.name}不是轴对称图形（${right.say}）；另外三幅图都能找到对称轴使两边完全重合。`,
+    }
+  }
+  const right = pick(r, SYM_YES)
+  const wrongs = pickMany(r, SYM_NO, 3)
+  return {
+    text: '观察下面四幅图，哪一个图形是轴对称图形（沿一条直线对折后两边能完全重合）？',
+    autoLabel: true,
+    opts: [
+      { svg: svgWrap(120, 120, right.body), ok: 1 },
+      ...wrongs.map(x => ({ svg: svgWrap(120, 120, x.body), say: x.say })),
+    ],
+    hint: '想象把图形沿着一条直线对折，两边能严丝合缝完全重合的才是轴对称图形。',
+    explain: `${right.name}${right.axis}，是轴对称图形；另外三幅图无论怎么对折都不能完全重合。`,
+  }
+}
+
+export const SYM_LIBRARY = { yes: SYM_YES, no: SYM_NO }
+export const MOTION_KINDS = ['water', 'mirror_grid', 'mirror_digits', 'mirror_clock', 'pin_rotate', 'rot_pattern', 'grid_move', 'sym_pick']
 
 /** 按模板的 motion 配置生成一道图形运动选择题（返回 { text, svg, opts, hint, explain, autoLabel, keepOrder }）。 */
 export function buildMotion(m, r) {
@@ -479,5 +550,6 @@ export function buildMotion(m, r) {
   if (kind === 'pin_rotate') return pinRotate(r)
   if (kind === 'rot_pattern') return rotPattern(r, m.sub)
   if (kind === 'grid_move') return gridMove(r, m.dir)
+  if (kind === 'sym_pick') return symPick(r, m.sub)
   return null
 }

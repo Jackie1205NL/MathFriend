@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { buildPack, checkPack, publicItem, svgOk } from '../../shared/contract.js'
-import { MOTION_KINDS } from '../../shared/motion.js'
+import { MOTION_KINDS, SYM_LIBRARY } from '../../shared/motion.js'
 import { createApi } from '../server/game.js'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -52,7 +52,8 @@ test('全部 7 类图形运动模板及公开示例均可跨周生成、通过 c
     for (const it of pack.items) {
       assert.equal(it.format, 'choice')
       assert.equal(it.mode, 'one')
-      assert.ok(svgOk(it.svg), `${it.id} 题干 SVG 不合法或超长 (${it.svg?.length})`)
+      assert.ok(it.svg || it.opts.every(o => o.svg), `${it.id} 必须带题干 SVG 或全图选项 SVG`)
+      if (it.svg) assert.ok(svgOk(it.svg), `${it.id} 题干 SVG 不合法或超长 (${it.svg.length})`)
       assert.equal(it.opts.length, 4, `${it.id} 应有 4 个选项`)
       assert.equal(it.opts.filter(o => o.ok).length, 1, `${it.id} 应恰好 1 个正确选项`)
       assert.equal(new Set(it.opts.map(o => o.t)).size, 4, `${it.id} 选项文字必须互异`)
@@ -127,6 +128,30 @@ test('各图形运动生成器的几何与数学不变式核验', () => {
       assert.deepEqual(it.opts.map(o => o.t), ['A', 'B', 'C', 'D'])
       const okLab = it.opts.find(o => o.ok).t
       assert.ok(it.explain.includes(okLab), `${it.id} 解析应写明正确字母 ${okLab}`)
+    }
+  }
+
+  // 8. 轴对称图形图片库（sym_pick）：图库 16 对称 + 14 非对称全部合法，且每题恰好 1 正 3 反
+  assert.ok(SYM_LIBRARY.yes.length >= 16 && SYM_LIBRARY.no.length >= 14)
+  const yesBodies = new Set(SYM_LIBRARY.yes.map(x => x.body))
+  const noBodies = new Set(SYM_LIBRARY.no.map(x => x.body))
+  for (const x of [...SYM_LIBRARY.yes, ...SYM_LIBRARY.no]) {
+    const s = `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">${x.body}</svg>`
+    assert.ok(svgOk(s), `对称图片库 ${x.name} SVG 不合法或超长 (${s.length})`)
+  }
+  const symItems = byTpl('practice-motion-sym-pick')
+  assert.ok(symItems.some(i => i.text.includes('不是')), 'sym_pick 混出应包含“不是轴对称”问法')
+  assert.ok(symItems.some(i => !i.text.includes('不是')), 'sym_pick 混出应包含“是轴对称”问法')
+  for (const it of symItems) {
+    assert.equal(new Set(it.opts.map(o => o.svg)).size, 4, `${it.id} 四张图片必须互异`)
+    assert.deepEqual(it.opts.map(o => o.t), ['A', 'B', 'C', 'D'])
+    const askNot = it.text.includes('不是')
+    const rightBody = it.opts.find(o => o.ok).svg.replace(/^<svg[^>]*>|<\/svg>$/g, '')
+    assert.ok((askNot ? noBodies : yesBodies).has(rightBody), `${it.id} 正确选项必须来自对应图库`)
+    for (const o of it.opts.filter(x => !x.ok)) {
+      const b = o.svg.replace(/^<svg[^>]*>|<\/svg>$/g, '')
+      assert.ok((askNot ? yesBodies : noBodies).has(b), `${it.id} 干扰项必须来自另一侧图库`)
+      assert.ok(o.say, `${it.id} 每个错误图片都应有针对性解释`)
     }
   }
 })

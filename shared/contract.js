@@ -627,7 +627,8 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
       if (opts.some(o => o.svg && !svgOk(o.svg)) || (g.svg && !svgOk(g.svg))) { bad('生成的 svg 不符合 svgOk 限制'); continue }
       if (opts.filter(o => o.ok).length !== 1) { bad('motion 必须正好一个 ok'); continue }
       item.mode = 'one'; item.text = t.text ? fill(t.text, v) : g.text
-      item.svg = g.svg; item.opts = opts; item.answer = opts.findIndex(o => o.ok)
+      if (g.svg) item.svg = g.svg
+      item.opts = opts; item.answer = opts.findIndex(o => o.ok)
       item.hint = t.hint ? fill(t.hint, v) : g.hint
       item.explain = t.explain ? fill(t.explain, v) : g.explain
       if (g.keepOrder || t.shuffle === false) item.keepOrder = 1
@@ -716,7 +717,7 @@ export function instantiate(t, group, week, boost, n = t.count || 25) {
     // 精审模板保留人工核心/可选标注；只用于题库核查，不进入 publicItem。
     if (t.keyword_policy === 'curated') item.keyword_policy = 'curated'
     if (item.segs) { const r = calibrateSegs(item), eg = item.segs.map(x => x.t).join(''); r.fixed.forEach(m => note(keys.fixed, m, eg)); r.warn.forEach(m => note(keys.warn, m, eg)) }
-    const key = JSON.stringify([item.vals, item.nums, item.text, item.tokens, item.segs?.map(s => s.t), item.lines?.map(l => l.pre + l.a), item.shown, item.blanks?.map(b => b.t), item.fig, item.opts?.map(o => o.t), item.stem, item.len, item.svg])
+    const key = JSON.stringify([item.vals, item.nums, item.text, item.tokens, item.segs?.map(s => s.t), item.lines?.map(l => l.pre + l.a), item.shown, item.blanks?.map(b => b.t), item.fig, item.opts?.map(o => o.t), item.opts?.map(o => o.svg), item.stem, item.len, item.svg])
     if (seen.has(key)) { bad('重复'); continue }
     seen.add(key)
     // 三选一的算式、「先求什么」、单位键都打乱后再存进题库包：页面和判分用的是同一份顺序，下标天然对得上

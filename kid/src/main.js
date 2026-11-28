@@ -713,8 +713,10 @@ function vStep() {
   if (b.type === 'draw') return `${qText()}<div class="card fig">${rulerSvg(b.cm, { draw: { from: b.from, mm: Q.mm } })}<div class="mmbtns"><button data-a="mm" data-v="-10">« 1 厘米</button><button data-a="mm" data-v="-1">‹ 1 毫米</button><button data-a="mm" data-v="1">1 毫米 ›</button><button data-a="mm" data-v="10">1 厘米 »</button></div></div><p class="dim">拖一拖红点，或者用按钮一点一点调，调到你要画到的刻度。</p><button class="btn" data-a="stepgo" ${Q.mm > b.from ? '' : 'disabled'}>${go}</button>`
   if (b.type === 'choose') {
     const pic = b.svg ? `<div class="card fig">${b.svg}</div>` : '', hasSvgOpt = b.opts.some(o => o.svg)
-    if (b.mode === 'multi') return `${qText()}${pic}<div class="opts copts ${hasSvgOpt ? 'gopts' : ''}">${b.opts.map((o, i) => `<button class="${Q.sel.has(i) ? 'on' : ''}" data-a="tog" data-v="${i}" aria-pressed="${Q.sel.has(i)}">${optLabel(o)}</button>`).join('')}</div><p class="dim">可以选好几个，再点一下就取消。</p><button class="btn" data-a="stepgo" ${Q.sel.size ? '' : 'disabled'}>${go}</button>`
-    return `${qText()}${b.stem ? `<div class="card q big cmp"><span>${esc(b.stem.l)}</span><i>○</i><span>${esc(b.stem.r)}</span></div>` : ''}${pic}<div class="opts copts ${b.stem ? 'sym' : hasSvgOpt ? 'gopts' : ''}">${b.opts.map((o, i) => `<button data-a="pickgo" data-v="${i}">${optLabel(o)}</button>`).join('')}</div>`
+    const isLong = !hasSvgOpt && !b.stem && b.opts.some(o => (o.t || '').length > 10)
+    const lay = b.stem ? 'sym' : hasSvgOpt ? 'gopts' : isLong ? 'lopts' : b.opts.length === 4 ? 'qopts' : ''
+    if (b.mode === 'multi') return `${qText()}${pic}<div class="opts copts ${lay}">${b.opts.map((o, i) => `<button class="${Q.sel.has(i) ? 'on' : ''}" data-a="tog" data-v="${i}" aria-pressed="${Q.sel.has(i)}">${optLabel(o)}</button>`).join('')}</div><p class="dim">可以选好几个，再点一下就取消。</p><button class="btn" data-a="stepgo" ${Q.sel.size ? '' : 'disabled'}>${go}</button>`
+    return `${qText()}${b.stem ? `<div class="card q big cmp"><span>${esc(b.stem.l)}</span><i>○</i><span>${esc(b.stem.r)}</span></div>` : ''}${pic}<div class="opts copts ${lay}">${b.opts.map((o, i) => `<button data-a="pickgo" data-v="${i}">${optLabel(o)}</button>`).join('')}</div>`
   }
   if (b.type === 'bins') {
     const chip = (j, cls, a) => `<button class="nchip ${cls}" data-a="${a}" data-v="${j}">${esc(b.nums[j])}</button>`, pool = b.nums.flatMap((_, j) => Q.put[j] < 0 ? [chip(j, Q.hold === j ? 'sel' : '', 'bn')] : [])

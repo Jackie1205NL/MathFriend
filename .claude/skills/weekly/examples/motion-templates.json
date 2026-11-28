@@ -100,6 +100,16 @@
       "level": "综合",
       "count": 14,
       "motion": { "kind": "grid_move", "dir": "reverse" }
+    },
+    {
+      "id": "practice-motion-sym-pick",
+      "group": "g2",
+      "knowledge_point": "05.2",
+      "error_type": "概念不清",
+      "format": "choice",
+      "level": "同构",
+      "count": 14,
+      "motion": { "kind": "sym_pick" }
     }
   ]
 }
